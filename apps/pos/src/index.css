@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #0369a1;
+  --color-accent:  #f59e0b;
+  --font-sans:     'Tajawal', 'IBM Plex Arabic', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+
+/* Touch-friendly buttons for POS cashier */
+button { cursor: pointer; }

@@ -68,3 +68,27 @@ export async function createOrder(order: {
 }) {
   return api(`/sales/orders`, { method: 'POST', body: JSON.stringify(order) });
 }
+
+// ─── Order + auth helpers (appended for M15 storefront) ──────────────────────
+
+export async function getOrder(id: string) {
+  return api(`/sales/orders/${id}`);
+}
+
+export async function getMyOrders() {
+  return api(`/sales/orders?mine=1`);
+}
+
+export async function requestOtp(phone: string) {
+  return api(`/auth/otp/request`, {
+    method: 'POST',
+    body: JSON.stringify({ phone }),
+  });
+}
+
+export async function verifyOtp(phone: string, code: string) {
+  return api(`/auth/otp/verify`, {
+    method: 'POST',
+    body: JSON.stringify({ phone, code }),
+  });
+}
