@@ -1,0 +1,372 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Al-Ruya ERP — VPS Production Stack
+# Hostinger KVM4 · Frankfurt · 16GB RAM · 200GB SSD
+# Deploy: docker compose -f infra/docker-compose.vps.yml up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-logging: &default-logging
+  driver: 'json-file'
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+x-restart: &restart-policy
+  restart: unless-stopped
+
+networks:
+  erp-internal:
+    driver: bridge
+    internal: true          # no direct internet access for internal services
+  erp-public:
+    driver: bridge           # only nginx + monitoring face the outside
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  loki-data:
+  grafana-data:
+  prometheus-data:
+  backup-data:
+
+services:
+
+  # ── 1. Nginx Reverse Proxy + SSL ─────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    <<: *restart-policy
+    logging: *default-logging
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    networks:
+      - erp-public
+      - erp-internal
+    depends_on:
+      - api
+    healthcheck:
+      test: ['CMD', 'nginx', '-t']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── 2. Certbot (SSL renewal) ─────────────────────────────────────────────
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
+      - /var/www/certbot:/var/www/certbot
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'
+    <<: *restart-policy
+    logging: *default-logging
+
+  # ── 3. PostgreSQL 16 ─────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    <<: *restart-policy
+    logging: *default-logging
+    environment:
+      POSTGRES_DB: alruya_erp
+      POSTGRES_USER: erp_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - erp-internal
+    command:
+      - 'postgres'
+      - '-c'
+      - 'max_connections=200'
+      - '-c'
+      - 'shared_buffers=512MB'
+      - '-c'
+      - 'effective_cache_size=2GB'
+      - '-c'
+      - 'maintenance_work_mem=128MB'
+      - '-c'
+      - 'checkpoint_completion_target=0.9'
+      - '-c'
+      - 'wal_buffers=16MB'
+      - '-c'
+      - 'default_statistics_target=100'
+      - '-c'
+      - 'random_page_cost=1.1'
+      - '-c'
+      - 'effective_io_concurrency=200'
+      - '-c'
+      - 'work_mem=8MB'
+      - '-c'
+      - 'wal_level=replica'
+      - '-c'
+      - 'max_wal_senders=3'
+      - '-c'
+      - 'wal_keep_size=256MB'
+      - '-c'
+      - 'log_min_duration_statement=1000'
+      - '-c'
+      - 'log_line_prefix=%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U erp_app -d alruya_erp']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── 4. Redis 7 ───────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    <<: *restart-policy
+    logging: *default-logging
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD required}
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --loglevel notice
+    volumes:
+      - redis-data:/data
+    networks:
+      - erp-internal
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── 5. NestJS API ────────────────────────────────────────────────────────
+  api:
+    image: ghcr.io/al-ruya/erp-api:${API_VERSION:-latest}
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+      target: production
+    <<: *restart-policy
+    logging: *default-logging
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://erp_app:${POSTGRES_PASSWORD}@postgres:5432/alruya_erp?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET required}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-30d}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: 'false'
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY required}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY required}
+      MINIO_BUCKET_DOCUMENTS: erp-documents
+      MINIO_BUCKET_ATTACHMENTS: erp-attachments
+      MINIO_BUCKET_EXPORTS: erp-exports
+      AI_BRAIN_URL: http://ai-brain:8001
+      AI_BRAIN_API_KEY: ${AI_BRAIN_API_KEY}
+      WHATSAPP_BRIDGE_URL: http://whatsapp-bridge:3100
+      WHATSAPP_BRIDGE_TOKEN: ${WHATSAPP_BRIDGE_TOKEN}
+      APP_URL: ${APP_URL:-https://erp.al-ruya.iq}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://app.al-ruya.iq}
+    networks:
+      - erp-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:3000/health || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  # ── 6. MinIO (S3-compatible object storage) ──────────────────────────────
+  minio:
+    image: minio/minio:RELEASE.2024-11-07T00-52-20Z
+    <<: *restart-policy
+    logging: *default-logging
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?MINIO_ACCESS_KEY required}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?MINIO_SECRET_KEY required}
+      MINIO_BROWSER_REDIRECT_URL: https://minio.al-ruya.iq
+    volumes:
+      - minio-data:/data
+    networks:
+      - erp-internal
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://localhost:9000/minio/health/live']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── 7. MinIO Init (creates buckets on first run) ─────────────────────────
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - erp-internal
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$MINIO_ACCESS_KEY $$MINIO_SECRET_KEY;
+      mc mb --ignore-existing local/erp-documents;
+      mc mb --ignore-existing local/erp-attachments;
+      mc mb --ignore-existing local/erp-exports;
+      mc anonymous set download local/erp-exports;
+      echo 'MinIO buckets ready';
+      "
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+
+  # ── 8. AI Brain (Python FastAPI — Ollama + PyOD + Prophet) ──────────────
+  ai-brain:
+    image: ghcr.io/al-ruya/erp-ai-brain:${AI_VERSION:-latest}
+    build:
+      context: ..
+      dockerfile: apps/ai-brain/Dockerfile
+    <<: *restart-policy
+    logging: *default-logging
+    environment:
+      DATABASE_URL: postgresql://erp_app:${POSTGRES_PASSWORD}@postgres:5432/alruya_erp
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
+      API_KEY: ${AI_BRAIN_API_KEY}
+      OLLAMA_HOST: http://ollama:11434
+      MODEL_NAME: qwen2.5:7b-instruct-q4_K_M
+    networks:
+      - erp-internal
+    depends_on:
+      - postgres
+      - redis
+    # AI Brain is optional — comment out if not yet deployed
+    profiles:
+      - ai
+
+  # ── 9. Ollama (Local LLM runtime) ────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    <<: *restart-policy
+    logging: *default-logging
+    volumes:
+      - /var/ollama:/root/.ollama   # persist model downloads
+    networks:
+      - erp-internal
+    # Requires significant RAM — only start when AI profile active
+    profiles:
+      - ai
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+
+  # ── 10. WhatsApp Bridge ──────────────────────────────────────────────────
+  whatsapp-bridge:
+    image: ghcr.io/al-ruya/erp-whatsapp:${WA_VERSION:-latest}
+    build:
+      context: ..
+      dockerfile: apps/whatsapp-bridge/Dockerfile
+    <<: *restart-policy
+    logging: *default-logging
+    environment:
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/2
+      API_TOKEN: ${WHATSAPP_BRIDGE_TOKEN}
+    volumes:
+      - /var/whatsapp-sessions:/app/sessions
+    networks:
+      - erp-internal
+    profiles:
+      - whatsapp
+
+  # ── 11. Prometheus ───────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    <<: *restart-policy
+    logging: *default-logging
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    networks:
+      - erp-internal
+    profiles:
+      - monitoring
+
+  # ── 12. Loki (Log aggregation) ───────────────────────────────────────────
+  loki:
+    image: grafana/loki:3.1.0
+    <<: *restart-policy
+    logging: *default-logging
+    volumes:
+      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - erp-internal
+    profiles:
+      - monitoring
+
+  # ── 13. Grafana ──────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:11.2.2
+    <<: *restart-policy
+    logging: *default-logging
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?required}
+      GF_SERVER_DOMAIN: grafana.al-ruya.iq
+      GF_SERVER_ROOT_URL: https://grafana.al-ruya.iq
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - erp-internal
+    depends_on:
+      - prometheus
+      - loki
+    profiles:
+      - monitoring
+
+  # ── 14. Backup (Restic scheduled) ────────────────────────────────────────
+  backup:
+    image: ghcr.io/al-ruya/erp-backup:latest
+    build:
+      context: ..
+      dockerfile: infra/backup/Dockerfile
+    <<: *restart-policy
+    logging: *default-logging
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: alruya_erp
+      POSTGRES_USER: erp_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      RESTIC_REPOSITORY: ${RESTIC_REPOSITORY:-/backups/restic-repo}
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD:?required}
+      BACKUP_SCHEDULE: '0 2 * * *'    # daily at 02:00
+      RETENTION_DAILY: 7
+      RETENTION_WEEKLY: 4
+      RETENTION_MONTHLY: 3
+    volumes:
+      - backup-data:/backups
+    networks:
+      - erp-internal
+    depends_on:
+      - postgres

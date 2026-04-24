@@ -1,0 +1,81 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+.next/
+.turbo/
+out/
+
+# Environment files (NEVER commit)
+.env
+.env.local
+.env.*.local
+*.env
+
+# Database
+*.sqlite
+*.sqlite3
+*.sqlite-shm
+*.sqlite-wal
+prisma/migrations/*.sql.bak
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+pnpm-debug.log*
+
+# Runtime
+*.pid
+*.seed
+*.pid.lock
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Tauri
+apps/desktop/src-tauri/target/
+apps/pos/src-tauri/target/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+
+# Secrets
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+license-server-private.key
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary
+*.tmp
+*.temp
+.cache/
+
+# Generated
+apps/api/src/generated/
+packages/*/src/generated/
