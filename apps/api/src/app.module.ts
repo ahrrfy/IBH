@@ -27,6 +27,9 @@ import { SalesModule }     from './modules/sales/sales.module';
 import { POSModule }       from './modules/pos/pos.module';
 import { DeliveryModule }  from './modules/delivery/delivery.module';
 
+// Business Modules (Wave 3)
+import { PurchasesModule } from './modules/purchases/purchases.module';
+
 @Module({
   imports: [
     // ── Config ────────────────────────────────────────────────────────────
@@ -82,6 +85,9 @@ import { DeliveryModule }  from './modules/delivery/delivery.module';
     SalesModule,
     POSModule,
     DeliveryModule,
+
+    // ── Business Modules — Wave 3 ───────────────────────────────────────────
+    PurchasesModule,
   ],
 })
 export class AppModule {}
