@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
@@ -62,16 +61,17 @@ export class POSDevicesService {
     }
     const device = await this.prisma.pOSDevice.create({
       data: {
-        companyId: session.companyId,
-        branchId: dto.branchId,
-        code: dto.code,
-        nameAr: dto.nameAr,
-        cashAccountId: dto.cashAccountId,
-        cardAccountId: dto.cardAccountId ?? null,
-        warehouseId: dto.warehouseId,
-        printerName: dto.printerName ?? null,
+        companyId:           session.companyId,
+        branchId:            dto.branchId,
+        code:                dto.code,
+        nameAr:              dto.nameAr,
+        cashAccountId:       dto.cashAccountId,
+        cardAccountId:       dto.cardAccountId ?? null,
+        warehouseId:         dto.warehouseId,
+        printerName:         dto.printerName ?? null,
         hardwareFingerprint: dto.hardwareFingerprint ?? null,
-        isActive: true,
+        isActive:            true,
+        createdBy:           session.userId,
       },
     });
     await this.audit.log({

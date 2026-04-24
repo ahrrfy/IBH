@@ -57,6 +57,102 @@ export class PostingService {
   ) {}
 
   /**
+   * Post from a named template with dynamic variables. Template config is
+   * stored in PostingProfile rows (seed). This is a pragmatic bridge that
+   * lets callers post without knowing account codes — e.g. 'pos_sale',
+   * 'cash_short_over', 'goods_receipt'.
+   *
+   * The provided `context` carries the numeric values. The template is
+   * expected to contain {debitAccountCode, creditAccountCode, secondaryDebit?, secondaryCredit?}.
+   * The amount is used for both sides of the simple pair.
+   */
+  async postTemplate(
+    templateName: string,
+    context: {
+      companyId:      string;
+      branchId?:      string;
+      referenceType:  string;
+      referenceId:    string;
+      reference?:     string;
+      amount:         Prisma.Decimal | number;
+      cashAccountId?: string;
+      isShort?:       boolean;
+      [k: string]:    unknown;
+    },
+    session: { userId: string },
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ id: string; entryNumber: string }> {
+    const client = (tx ?? this.prisma) as any;
+    const profile = await client.postingProfile.findFirst({
+      where: { companyId: context.companyId, name: templateName, isActive: true },
+    });
+    if (!profile) {
+      throw new BadRequestException({
+        code: 'POSTING_PROFILE_NOT_FOUND',
+        messageAr: `قالب القيد "${templateName}" غير موجود`,
+      });
+    }
+
+    const amount = new Prisma.Decimal(context.amount as any);
+    const debitCode  = profile.debitAccountCode;
+    const creditCode = profile.creditAccountCode;
+
+    // For cash_short_over: if short, debit expense; if over, credit income.
+    // For symmetry we just use the profile's debit/credit pair directly.
+    const lines: Array<{ accountCode: string; debit?: Prisma.Decimal; credit?: Prisma.Decimal; description?: string }> = [
+      { accountCode: debitCode,  debit:  amount.abs(), description: `${templateName} (Dr)` },
+      { accountCode: creditCode, credit: amount.abs(), description: `${templateName} (Cr)` },
+    ];
+    if (profile.secondaryDebit && profile.secondaryCredit) {
+      lines.push(
+        { accountCode: profile.secondaryDebit,  debit:  amount.abs(), description: `${templateName} (Dr2)` },
+        { accountCode: profile.secondaryCredit, credit: amount.abs(), description: `${templateName} (Cr2)` },
+      );
+    }
+
+    return this.postJournalEntry(
+      {
+        companyId:   context.companyId,
+        branchId:    context.branchId,
+        entryDate:   new Date(),
+        refType:     context.referenceType,
+        refId:       context.referenceId,
+        description: `${templateName}${context.reference ? ` — ${context.reference}` : ''}`,
+        lines,
+      },
+      session,
+      tx,
+    );
+  }
+
+  /**
+   * Simple reverse alias that resolves missing context from the original entry.
+   * Accepts shape: { originalEntryId, reason, reversedBy }.
+   */
+  async reverseEntry(
+    params: { originalEntryId: string; reason: string; reversedBy: string },
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ id: string; entryNumber: string } | null> {
+    const client = (tx ?? this.prisma) as any;
+    const original = await client.journalEntry.findUnique({
+      where: { id: params.originalEntryId },
+    });
+    if (!original) return null;
+
+    const result = await this.reverse({
+      journalEntryId: original.id,
+      companyId:      original.companyId,
+      companyCode:    original.companyCode ?? '',
+      branchCode:     original.branchCode,
+      periodId:       original.periodId,
+      reason:         params.reason,
+      reversedBy:     params.reversedBy,
+      reverseDate:    new Date(),
+    });
+    return { id: result.journalEntryId, entryNumber: result.entryNumber };
+  }
+
+  /**
    * Pragmatic alias used by Wave 2-6 services. Accepts a simpler shape:
    *   { companyId, entryDate, refType, refId, description, lines: [{accountCode, debit?, credit?, description?, costCenterId?}] }
    * Resolves period + company code + accountIds from DB.

@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
@@ -150,7 +149,7 @@ export class CashMovementsService {
   async interimPickup(dto: InterimPickupDto, session: UserSession) {
     const shift = await this.prisma.shift.findFirst({
       where: { id: dto.shiftId, companyId: session.companyId },
-      include: { posDevice: true },
+      include: { device: true },
     });
     if (!shift) throw new NotFoundException('الوردية غير موجودة');
     if (shift.status !== 'open') {
@@ -160,7 +159,7 @@ export class CashMovementsService {
     return this.createMovementWithJE(
       {
         shiftId: shift.id,
-        fromAccountId: shift.posDevice.cashAccountId,
+        fromAccountId: shift.device.cashAccountId,
         toAccountId: dto.toAccountId,
         amountIqd: new Prisma.Decimal(dto.amountIqd),
         movementType: 'interim_pickup',

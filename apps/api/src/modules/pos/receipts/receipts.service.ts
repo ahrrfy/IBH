@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
@@ -71,14 +70,14 @@ export class ReceiptsService {
       async (tx) => {
         const shift = await tx.shift.findFirst({
           where: { id: dto.shiftId, companyId: session.companyId },
-          include: { posDevice: true },
+          include: { device: true },
         });
         if (!shift) throw new NotFoundException('الوردية غير موجودة');
         if (shift.status !== 'open') {
           throw new BadRequestException('الوردية مغلقة');
         }
 
-        const warehouseId = shift.posDevice.warehouseId;
+        const warehouseId = shift.device.warehouseId;
 
         // Build lines with cost
         let subtotal = new Prisma.Decimal(0);
@@ -107,7 +106,7 @@ export class ReceiptsService {
           const balance = await tx.inventoryBalance.findFirst({
             where: { variantId: l.variantId, warehouseId },
           });
-          const unitCost = new Prisma.Decimal(balance?.avgCost ?? 0);
+          const unitCost = new Prisma.Decimal(balance?.avgCostIqd ?? 0);
           const cogs = unitCost.times(qty);
 
           preparedLines.push({
@@ -141,7 +140,7 @@ export class ReceiptsService {
           throw new BadRequestException('لا يمكن إعطاء باقي بدون دفع نقدي');
         }
 
-        const number = await this.sequence.next('RCT', session.companyId, tx);
+        const number = await this.sequence.next(session.companyId, 'RCT');
 
         const loyaltyEarned = dto.customerId
           ? Math.floor(Number(total.toString()) / 1000)
@@ -150,34 +149,33 @@ export class ReceiptsService {
 
         const receipt = await tx.pOSReceipt.create({
           data: {
-            companyId: session.companyId,
-            branchId: shift.branchId,
-            shiftId: shift.id,
+            companyId:           session.companyId,
+            branchId:            shift.branchId,
+            shiftId:             shift.id,
             number,
-            customerId: dto.customerId ?? null,
+            customerId:          dto.customerId ?? null,
             warehouseId,
-            status: 'completed',
-            subtotalIqd: subtotal,
-            discountIqd: headerDiscount,
-            taxIqd: tax,
-            totalIqd: total,
-            changeGivenIqd: change,
+            status:              'completed',
+            subtotalIqd:         subtotal,
+            discountIqd:         headerDiscount,
+            taxIqd:              tax,
+            totalIqd:            total,
+            changeGivenIqd:      change,
             loyaltyPointsEarned: loyaltyEarned,
-            loyaltyPointsUsed: loyaltyUsed,
-            clientUlid: dto.clientUlid ?? null,
-            isOffline: dto.isOffline ?? false,
-            syncedAt: dto.isOffline ? new Date() : null,
-            lines: {
-              create: preparedLines,
-            },
+            loyaltyPointsUsed:   loyaltyUsed,
+            clientUlid:          dto.clientUlid ?? null,
+            isOffline:           dto.isOffline ?? false,
+            syncedAt:            dto.isOffline ? new Date() : null,
+            createdBy:           session.userId,
+            lines:    { create: preparedLines },
             payments: {
               create: dto.payments.map((p) => ({
-                method: p.method,
-                amountIqd: new Prisma.Decimal(p.amountIqd),
-                reference: p.reference ?? null,
+                method:        p.method,
+                amountIqd:     new Prisma.Decimal(p.amountIqd),
+                reference:     p.reference ?? null,
                 cashAccountId:
                   p.cashAccountId ??
-                  (p.method === 'cash' ? shift.posDevice.cashAccountId : null),
+                  (p.method === 'cash' ? shift.device.cashAccountId : ''),
               })),
             },
           },
@@ -188,15 +186,16 @@ export class ReceiptsService {
         for (const line of preparedLines) {
           await this.inventory.move(
             {
-              direction: 'out',
-              variantId: line.variantId,
+              companyId:     session.companyId,
+              direction:     'out',
+              variantId:     line.variantId,
               warehouseId,
-              qty: line.qty,
-              referenceType: 'POSReceipt',
-              referenceId: receipt.id,
-              unitCost: line.unitCostIqd,
+              qty:           Number(line.qty),
+              referenceType: 'POSReceipt' as any,
+              referenceId:   receipt.id,
+              unitCostIqd:   Number(line.unitCostIqd),
+              performedBy:   session.userId,
             },
-            session,
             tx,
           );
         }
@@ -205,16 +204,17 @@ export class ReceiptsService {
         const je = await this.posting.postTemplate(
           'pos_sale',
           {
-            companyId: session.companyId,
-            branchId: shift.branchId,
+            companyId:     session.companyId,
+            branchId:      shift.branchId,
             referenceType: 'POSReceipt',
-            referenceId: receipt.id,
-            reference: receipt.number,
+            referenceId:   receipt.id,
+            reference:     receipt.number,
+            amount:        total,
             subtotal,
-            discountIqd: headerDiscount,
-            taxIqd: tax,
+            discountIqd:   headerDiscount,
+            taxIqd:        tax,
             total,
-            cogs: preparedLines.reduce(
+            cogs:          preparedLines.reduce(
               (acc, l) => acc.plus(l.cogsIqd),
               new Prisma.Decimal(0),
             ),
@@ -223,7 +223,7 @@ export class ReceiptsService {
               amountIqd: new Prisma.Decimal(p.amountIqd),
               cashAccountId:
                 p.cashAccountId ??
-                (p.method === 'cash' ? shift.posDevice.cashAccountId : null),
+                (p.method === 'cash' ? shift.device.cashAccountId : null),
             })),
             warehouseId,
           },
@@ -285,22 +285,27 @@ export class ReceiptsService {
       for (const line of receipt.lines) {
         await this.inventory.move(
           {
-            direction: 'in',
-            variantId: line.variantId,
-            warehouseId: receipt.warehouseId,
-            qty: new Prisma.Decimal(line.qty),
-            referenceType: 'POSReceiptVoid',
-            referenceId: receipt.id,
-            unitCost: new Prisma.Decimal(line.unitCostIqd),
+            companyId:     session.companyId,
+            direction:     'in',
+            variantId:     line.variantId,
+            warehouseId:   receipt.warehouseId,
+            qty:           Number(line.qty),
+            referenceType: 'POSReceiptVoid' as any,
+            referenceId:   receipt.id,
+            unitCostIqd:   Number(line.unitCostIqd),
+            performedBy:   session.userId,
           },
-          session,
           tx,
         );
       }
 
       // Reverse JE
       if (receipt.journalEntryId) {
-        await this.posting.reverse(receipt.journalEntryId, `Void receipt ${receipt.number}: ${reason}`, session, tx);
+        await this.posting.reverseEntry({
+          originalEntryId: receipt.journalEntryId,
+          reason:          `Void receipt ${receipt.number}: ${reason}`,
+          reversedBy:      session.userId,
+        }, tx);
       }
 
       const updated = await tx.pOSReceipt.update({
@@ -395,7 +400,7 @@ export class ReceiptsService {
     const where: Prisma.POSReceiptWhereInput = {
       companyId: session.companyId,
       shiftId,
-      ...(query.status ? { status: query.status } : {}),
+      ...(query.status ? { status: query.status as any } : {}),
     };
     const [items, total] = await Promise.all([
       this.prisma.pOSReceipt.findMany({
