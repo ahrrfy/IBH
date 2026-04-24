@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import {
   Injectable,
   NotFoundException,
@@ -7,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { UserSession } from '@erp/shared-types';
-import { PrismaService } from '../../../engines/prisma/prisma.service';
+import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
 import { SequenceService } from '../../../engines/sequence/sequence.service';
 
@@ -122,18 +121,20 @@ export class CustomersService {
       data: {
         companyId,
         code,
-        type: dto.type ?? 'regular',
-        nameAr: dto.nameAr,
-        phone: dto.phone,
-        whatsapp: dto.whatsapp,
-        email: dto.email,
-        address: dto.address,
-        creditLimitIqd: new Prisma.Decimal(dto.creditLimitIqd ?? 0),
-        creditBalanceIqd: new Prisma.Decimal(0),
-        loyaltyPoints: 0,
-        loyaltyTier: dto.loyaltyTier ?? 'bronze',
+        type:               dto.type ?? 'regular',
+        nameAr:             dto.nameAr,
+        phone:              dto.phone,
+        whatsapp:           dto.whatsapp,
+        email:              dto.email,
+        address:            dto.address,
+        creditLimitIqd:     new Prisma.Decimal(dto.creditLimitIqd ?? 0),
+        creditBalanceIqd:   new Prisma.Decimal(0),
+        loyaltyPoints:      0,
+        loyaltyTier:        dto.loyaltyTier ?? 'bronze',
         defaultDiscountPct: new Prisma.Decimal(dto.defaultDiscountPct ?? 0),
-        isActive: dto.isActive ?? true,
+        isActive:           dto.isActive ?? true,
+        createdBy:          session.userId,
+        updatedBy:          session.userId,
       },
     });
 
@@ -265,17 +266,17 @@ export class CustomersService {
     const invoices = await this.prisma.salesInvoice.findMany({
       where: {
         companyId,
-        status: { in: ['posted', 'partially_paid'] as any },
+        status: { in: ['posted', 'partially_paid'] },
         balanceIqd: { gt: 0 },
       },
       select: {
-        id: true,
-        customerId: true,
-        invoiceNumber: true,
+        id:          true,
+        customerId:  true,
+        number:      true,
         invoiceDate: true,
-        dueDate: true,
-        balanceIqd: true,
-        customer: { select: { id: true, code: true, nameAr: true } },
+        dueDate:     true,
+        balanceIqd:  true,
+        customer:    { select: { id: true, code: true, nameAr: true } },
       },
     });
 

@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import {
   ExceptionFilter,
   Catch,
@@ -8,12 +7,19 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Response, Request } from 'express';
-import type { ApiError } from '@erp/shared-types';
+
+/** Inline shape of the error body returned to clients */
+interface ErrorBody {
+  code: string;
+  messageAr: string;
+  message?: string;
+  details?: unknown;
+}
 
 /**
  * Global HTTP Exception Filter
  *
- * Converts ALL exceptions into the standard ApiError envelope:
+ * Converts ALL exceptions into the standard ErrorBody envelope:
  * {
  *   success: false,
  *   error: { code, messageAr, details },
@@ -40,7 +46,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       );
     }
 
-    const body: { success: false; error: ApiError; meta: object } = {
+    const body: { success: false; error: ErrorBody; meta: object } = {
       success: false,
       error:   payload,
       meta: {
@@ -53,7 +59,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     response.status(status).json(body);
   }
 
-  private extract(exception: unknown): { status: number; payload: ApiError } {
+  private extract(exception: unknown): { status: number; payload: ErrorBody } {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       const raw    = exception.getResponse();
@@ -62,7 +68,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         // Our structured error: { code, messageAr, errors? }
         return {
           status,
-          payload: raw as ApiError,
+          payload: raw as ErrorBody,
         };
       }
 

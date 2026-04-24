@@ -189,7 +189,7 @@ export class ProductsController {
   @Post('price-lists')
   @RequirePermission('PriceList', 'create')
   async createPriceList(
-    @Body() body: { name: string; description?: string; currency?: string; isDefault?: boolean },
+    @Body() body: { nameAr: string; type?: string; currency?: string; isDefault?: boolean },
     @CurrentUser() user: UserSession,
   ) {
     return this.priceListsService.create(user.companyId, body, user);
@@ -226,7 +226,6 @@ export class ProductsController {
       priceIqd:      body.priceIqd,
       effectiveFrom: body.effectiveFrom ? new Date(body.effectiveFrom) : undefined,
       effectiveTo:   body.effectiveTo   ? new Date(body.effectiveTo)   : undefined,
-      minQty:        body.minQty,
     }, user);
   }
 
