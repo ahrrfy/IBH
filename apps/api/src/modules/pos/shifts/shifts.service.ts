@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
@@ -66,7 +65,7 @@ export class ShiftsService {
 
     try {
       return await this.prisma.$transaction(async (tx) => {
-        const shiftNumber = await this.sequence.next('SHIFT', session.companyId, tx);
+        const shiftNumber = await this.sequence.next(session.companyId, 'SHIFT');
         const shift = await tx.shift.create({
           data: {
             companyId: session.companyId,
@@ -90,7 +89,7 @@ export class ShiftsService {
             data: dto.denominationCounts.map((c) => ({
               shiftId: shift.id,
               phase: 'opening',
-              denomination: new Prisma.Decimal(c.denom),
+              denomination: c.denom,
               count: c.count,
               subtotalIqd: new Prisma.Decimal(c.denom).times(c.count),
               countedBy: session.userId,
@@ -133,7 +132,7 @@ export class ShiftsService {
   async closeShift(shiftId: string, dto: CloseShiftDto, session: UserSession) {
     const shift = await this.prisma.shift.findFirst({
       where: { id: shiftId, companyId: session.companyId },
-      include: { posDevice: true },
+      include: { device: true },
     });
     if (!shift) throw new NotFoundException('الوردية غير موجودة');
     if (shift.status !== 'open') {
@@ -171,7 +170,7 @@ export class ShiftsService {
       _sum: { amountIqd: true },
       where: {
         shiftId: shift.id,
-        toAccountId: shift.posDevice.cashAccountId,
+        toAccountId: shift.device.cashAccountId,
         movementType: { in: ['deposit'] },
       },
     });
@@ -179,7 +178,7 @@ export class ShiftsService {
       _sum: { amountIqd: true },
       where: {
         shiftId: shift.id,
-        fromAccountId: shift.posDevice.cashAccountId,
+        fromAccountId: shift.device.cashAccountId,
         movementType: { in: ['withdrawal', 'interim_pickup', 'petty_cash'] },
       },
     });
@@ -225,7 +224,7 @@ export class ShiftsService {
           data: dto.denominationCounts.map((c) => ({
             shiftId: shift.id,
             phase: 'closing',
-            denomination: new Prisma.Decimal(c.denom),
+            denomination: c.denom,
             count: c.count,
             subtotalIqd: new Prisma.Decimal(c.denom).times(c.count),
             countedBy: session.userId,
@@ -237,7 +236,7 @@ export class ShiftsService {
         data: {
           companyId: session.companyId,
           shiftId: shift.id,
-          fromAccountId: shift.posDevice.cashAccountId,
+          fromAccountId: shift.device.cashAccountId,
           toAccountId: null,
           amountIqd: actualCashIqd,
           movementType: 'closing',
@@ -256,7 +255,7 @@ export class ShiftsService {
             referenceId: shift.id,
             reference: shift.shiftNumber,
             amount: difference,
-            cashAccountId: shift.posDevice.cashAccountId,
+            cashAccountId: shift.device.cashAccountId,
             isShort: difference.isNegative(),
           },
           session,
@@ -281,7 +280,7 @@ export class ShiftsService {
   async xReport(shiftId: string, session: UserSession) {
     const shift = await this.prisma.shift.findFirst({
       where: { id: shiftId, companyId: session.companyId },
-      include: { posDevice: true },
+      include: { device: true },
     });
     if (!shift) throw new NotFoundException('الوردية غير موجودة');
 
@@ -298,7 +297,7 @@ export class ShiftsService {
   async zReport(shiftId: string, session: UserSession) {
     const shift = await this.prisma.shift.findFirst({
       where: { id: shiftId, companyId: session.companyId },
-      include: { posDevice: true },
+      include: { device: true },
     });
     if (!shift) throw new NotFoundException('الوردية غير موجودة');
     if (shift.zReportPrintedAt) {
@@ -324,7 +323,7 @@ export class ShiftsService {
     return { type: 'Z', shift: updated, summary };
   }
 
-  private async buildReportSummary(shift: { id: string; openingCashIqd: Prisma.Decimal; posDevice: { cashAccountId: string } }) {
+  private async buildReportSummary(shift: { id: string; openingCashIqd: Prisma.Decimal; device: { cashAccountId: string } }) {
     const receipts = await this.prisma.pOSReceipt.findMany({
       where: { shiftId: shift.id },
       include: { payments: true },
@@ -359,7 +358,7 @@ export class ShiftsService {
       _sum: { amountIqd: true },
       where: {
         shiftId: shift.id,
-        toAccountId: shift.posDevice.cashAccountId,
+        toAccountId: shift.device.cashAccountId,
         movementType: { in: ['deposit'] },
       },
     });
@@ -367,7 +366,7 @@ export class ShiftsService {
       _sum: { amountIqd: true },
       where: {
         shiftId: shift.id,
-        fromAccountId: shift.posDevice.cashAccountId,
+        fromAccountId: shift.device.cashAccountId,
         movementType: { in: ['withdrawal', 'interim_pickup', 'petty_cash'] },
       },
     });
@@ -395,13 +394,13 @@ export class ShiftsService {
   async handover(shiftId: string, nextShiftId: string, session: UserSession) {
     const oldShift = await this.prisma.shift.findFirst({
       where: { id: shiftId, companyId: session.companyId },
-      include: { posDevice: true },
+      include: { device: true },
     });
     if (!oldShift) throw new NotFoundException('الوردية غير موجودة');
 
     const newShift = await this.prisma.shift.findFirst({
       where: { id: nextShiftId, companyId: session.companyId },
-      include: { posDevice: true },
+      include: { device: true },
     });
     if (!newShift) throw new NotFoundException('الوردية الجديدة غير موجودة');
 
@@ -412,8 +411,8 @@ export class ShiftsService {
         data: {
           companyId: session.companyId,
           shiftId: oldShift.id,
-          fromAccountId: oldShift.posDevice.cashAccountId,
-          toAccountId: newShift.posDevice.cashAccountId,
+          fromAccountId: oldShift.device.cashAccountId,
+          toAccountId: newShift.device.cashAccountId,
           amountIqd: amount,
           movementType: 'handover',
           reference: `${oldShift.shiftNumber}->${newShift.shiftNumber}`,
@@ -443,7 +442,7 @@ export class ShiftsService {
   async findOpenByCashier(cashierId: string, companyId: string) {
     return this.prisma.shift.findFirst({
       where: { cashierId, companyId, status: 'open' },
-      include: { posDevice: true },
+      include: { device: true },
     });
   }
 
@@ -454,7 +453,7 @@ export class ShiftsService {
       companyId: session.companyId,
       ...(query.branchId ? { branchId: query.branchId } : {}),
       ...(query.cashierId ? { cashierId: query.cashierId } : {}),
-      ...(query.status ? { status: query.status } : {}),
+      ...(query.status ? { status: query.status as any } : {}),
       ...(query.from || query.to
         ? {
             openedAt: {
@@ -470,7 +469,7 @@ export class ShiftsService {
         skip: (page - 1) * pageSize,
         take: pageSize,
         orderBy: { openedAt: 'desc' },
-        include: { posDevice: true },
+        include: { device: true },
       }),
       this.prisma.shift.count({ where }),
     ]);
@@ -480,7 +479,7 @@ export class ShiftsService {
   async findOne(id: string, session: UserSession) {
     const shift = await this.prisma.shift.findFirst({
       where: { id, companyId: session.companyId },
-      include: { posDevice: true, cashCounts: true },
+      include: { device: true, cashCounts: true },
     });
     if (!shift) throw new NotFoundException('الوردية غير موجودة');
     return shift;

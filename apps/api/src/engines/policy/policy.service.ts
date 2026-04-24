@@ -85,6 +85,38 @@ export class PolicyService {
   }
 
   /**
+   * Get a policy as a number (parsed from string or native number).
+   * Common pattern for thresholds: shift_close_tolerance, max_discount_cashier, etc.
+   */
+  async getNumber(
+    companyId: string,
+    key: string,
+    defaultValue: number,
+    branchId?: string,
+  ): Promise<number> {
+    const raw = await this.get<unknown>(companyId, key as PolicyKey, branchId);
+    if (raw === null || raw === undefined) return defaultValue;
+    const n = typeof raw === 'number' ? raw : parseFloat(String(raw));
+    return Number.isFinite(n) ? n : defaultValue;
+  }
+
+  /**
+   * Get a policy as a boolean.
+   */
+  async getBool(
+    companyId: string,
+    key: string,
+    defaultValue: boolean,
+    branchId?: string,
+  ): Promise<boolean> {
+    const raw = await this.get<unknown>(companyId, key as PolicyKey, branchId);
+    if (raw === null || raw === undefined) return defaultValue;
+    if (typeof raw === 'boolean') return raw;
+    const s = String(raw).toLowerCase();
+    return s === 'true' || s === '1' || s === 'yes';
+  }
+
+  /**
    * Set a policy value (clears cache).
    */
   async set(params: {

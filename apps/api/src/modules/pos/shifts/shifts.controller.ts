@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Controller, Get, Post, Body, Param, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { CurrentUser } from '../../../engines/auth/decorators/current-user.decorator';
 import { RequirePermission } from '../../../engines/auth/decorators/require-permission.decorator';
