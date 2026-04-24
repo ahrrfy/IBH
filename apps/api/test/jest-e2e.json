@@ -1,0 +1,16 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": ".",
+  "testEnvironment": "node",
+  "testRegex": ".e2e-spec.ts$",
+  "transform": {
+    "^.+\\.(t|j)s$": "ts-jest"
+  },
+  "moduleNameMapper": {
+    "^@erp/shared-types$":       "<rootDir>/../../../packages/shared-types/src",
+    "^@erp/shared-types/(.*)$":  "<rootDir>/../../../packages/shared-types/src/$1",
+    "^@erp/validation-schemas$": "<rootDir>/../../../packages/validation-schemas/src",
+    "^@erp/domain-events$":      "<rootDir>/../../../packages/domain-events/src"
+  },
+  "testTimeout": 30000
+}
