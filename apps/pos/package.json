@@ -1,0 +1,36 @@
+{
+  "name": "@erp/pos",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev":        "vite",
+    "build":      "tsc && vite build",
+    "preview":    "vite preview",
+    "tauri":      "tauri",
+    "tauri:dev":  "tauri dev",
+    "tauri:build": "tauri build"
+  },
+  "dependencies": {
+    "@erp/shared-types":        "workspace:*",
+    "@erp/validation-schemas":  "workspace:*",
+    "@tauri-apps/api":          "^2.0.0",
+    "@tauri-apps/plugin-sql":   "^2.0.0",
+    "@tauri-apps/plugin-store": "^2.0.0",
+    "@tanstack/react-query":    "^5.56.0",
+    "zustand":                  "^5.0.0",
+    "react":                    "^19.0.0",
+    "react-dom":                "^19.0.0",
+    "react-router-dom":         "^6.28.0",
+    "ulid":                     "^2.3.0",
+    "zod":                      "^3.23.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli":      "^2.0.0",
+    "@types/react":         "^19.0.0",
+    "@types/react-dom":     "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "typescript":           "^5.5.0",
+    "vite":                 "^5.4.0",
+    "tailwindcss":          "^4.0.0"
+  }
+}

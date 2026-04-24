@@ -1,0 +1,31 @@
+[package]
+name = "al-ruya-pos"
+version = "1.0.0"
+edition = "2021"
+authors = ["Al-Ruya Arabic Vision Co."]
+license = "Proprietary"
+description = "Al-Ruya ERP POS Desktop — offline-first"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+serde         = { version = "1", features = ["derive"] }
+serde_json    = "1"
+tauri         = { version = "2", features = [] }
+tauri-plugin-sql      = { version = "2", features = ["sqlite"] }
+tauri-plugin-store    = "2"
+tauri-plugin-shell    = "2"
+tauri-plugin-dialog   = "2"
+tauri-plugin-notification = "2"
+tokio         = { version = "1", features = ["full"] }
+reqwest       = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+ulid          = "1"
+chrono        = { version = "0.4", features = ["serde"] }
+thiserror     = "1"
+tracing       = "0.1"
+tracing-subscriber = "0.3"
+
+[features]
+# Required for Tauri v2
+custom-protocol = ["tauri/custom-protocol"]
