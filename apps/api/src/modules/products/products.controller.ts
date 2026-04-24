@@ -51,7 +51,7 @@ export class ProductsController {
   @Post('attributes')
   @RequirePermission('Product', 'create')
   async createAttribute(
-    @Body() body: { name: string; type: string; values?: string[] },
+    @Body() body: { nameAr: string; nameEn?: string; type?: string; values?: string[] },
     @CurrentUser() user: UserSession,
   ) {
     return this.productsService.createAttribute(user.companyId, body, user);
@@ -85,7 +85,7 @@ export class ProductsController {
       limit: limit ? parseInt(limit, 10) : 20,
       search,
       categoryId,
-      productType,
+      productType: productType as any,
     });
   }
 
@@ -102,14 +102,21 @@ export class ProductsController {
   @RequirePermission('Product', 'create')
   async create(
     @Body() body: {
-      code: string; nameAr: string; nameEn?: string;
-      categoryId?: string; unitId: string; productType: string;
-      description?: string; salePrice?: number; costPrice?: number;
-      minSalePrice?: number; trackStock: boolean;
+      sku: string; nameAr: string; nameEn?: string;
+      categoryId: string; baseUnitId: string;
+      saleUnitId?: string; purchaseUnitId?: string;
+      type?: string; brandId?: string;
+      description?: string;
+      defaultSalePriceIqd: number;
+      defaultPurchasePriceIqd: number;
+      minSalePriceIqd: number;
+      tags?: string[];
+      imageUrls?: string[];
+      isPublishedOnline?: boolean;
     },
     @CurrentUser() user: UserSession,
   ) {
-    return this.productsService.createTemplate(user.companyId, body, user);
+    return this.productsService.createTemplate(user.companyId, { ...body, type: body.type as any }, user);
   }
 
   @Put(':id')

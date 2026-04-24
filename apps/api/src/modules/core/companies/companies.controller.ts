@@ -72,8 +72,8 @@ export class CompaniesController {
   async createRole(
     @Body() body: {
       name: string;
-      displayName: string;
-      description?: string;
+      displayNameAr: string;
+      displayNameEn?: string;
       permissions: Record<string, number>;
     },
     @CurrentUser() user: UserSession,
