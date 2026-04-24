@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "exactOptionalPropertyTypes": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "paths": {
+      "@erp/shared-types":          ["./packages/shared-types/src/index.ts"],
+      "@erp/shared-types/*":        ["./packages/shared-types/src/*"],
+      "@erp/validation-schemas":    ["./packages/validation-schemas/src/index.ts"],
+      "@erp/validation-schemas/*":  ["./packages/validation-schemas/src/*"],
+      "@erp/domain-events":         ["./packages/domain-events/src/index.ts"],
+      "@erp/domain-events/*":       ["./packages/domain-events/src/*"],
+      "@erp/ui-components":         ["./packages/ui-components/src/index.ts"],
+      "@erp/ui-components/*":       ["./packages/ui-components/src/*"],
+      "@erp/sdk":                   ["./packages/sdk/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "dist", ".next", ".turbo"]
+}

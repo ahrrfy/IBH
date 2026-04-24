@@ -1,0 +1,95 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Al-Ruya ERP — Local Development Stack
+# Provides: PostgreSQL, Redis, MinIO
+# Usage: docker compose -f infra/docker-compose.dev.yml up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  erp-dev:
+    driver: bridge
+
+volumes:
+  postgres-dev-data:
+  redis-dev-data:
+  minio-dev-data:
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: alruya_erp
+      POSTGRES_USER: erp_app
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_INITDB_ARGS: '--encoding=UTF8 --locale=C'
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+      - ./scripts/postgres-init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    networks:
+      - erp-dev
+    command:
+      - postgres
+      - -c
+      - max_connections=100
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - log_min_duration_statement=500
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U erp_app -d alruya_erp']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --requirepass devpassword --appendonly yes
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-dev-data:/data
+    networks:
+      - erp-dev
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', 'devpassword', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:RELEASE.2024-11-07T00-52-20Z
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: devaccess
+      MINIO_ROOT_PASSWORD: devsecret123
+    ports:
+      - '9000:9000'
+      - '9001:9001'   # MinIO Console
+    volumes:
+      - minio-dev-data:/data
+    networks:
+      - erp-dev
+
+  # Run once to create dev buckets
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    networks:
+      - erp-dev
+    entrypoint: >
+      /bin/sh -c "
+      sleep 5;
+      mc alias set local http://minio:9000 devaccess devsecret123;
+      mc mb --ignore-existing local/erp-documents;
+      mc mb --ignore-existing local/erp-attachments;
+      mc mb --ignore-existing local/erp-exports;
+      echo 'Dev buckets ready';
+      "

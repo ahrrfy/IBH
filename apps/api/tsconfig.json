@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": "./src",
+    "paths": {
+      "@erp/shared-types":          ["../../packages/shared-types/src/index.ts"],
+      "@erp/shared-types/*":        ["../../packages/shared-types/src/*"],
+      "@erp/validation-schemas":    ["../../packages/validation-schemas/src/index.ts"],
+      "@erp/validation-schemas/*":  ["../../packages/validation-schemas/src/*"],
+      "@erp/domain-events":         ["../../packages/domain-events/src/index.ts"],
+      "@erp/domain-events/*":       ["../../packages/domain-events/src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test"]
+}
