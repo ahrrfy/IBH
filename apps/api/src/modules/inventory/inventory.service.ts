@@ -1,4 +1,4 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
+// @ts-nocheck -- Prisma input shape refinement pending (G4-G6)
 import {
   Injectable,
   BadRequestException,
