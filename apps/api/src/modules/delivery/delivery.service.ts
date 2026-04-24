@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../platform/prisma/prisma.service';
 import { AuditService } from '../../engines/audit/audit.service';
@@ -114,18 +113,19 @@ export class DeliveryService {
       const delivery = await tx.deliveryOrder.create({
         data: {
           companyId,
-          branchId: dto.branchId ?? session.branchId ?? null,
+          branchId:        dto.branchId ?? session.branchId ?? '',
           number,
-          salesOrderId: dto.salesOrderId ?? null,
-          invoiceId: dto.invoiceId ?? null,
-          customerId: dto.customerId,
-          warehouseId: dto.warehouseId,
-          status: DeliveryStatus.pending_dispatch,
-          plannedDate: dto.plannedDate ? new Date(dto.plannedDate) : null,
+          salesOrderId:    dto.salesOrderId ?? null,
+          invoiceId:       dto.invoiceId ?? null,
+          customerId:      dto.customerId,
+          warehouseId:     dto.warehouseId,
+          status:          DeliveryStatus.pending_dispatch,
+          plannedDate:     dto.plannedDate ? new Date(dto.plannedDate) : null,
           deliveryAddress: dto.deliveryAddress,
-          deliveryCity: dto.deliveryCity ?? null,
-          deliveryLat: dto.deliveryLat ?? null,
-          deliveryLng: dto.deliveryLng ?? null,
+          deliveryCity:    dto.deliveryCity ?? null,
+          deliveryLat:     dto.deliveryLat ?? null,
+          deliveryLng:     dto.deliveryLng ?? null,
+          createdBy:       session.userId,
           contactPhone: dto.contactPhone ?? null,
           shippingFeeIqd: this.toDecimal(dto.shippingFeeIqd),
           codAmountIqd: codAmount,
@@ -146,7 +146,7 @@ export class DeliveryService {
         },
       });
 
-      await this.audit.log(tx, {
+      await this.audit.log({
         companyId,
         userId: session.userId,
         action: 'delivery.create',
@@ -243,7 +243,7 @@ export class DeliveryService {
           changedBy: session.userId,
         },
       });
-      await this.audit.log(tx, {
+      await this.audit.log({
         companyId,
         userId: session.userId,
         action: 'delivery.assign',
@@ -286,7 +286,7 @@ export class DeliveryService {
           changedBy: session.userId,
         },
       });
-      await this.audit.log(tx, {
+      await this.audit.log({
         companyId,
         userId: session.userId,
         action: 'delivery.dispatch',
@@ -361,7 +361,7 @@ export class DeliveryService {
         }
       }
 
-      await this.audit.log(tx, {
+      await this.audit.log({
         companyId,
         userId: session.userId,
         action: 'delivery.delivered',
@@ -415,7 +415,7 @@ export class DeliveryService {
           changedBy: session.userId,
         },
       });
-      await this.audit.log(tx, {
+      await this.audit.log({
         companyId,
         userId: session.userId,
         action: 'delivery.failed',
@@ -470,16 +470,16 @@ export class DeliveryService {
           await this.inventory.move(
             {
               companyId,
-              direction: 'in',
-              variantId: line.variantId,
-              warehouseId: opts.restockWarehouseId,
-              qty,
-              referenceType: 'DeliveryReturn',
-              referenceId: delivery.id,
-              unitCost: (line.unitCostIqd as unknown as Prisma.Decimal) ?? new Prisma.Decimal(0),
-              session,
+              direction:     'in',
+              variantId:     line.variantId,
+              warehouseId:   opts.restockWarehouseId,
+              qty:           Number(qty),
+              referenceType: 'DeliveryReturn' as any,
+              referenceId:   delivery.id,
+              unitCostIqd:   Number(line.unitCostIqd ?? 0),
+              performedBy:   session.userId,
             },
-            tx as unknown as Prisma.TransactionClient,
+            tx,
           );
         }
 
@@ -487,23 +487,22 @@ export class DeliveryService {
           where: {
             companyId,
             referenceType: 'SalesInvoiceCOGS',
-            referenceId: delivery.invoiceId,
+            referenceId:   delivery.invoiceId ?? '',
           },
         });
         if (cogsJe) {
-          await this.posting.reverse(
+          await this.posting.reverseEntry(
             {
-              companyId,
-              journalEntryId: cogsJe.id,
-              reason: `Delivery return ${delivery.number}`,
-              session,
+              originalEntryId: cogsJe.id,
+              reason:          `Delivery return ${delivery.number}`,
+              reversedBy:      session.userId,
             },
-            tx as unknown as Prisma.TransactionClient,
+            tx,
           );
         }
       }
 
-      await this.audit.log(tx, {
+      await this.audit.log({
         companyId,
         userId: session.userId,
         action: 'delivery.returned',
@@ -534,7 +533,7 @@ export class DeliveryService {
           changedBy: session.userId,
         },
       });
-      await this.audit.log(tx, {
+      await this.audit.log({
         companyId,
         userId: session.userId,
         action: 'delivery.cancel',
@@ -581,20 +580,32 @@ export class DeliveryService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const je = await this.posting.post(
+      // Fetch account codes from ids
+      const [bankAcc, cashAcc] = await Promise.all([
+        tx.chartOfAccount.findUnique({ where: { id: opts.bankAccountId }, select: { code: true } }),
+        tx.chartOfAccount.findUnique({ where: { id: opts.cashAccountId }, select: { code: true } }),
+      ]);
+      if (!bankAcc || !cashAcc) {
+        throw new BadRequestException({
+          code: 'ACCOUNT_NOT_FOUND',
+          messageAr: 'حسابات غير موجودة',
+        });
+      }
+
+      const je = await this.posting.postJournalEntry(
         {
           companyId,
-          date: new Date(),
-          referenceType: 'DeliveryCODDeposit',
-          referenceId: delivery.id,
-          memo: `COD deposit for delivery ${delivery.number}`,
+          entryDate:   new Date(),
+          refType:     'DeliveryCODDeposit',
+          refId:       delivery.id,
+          description: `COD deposit for delivery ${delivery.number}`,
           lines: [
-            { accountId: opts.bankAccountId, debit: collected, credit: new Prisma.Decimal(0) },
-            { accountId: opts.cashAccountId, debit: new Prisma.Decimal(0), credit: collected },
+            { accountCode: bankAcc.code, debit:  Number(collected), description: 'Bank deposit' },
+            { accountCode: cashAcc.code, credit: Number(collected), description: 'Cash out' },
           ],
-          session,
         },
-        tx as unknown as Prisma.TransactionClient,
+        session,
+        tx,
       );
 
       const updated = await tx.deliveryOrder.update({
@@ -605,7 +616,7 @@ export class DeliveryService {
         },
       });
 
-      await this.audit.log(tx, {
+      await this.audit.log({
         companyId,
         userId: session.userId,
         action: 'delivery.cod_deposit',
