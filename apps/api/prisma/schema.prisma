@@ -213,6 +213,43 @@ enum CustomerType {
   corporate
 }
 
+// Wave 3 Enums
+enum PurchaseOrderStatus {
+  draft
+  submitted
+  approved
+  partially_received
+  received
+  closed
+  cancelled
+}
+
+enum GRNStatus {
+  draft
+  quality_check
+  accepted
+  partially_accepted
+  rejected
+}
+
+enum VendorInvoiceStatus {
+  draft
+  matched           // 3-way match passed
+  on_hold           // discrepancy
+  posted
+  partially_paid
+  paid
+  cancelled
+  reversed
+}
+
+enum SupplierType {
+  local
+  international
+  freelance
+  service_provider
+}
+
 // ============================================================
 // MULTI-TENANT: Company & Branch
 // ============================================================
@@ -1512,6 +1549,272 @@ model DeliveryStatusLog {
 
   @@index([deliveryId])
   @@map("delivery_status_logs")
+}
+
+// ============================================================
+// WAVE 3 — PURCHASES (M06)
+// ============================================================
+
+model Supplier {
+  id                  String         @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId           String         @db.Char(26)
+  code                String         @db.VarChar(20)
+  type                SupplierType   @default(local)
+  nameAr              String         @db.VarChar(200)
+  nameEn              String?        @db.VarChar(200)
+  contactPerson       String?        @db.VarChar(200)
+  phone               String?        @db.VarChar(20)
+  whatsapp            String?        @db.VarChar(20)
+  email               String?        @db.VarChar(200)
+  address             String?
+  city                String?        @db.VarChar(100)
+  country             String?        @db.VarChar(3)             // ISO-3166 alpha-3
+  taxNumber           String?        @db.VarChar(50)
+  currency            String         @default("IQD") @db.VarChar(3)
+  paymentTermsDays    Int            @default(0)
+  creditLimitIqd      Decimal        @default(0) @db.Decimal(18, 3)
+  balanceIqd          Decimal        @default(0) @db.Decimal(18, 3)
+  rating              Decimal?       @db.Decimal(3, 2)           // 0.00 - 5.00
+  onTimeDeliveryPct   Decimal?       @db.Decimal(5, 2)
+  qualityScorePct     Decimal?       @db.Decimal(5, 2)
+  isActive            Boolean        @default(true)
+  notes               String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  createdBy           String         @db.Char(26)
+  updatedBy           String         @db.Char(26)
+  deletedAt           DateTime?
+  deletedBy           String?        @db.Char(26)
+
+  purchaseOrders      PurchaseOrder[]
+  vendorInvoices      VendorInvoice[]
+  supplierPrices      SupplierPrice[]
+
+  @@unique([companyId, code])
+  @@index([companyId, phone])
+  @@map("suppliers")
+}
+
+model SupplierPrice {
+  id            String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  supplierId    String   @db.Char(26)
+  variantId     String   @db.Char(26)
+  priceIqd      Decimal  @db.Decimal(18, 3)
+  currency      String   @default("IQD") @db.VarChar(3)
+  priceOriginal Decimal? @db.Decimal(18, 3)                      // in supplier's currency
+  minQty        Decimal  @default(1) @db.Decimal(18, 3)
+  leadTimeDays  Int      @default(7)
+  effectiveFrom DateTime @default(now())
+  effectiveTo   DateTime?
+  isPreferred   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  createdBy     String   @db.Char(26)
+
+  supplier      Supplier @relation(fields: [supplierId], references: [id])
+
+  @@index([variantId, effectiveFrom])
+  @@index([supplierId])
+  @@map("supplier_prices")
+}
+
+model PurchaseOrder {
+  id                String              @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String              @db.Char(26)
+  branchId          String              @db.Char(26)
+  number            String              @db.VarChar(50)
+  supplierId        String              @db.Char(26)
+  orderDate         DateTime            @default(now())
+  expectedDate      DateTime?
+  status            PurchaseOrderStatus @default(draft)
+  warehouseId       String              @db.Char(26)               // receiving warehouse
+  subtotalIqd       Decimal             @db.Decimal(18, 3)
+  discountIqd       Decimal             @default(0) @db.Decimal(18, 3)
+  taxIqd            Decimal             @default(0) @db.Decimal(18, 3)
+  shippingIqd       Decimal             @default(0) @db.Decimal(18, 3)
+  totalIqd          Decimal             @db.Decimal(18, 3)
+  currency          String              @default("IQD") @db.VarChar(3)
+  exchangeRate      Decimal             @default(1) @db.Decimal(18, 6)
+  paymentTerms      String?             @db.VarChar(100)
+  terms             String?
+  notes             String?
+  submittedAt       DateTime?
+  submittedBy       String?             @db.Char(26)
+  approvedAt        DateTime?
+  approvedBy        String?             @db.Char(26)
+  cancelledAt       DateTime?
+  cancelledBy       String?             @db.Char(26)
+  cancellationReason String?            @db.VarChar(500)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  createdBy         String              @db.Char(26)
+  updatedBy         String              @db.Char(26)
+
+  supplier          Supplier            @relation(fields: [supplierId], references: [id])
+  lines             PurchaseOrderLine[]
+  grns              GoodsReceiptNote[]
+  invoices          VendorInvoice[]
+
+  @@unique([companyId, number])
+  @@index([companyId, supplierId])
+  @@index([companyId, status])
+  @@index([companyId, orderDate])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  purchaseOrderId String   @db.Char(26)
+  variantId       String   @db.Char(26)
+  qtyOrdered      Decimal  @db.Decimal(18, 3)
+  qtyReceived     Decimal  @default(0) @db.Decimal(18, 3)
+  qtyInvoiced     Decimal  @default(0) @db.Decimal(18, 3)
+  qtyRejected     Decimal  @default(0) @db.Decimal(18, 3)
+  unitCostIqd     Decimal  @db.Decimal(18, 6)
+  discountPct     Decimal  @default(0) @db.Decimal(5, 2)
+  lineTotalIqd    Decimal  @db.Decimal(18, 3)
+  notes           String?  @db.VarChar(500)
+  sortOrder       Int      @default(0)
+
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseOrderId])
+  @@index([variantId])
+  @@map("purchase_order_lines")
+}
+
+model GoodsReceiptNote {
+  id                String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String    @db.Char(26)
+  branchId          String    @db.Char(26)
+  number            String    @db.VarChar(50)
+  purchaseOrderId   String    @db.Char(26)
+  supplierId        String    @db.Char(26)
+  warehouseId       String    @db.Char(26)
+  receiptDate       DateTime  @default(now())
+  status            GRNStatus @default(draft)
+  deliveryNoteRef   String?   @db.VarChar(50)
+  totalValueIqd     Decimal   @db.Decimal(18, 3)
+  qualityCheckedBy  String?   @db.Char(26)
+  qualityCheckedAt  DateTime?
+  qualityNotes      String?
+  journalEntryId    String?   @db.Char(26)
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdBy         String    @db.Char(26)
+
+  purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  lines             GRNLine[]
+
+  @@unique([companyId, number])
+  @@index([companyId, purchaseOrderId])
+  @@index([companyId, receiptDate])
+  @@map("goods_receipt_notes")
+}
+
+model GRNLine {
+  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  grnId           String   @db.Char(26)
+  poLineId        String?  @db.Char(26)
+  variantId       String   @db.Char(26)
+  qtyReceived     Decimal  @db.Decimal(18, 3)
+  qtyAccepted     Decimal  @db.Decimal(18, 3)
+  qtyRejected     Decimal  @default(0) @db.Decimal(18, 3)
+  rejectionReason String?  @db.VarChar(500)
+  unitCostIqd     Decimal  @db.Decimal(18, 6)
+  lineValueIqd    Decimal  @db.Decimal(18, 3)
+  batchNumber     String?  @db.VarChar(50)
+  expiryDate      DateTime?
+  sortOrder       Int      @default(0)
+
+  grn             GoodsReceiptNote @relation(fields: [grnId], references: [id], onDelete: Cascade)
+
+  @@index([grnId])
+  @@index([variantId])
+  @@map("grn_lines")
+}
+
+model VendorInvoice {
+  id                String              @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String              @db.Char(26)
+  branchId          String              @db.Char(26)
+  number            String              @db.VarChar(50)              // internal number
+  vendorRef         String              @db.VarChar(100)             // supplier's invoice number
+  supplierId        String              @db.Char(26)
+  purchaseOrderId   String?             @db.Char(26)
+  invoiceDate       DateTime
+  dueDate           DateTime?
+  status            VendorInvoiceStatus @default(draft)
+  subtotalIqd       Decimal             @db.Decimal(18, 3)
+  discountIqd       Decimal             @default(0) @db.Decimal(18, 3)
+  taxIqd            Decimal             @default(0) @db.Decimal(18, 3)
+  shippingIqd       Decimal             @default(0) @db.Decimal(18, 3)
+  totalIqd          Decimal             @db.Decimal(18, 3)
+  paidIqd           Decimal             @default(0) @db.Decimal(18, 3)
+  balanceIqd        Decimal             @db.Decimal(18, 3)
+  currency          String              @default("IQD") @db.VarChar(3)
+  exchangeRate      Decimal             @default(1) @db.Decimal(18, 6)
+  matchStatus       String?             @db.VarChar(30)              // po_qty_mismatch | price_mismatch | ok | pending_review
+  matchDiscrepancy  String?
+  attachmentUrl     String?                                          // OCR'd PDF
+  ocrData           Json?
+  journalEntryId    String?             @db.Char(26)
+  notes             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  createdBy         String              @db.Char(26)
+  updatedBy         String              @db.Char(26)
+  postedAt          DateTime?
+  postedBy          String?             @db.Char(26)
+
+  supplier          Supplier            @relation(fields: [supplierId], references: [id])
+  purchaseOrder     PurchaseOrder?      @relation(fields: [purchaseOrderId], references: [id])
+  lines             VendorInvoiceLine[]
+  payments          VendorInvoicePayment[]
+
+  @@unique([companyId, number])
+  @@unique([supplierId, vendorRef])                                   // prevent duplicate supplier invoices
+  @@index([companyId, supplierId])
+  @@index([companyId, status])
+  @@index([companyId, dueDate])
+  @@map("vendor_invoices")
+}
+
+model VendorInvoiceLine {
+  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  invoiceId       String   @db.Char(26)
+  variantId       String?  @db.Char(26)                               // null for fees/services
+  description     String   @db.VarChar(500)
+  qty             Decimal  @db.Decimal(18, 3)
+  unitCostIqd     Decimal  @db.Decimal(18, 6)
+  lineTotalIqd    Decimal  @db.Decimal(18, 3)
+  accountId       String?  @db.Char(26)                               // override GL account
+  sortOrder       Int      @default(0)
+
+  invoice         VendorInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("vendor_invoice_lines")
+}
+
+model VendorInvoicePayment {
+  id              String        @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  invoiceId       String        @db.Char(26)
+  paymentDate     DateTime      @default(now())
+  amountIqd       Decimal       @db.Decimal(18, 3)
+  method          PaymentMethod
+  reference       String?       @db.VarChar(100)
+  cashAccountId   String        @db.Char(26)
+  notes           String?       @db.VarChar(500)
+  journalEntryId  String?       @db.Char(26)
+  createdAt       DateTime      @default(now())
+  createdBy       String        @db.Char(26)
+
+  invoice         VendorInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([paymentDate])
+  @@map("vendor_invoice_payments")
 }
 
 // Reorder Points
