@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import {
   Injectable,
   NotFoundException,
@@ -160,11 +159,13 @@ export class VendorInvoicesService {
     const invoice = await this.prisma.vendorInvoice.create({
       data: {
         companyId,
-        branchId: dto.branchId ?? (session as any).branchId ?? null,
+        branchId:        dto.branchId ?? (session as any).branchId ?? '',
         number,
-        vendorRef: dto.vendorRef,
-        supplierId: dto.supplierId,
+        vendorRef:       dto.vendorRef,
+        supplierId:      dto.supplierId,
         purchaseOrderId: dto.purchaseOrderId,
+        createdBy:       session.userId,
+        updatedBy:       session.userId,
         invoiceDate: dto.invoiceDate,
         dueDate:
           dto.dueDate ??
@@ -218,10 +219,9 @@ export class VendorInvoicesService {
       details: any;
     }> = [];
 
-    const tolerance = await this.policy
-      .getPolicy(companyId, 'price_match_tolerance')
+    const priceTol = await this.policy
+      .getNumber(companyId, 'price_match_tolerance', 0.02)
       .catch(() => 0.02);
-    const priceTol = typeof tolerance === 'number' ? tolerance : 0.02;
 
     if (!invoice.purchaseOrderId) {
       // no PO to match against — just flag
@@ -395,7 +395,7 @@ export class VendorInvoicesService {
         if (amount === 0) continue;
         let accountCode = '6100'; // generic purchases/expense
         if (l.accountId) {
-          const acc = await tx.account.findUnique({ where: { id: l.accountId } });
+          const acc = await tx.chartOfAccount.findUnique({ where: { id: l.accountId } });
           if (acc) accountCode = acc.code;
         } else if (l.variantId) {
           accountCode = '1300'; // inventory
@@ -541,7 +541,7 @@ export class VendorInvoicesService {
     const paymentDate = dto.paymentDate ?? new Date();
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const cashAccount = await tx.account.findUnique({
+      const cashAccount = await tx.chartOfAccount.findUnique({
         where: { id: dto.cashAccountId },
       });
       if (!cashAccount) {
@@ -577,13 +577,14 @@ export class VendorInvoicesService {
 
       const payment = await tx.vendorInvoicePayment.create({
         data: {
-          invoiceId: invoice.id,
+          invoiceId:      invoice.id,
           paymentDate,
-          amountIqd: amount,
-          method: dto.method as any,
-          reference: dto.reference,
-          cashAccountId: dto.cashAccountId,
+          amountIqd:      amount,
+          method:         dto.method as any,
+          reference:      dto.reference,
+          cashAccountId:  dto.cashAccountId,
           journalEntryId: je.id,
+          createdBy:      session.userId,
         },
       });
 

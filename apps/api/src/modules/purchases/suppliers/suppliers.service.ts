@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import {
   Injectable,
   NotFoundException,
@@ -146,6 +145,8 @@ export class SuppliersService {
         onTimeDeliveryPct: new Prisma.Decimal(0),
         qualityScorePct: new Prisma.Decimal(0),
         isActive: true,
+        createdBy: session.userId,
+        updatedBy: session.userId,
       },
     });
 
@@ -286,11 +287,12 @@ export class SuppliersService {
             dto.priceOriginal !== undefined
               ? new Prisma.Decimal(dto.priceOriginal)
               : new Prisma.Decimal(dto.priceIqd),
-          minQty: dto.minQty ?? 1,
-          leadTimeDays: dto.leadTimeDays ?? 0,
-          effectiveFrom: now,
-          effectiveTo: dto.effectiveTo ?? null,
-          isPreferred: dto.isPreferred ?? false,
+          minQty:         new Prisma.Decimal(dto.minQty ?? 1),
+          leadTimeDays:   dto.leadTimeDays ?? 0,
+          effectiveFrom:  now,
+          effectiveTo:    dto.effectiveTo ?? null,
+          isPreferred:    dto.isPreferred ?? false,
+          createdBy:      session.userId,
         },
       });
 

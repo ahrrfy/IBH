@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import {
   Injectable,
   NotFoundException,
@@ -146,23 +145,25 @@ export class PurchaseOrdersService {
       const created = await tx.purchaseOrder.create({
         data: {
           companyId,
-          branchId: dto.branchId ?? (session as any).branchId ?? null,
+          branchId:     dto.branchId ?? (session as any).branchId ?? '',
           number,
-          supplierId: dto.supplierId,
-          orderDate: dto.orderDate ?? new Date(),
+          supplierId:   dto.supplierId,
+          orderDate:    dto.orderDate ?? new Date(),
           expectedDate: dto.expectedDate,
-          status: 'draft' as any,
-          warehouseId: dto.warehouseId,
-          subtotalIqd: totals.subtotalIqd,
-          discountIqd: totals.discountIqd,
-          taxIqd: totals.taxIqd,
-          shippingIqd: totals.shippingIqd,
-          totalIqd: totals.totalIqd,
-          currency: dto.currency || 'IQD',
+          status:       'draft' as any,
+          warehouseId:  dto.warehouseId,
+          subtotalIqd:  totals.subtotalIqd,
+          discountIqd:  totals.discountIqd,
+          taxIqd:       totals.taxIqd,
+          shippingIqd:  totals.shippingIqd,
+          totalIqd:     totals.totalIqd,
+          currency:     dto.currency || 'IQD',
           exchangeRate: new Prisma.Decimal(dto.exchangeRate ?? 1),
           paymentTerms: dto.paymentTerms,
-          terms: dto.terms,
-          notes: dto.notes,
+          terms:        dto.terms,
+          notes:        dto.notes,
+          createdBy:    session.userId,
+          updatedBy:    session.userId,
           lines: {
             create: totals.lines.map((l) => ({
               variantId: l.variantId,
@@ -231,7 +232,7 @@ export class PurchaseOrdersService {
         supplier: true,
         lines: true,
         grns: { select: { id: true, number: true, status: true, receiptDate: true } },
-        vendorInvoices: {
+        invoices: {
           select: { id: true, number: true, status: true, totalIqd: true, invoiceDate: true },
         },
       },

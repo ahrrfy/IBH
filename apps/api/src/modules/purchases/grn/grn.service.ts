@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import {
   Injectable,
   NotFoundException,
@@ -83,7 +82,7 @@ export class GRNService {
     }
 
     const allowOverReceive = await this.policy
-      .getPolicy(companyId, 'allow_over_receive')
+      .getBool(companyId, 'allow_over_receive', false)
       .catch(() => false);
 
     // validate lines
@@ -145,16 +144,17 @@ export class GRNService {
       const grn = await tx.goodsReceiptNote.create({
         data: {
           companyId,
-          branchId: dto.branchId ?? (session as any).branchId ?? po.branchId,
+          branchId:        dto.branchId ?? (session as any).branchId ?? po.branchId,
           number,
           purchaseOrderId: po.id,
-          supplierId: po.supplierId,
+          supplierId:      po.supplierId,
           warehouseId,
           receiptDate,
-          status: initialStatus as any,
+          status:          initialStatus as any,
           deliveryNoteRef: dto.deliveryNoteRef,
-          totalValueIqd: totalValue,
-          notes: dto.notes,
+          totalValueIqd:   totalValue,
+          notes:           dto.notes,
+          createdBy:       session.userId,
           lines: {
             create: dto.lines.map((l) => {
               const qRec = new Prisma.Decimal(l.qtyReceived);
@@ -186,32 +186,34 @@ export class GRNService {
         if (qAcc.gt(0)) {
           await this.inventory.move(
             {
-              direction: 'in',
-              variantId: l.variantId,
+              companyId,
+              direction:     'in',
+              variantId:     l.variantId,
               warehouseId,
-              qty: qAcc.toNumber(),
-              referenceType: 'GRN',
-              referenceId: grn.id,
-              unitCost: new Prisma.Decimal(l.unitCostIqd).toNumber(),
-            } as any,
-            session,
-            tx as any,
+              qty:           qAcc.toNumber(),
+              referenceType: 'GRN' as any,
+              referenceId:   grn.id,
+              unitCostIqd:   new Prisma.Decimal(l.unitCostIqd).toNumber(),
+              performedBy:   session.userId,
+            },
+            tx,
           );
         }
 
         if (qRej.gt(0) && rejectWarehouse) {
           await this.inventory.move(
             {
-              direction: 'in',
-              variantId: l.variantId,
-              warehouseId: rejectWarehouse.id,
-              qty: qRej.toNumber(),
-              referenceType: 'GRN_REJECT',
-              referenceId: grn.id,
-              unitCost: new Prisma.Decimal(l.unitCostIqd).toNumber(),
-            } as any,
-            session,
-            tx as any,
+              companyId,
+              direction:     'in',
+              variantId:     l.variantId,
+              warehouseId:   rejectWarehouse.id,
+              qty:           qRej.toNumber(),
+              referenceType: 'GRN_REJECT' as any,
+              referenceId:   grn.id,
+              unitCostIqd:   new Prisma.Decimal(l.unitCostIqd).toNumber(),
+              performedBy:   session.userId,
+            },
+            tx,
           );
         }
       }
@@ -351,16 +353,17 @@ export class GRNService {
         if (qAcc.gt(0)) {
           await this.inventory.move(
             {
-              direction: 'out',
-              variantId: line.variantId,
-              warehouseId: grn.warehouseId,
-              qty: qAcc.toNumber(),
-              referenceType: 'GRN_REVERSE',
-              referenceId: grn.id,
-              unitCost: new Prisma.Decimal(line.unitCostIqd as any).toNumber(),
-            } as any,
-            session,
-            tx as any,
+              companyId,
+              direction:     'out',
+              variantId:     line.variantId,
+              warehouseId:   grn.warehouseId,
+              qty:           qAcc.toNumber(),
+              referenceType: 'GRN_REVERSE' as any,
+              referenceId:   grn.id,
+              unitCostIqd:   new Prisma.Decimal(line.unitCostIqd as any).toNumber(),
+              performedBy:   session.userId,
+            },
+            tx,
           );
         }
       }
@@ -428,8 +431,7 @@ export class GRNService {
         take: limit,
         orderBy: { receiptDate: 'desc' },
         include: {
-          supplier: { select: { id: true, code: true, nameAr: true } },
-          purchaseOrder: { select: { id: true, number: true } },
+          purchaseOrder: { select: { id: true, number: true, supplier: { select: { id: true, code: true, nameAr: true } } } },
         },
       }),
       this.prisma.goodsReceiptNote.count({ where }),
@@ -443,8 +445,7 @@ export class GRNService {
       where: { id, companyId },
       include: {
         lines: true,
-        supplier: true,
-        purchaseOrder: { include: { lines: true } },
+        purchaseOrder: { include: { lines: true, supplier: true } },
       },
     });
     if (!grn) {
