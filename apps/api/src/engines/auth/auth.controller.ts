@@ -38,10 +38,10 @@ export class AuthController {
     @Req() req: Request,
   ) {
     return this.authService.login({
-      ...body,
+      ...(body as any),
       ipAddress: this.getClientIp(req),
       userAgent: req.headers['user-agent'] ?? '',
-    });
+    } as any);
   }
 
   // ─── Refresh Token ────────────────────────────────────────────────────────

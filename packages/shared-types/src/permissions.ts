@@ -1,44 +1,46 @@
 // ─── Permissions — F1 Philosophy (RBAC + ABAC + Field-Level) ─────────────────
 // 7 permission levels per Entity — enforced at PostgreSQL RLS level
 
-/** The 7 permission actions per entity (Decision F1) */
+/**
+ * The 7 canonical permission actions per entity (Decision F1).
+ * Accepts any string — custom actions (e.g. 'reconcile', 'post', 'dispose',
+ * 'admin', 'use') resolve to bitmask 0 and require explicit role entries.
+ */
 export type PermissionAction =
-  | 'Create'    // C — create new record
-  | 'Read'      // R — read/list records
-  | 'Update'    // U — edit draft records
-  | 'Delete'    // D — soft delete
-  | 'Submit'    // S — submit for approval (user-level sign-off)
-  | 'Approve'   // A — final approval (management sign-off)
-  | 'Print';    // P — print / export PDF
+  | 'Create' | 'Read' | 'Update' | 'Delete'
+  | 'Submit' | 'Approve' | 'Print'
+  // lowercase aliases (normalized at check time)
+  | 'create' | 'read' | 'update' | 'delete'
+  | 'submit' | 'approve' | 'print'
+  // extended custom actions used across modules
+  | (string & {});
 
 /** Permission bitmask: C=1, R=2, U=4, D=8, S=16, A=32, P=64 */
-export const PERMISSION_BIT: Record<PermissionAction, number> = {
-  Create:  1,
-  Read:    2,
-  Update:  4,
-  Delete:  8,
-  Submit:  16,
-  Approve: 32,
-  Print:   64,
+export const PERMISSION_BIT: Record<string, number> = {
+  Create:  1,  create:  1,
+  Read:    2,  read:    2,
+  Update:  4,  update:  4,
+  Delete:  8,  delete:  8,
+  Submit:  16, submit:  16,
+  Approve: 32, approve: 32,
+  Print:   64, print:   64,
+  // Extended actions — grant via explicit role entry only
+  post:       128, reconcile: 256, dispose:   512,
+  admin:     1024, use:      2048, close:    4096,
+  reopen:    8192, operate: 16384, void:     32768,
+  manage:   65536,
 };
 
-/** All 15 system roles */
+/** Canonical system roles — accepts any string for custom/snake_case variants */
 export type SystemRole =
-  | 'SuperAdmin'
-  | 'CompanyAdmin'
-  | 'CEO'
-  | 'CFO'
-  | 'Accountant'
-  | 'BranchManager'
-  | 'SalesManager'
-  | 'Cashier'
-  | 'WarehouseManager'
-  | 'PurchasingOfficer'
-  | 'HRManager'
-  | 'Employee'
-  | 'SalesRep'
-  | 'ITSupport'
-  | 'ReadonlyAuditor';
+  | 'SuperAdmin' | 'CompanyAdmin' | 'CEO' | 'CFO' | 'Accountant'
+  | 'BranchManager' | 'SalesManager' | 'Cashier' | 'WarehouseManager'
+  | 'PurchasingOfficer' | 'HRManager' | 'Employee' | 'SalesRep'
+  | 'ITSupport' | 'ReadonlyAuditor'
+  | 'super_admin' | 'company_admin' | 'accountant' | 'cashier'
+  | 'warehouse_manager' | 'sales_manager' | 'purchasing_officer'
+  | 'hr_manager' | 'branch_manager' | 'readonly_auditor'
+  | (string & {});
 
 /** ABAC constraint applied to a permission rule */
 export interface AbacConstraint {

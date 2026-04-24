@@ -7,33 +7,23 @@ import { PrismaService } from '../../platform/prisma/prisma.service';
 // Every mutation on any entity MUST call audit.log().
 // DB trigger prevents UPDATE/DELETE on audit_logs table.
 
-export type AuditAction =
-  | 'create'
-  | 'update'
-  | 'delete'         // soft delete
-  | 'submit'         // user sign-off
-  | 'approve'        // management sign-off
-  | 'reject'
-  | 'post'           // accounting post
-  | 'reverse'        // accounting reversal
-  | 'print'
-  | 'export'
-  | 'login'
-  | 'logout'
-  | 'login_failed'
-  | 'login_locked'
-  | 'password_changed'
-  | 'period_closed'
-  | 'role_assigned'
-  | 'permission_changed';
+// Free-form — any module.action string is accepted; the full namespaced form
+// is preserved in the DB so you can filter by prefix (e.g. 'sales.*').
+export type AuditAction = string;
 
 export interface AuditLogParams {
   companyId: string;
   userId: string;
-  userEmail: string;
+  userEmail?: string;
   action: AuditAction;
-  entityType: string;
-  entityId: string;
+  // Canonical field names
+  entityType?: string;
+  entityId?: string;
+  // Aliases used by Wave 2-6 services
+  entity?: string;
+  before?: unknown;
+  after?: unknown;
+  metadata?: Record<string, unknown>;
   changedFields?: Record<string, { old: unknown; new: unknown }>;
   ipAddress?: string;
   userAgent?: string;
@@ -51,9 +41,18 @@ export class AuditService {
    * Write an immutable audit record.
    * Computes hash = SHA256(previousHash + companyId + userId + action + entityId + timestamp)
    */
-  async log(params: AuditLogParams): Promise<void> {
+  async log(params: AuditLogParams, _tx?: any): Promise<void> {
     try {
-      // Get the last hash for this company (for the chain)
+      const entityType = params.entityType ?? params.entity ?? 'Unknown';
+      const entityId = params.entityId ?? '';
+      // Merge before/after/metadata into changedFields if not explicitly set
+      const changedFields: Record<string, unknown> = params.changedFields
+        ? { ...(params.changedFields as any) }
+        : {};
+      if (params.before !== undefined) changedFields['__before'] = params.before;
+      if (params.after !== undefined) changedFields['__after'] = params.after;
+      if (params.metadata !== undefined) changedFields['__meta'] = params.metadata;
+
       const lastEntry = await this.prisma.auditLog.findFirst({
         where: { companyId: params.companyId },
         orderBy: { occurredAt: 'desc' },
@@ -68,10 +67,10 @@ export class AuditService {
         params.companyId,
         params.userId,
         params.action,
-        params.entityType,
-        params.entityId,
+        entityType,
+        entityId,
         timestamp,
-        JSON.stringify(params.changedFields ?? {}),
+        JSON.stringify(changedFields),
       ].join('|');
 
       const hash = createHash('sha256').update(hashInput).digest('hex');
@@ -80,11 +79,11 @@ export class AuditService {
         data: {
           companyId:     params.companyId,
           userId:        params.userId,
-          userEmail:     params.userEmail,
+          userEmail:     params.userEmail ?? params.userId,
           action:        params.action,
-          entityType:    params.entityType,
-          entityId:      params.entityId,
-          changedFields: params.changedFields ?? {},
+          entityType,
+          entityId,
+          changedFields: changedFields as any,
           ipAddress:     params.ipAddress,
           userAgent:     params.userAgent,
           deviceType:    params.deviceType,
