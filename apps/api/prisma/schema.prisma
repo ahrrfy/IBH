@@ -250,6 +250,115 @@ enum SupplierType {
   service_provider
 }
 
+// Wave 4 Enums
+enum BankAccountType {
+  checking
+  savings
+  term_deposit
+  credit_line
+}
+
+enum BankReconciliationStatus {
+  draft
+  in_progress
+  completed
+}
+
+enum DepreciationMethod {
+  straight_line
+  declining_balance
+  units_of_production
+}
+
+enum AssetStatus {
+  active
+  in_maintenance
+  disposed
+  sold
+  written_off
+}
+
+// Wave 5 Enums
+enum EmployeeStatus {
+  active
+  on_leave
+  terminated
+  suspended
+}
+
+enum LeaveType {
+  annual
+  sick
+  maternity
+  emergency
+  unpaid
+  hajj
+}
+
+enum LeaveStatus {
+  draft
+  submitted
+  approved
+  rejected
+  cancelled
+}
+
+enum AttendanceSource {
+  zkteco
+  mobile_geofence
+  manual
+  face_recognition
+}
+
+enum PayrollRunStatus {
+  draft
+  calculated
+  reviewed
+  approved
+  posted
+  paid
+}
+
+enum JobOrderStatus {
+  quotation
+  design_review
+  approved
+  in_production
+  quality_check
+  ready
+  delivered
+  cancelled
+}
+
+// Wave 6 Enums
+enum LeadStatus {
+  new
+  contacted
+  qualified
+  proposal
+  negotiation
+  won
+  lost
+}
+
+enum CampaignStatus {
+  draft
+  scheduled
+  sending
+  completed
+  paused
+}
+
+enum CampaignChannel {
+  whatsapp
+  sms
+  email
+  facebook
+  tiktok
+  instagram
+  in_store
+}
+
 // ============================================================
 // MULTI-TENANT: Company & Branch
 // ============================================================
@@ -1815,6 +1924,631 @@ model VendorInvoicePayment {
   @@index([invoiceId])
   @@index([paymentDate])
   @@map("vendor_invoice_payments")
+}
+
+// ============================================================
+// WAVE 4 — FINANCE EXTENSIONS (M07)
+// ============================================================
+
+model BankAccount {
+  id              String          @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String          @db.Char(26)
+  accountId       String          @db.Char(26)                  // FK → ChartOfAccount
+  bankName        String          @db.VarChar(100)
+  branchName      String?         @db.VarChar(100)
+  accountNumber   String          @db.VarChar(50)
+  iban            String?         @db.VarChar(50)
+  swift           String?         @db.VarChar(20)
+  type            BankAccountType @default(checking)
+  currency        String          @default("IQD") @db.VarChar(3)
+  openingBalance  Decimal         @default(0) @db.Decimal(18, 3)
+  currentBalance  Decimal         @default(0) @db.Decimal(18, 3)
+  lastReconciledAt DateTime?
+  isActive        Boolean         @default(true)
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  createdBy       String          @db.Char(26)
+
+  reconciliations BankReconciliation[]
+
+  @@unique([companyId, accountNumber])
+  @@map("bank_accounts")
+}
+
+model BankReconciliation {
+  id                  String                   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId           String                   @db.Char(26)
+  bankAccountId       String                   @db.Char(26)
+  statementDate       DateTime                 @db.Date
+  statementBalance    Decimal                  @db.Decimal(18, 3)
+  bookBalance         Decimal                  @db.Decimal(18, 3)
+  adjustedBalance     Decimal                  @db.Decimal(18, 3)
+  status              BankReconciliationStatus @default(draft)
+  statementFileUrl    String?
+  notes               String?
+  reconciledAt        DateTime?
+  reconciledBy        String?                  @db.Char(26)
+  createdAt           DateTime                 @default(now())
+  createdBy           String                   @db.Char(26)
+
+  bankAccount         BankAccount              @relation(fields: [bankAccountId], references: [id])
+  items               BankReconciliationItem[]
+
+  @@index([companyId, bankAccountId, statementDate])
+  @@map("bank_reconciliations")
+}
+
+model BankReconciliationItem {
+  id                  String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  reconciliationId    String   @db.Char(26)
+  journalEntryLineId  String?  @db.Char(26)                 // matched book entry
+  statementRef        String?  @db.VarChar(100)             // line in statement
+  description         String   @db.VarChar(500)
+  amountIqd           Decimal  @db.Decimal(18, 3)
+  direction           String   @db.VarChar(10)              // debit | credit
+  matched             Boolean  @default(false)
+  matchedAt           DateTime?
+  notes               String?
+
+  reconciliation      BankReconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+
+  @@index([reconciliationId])
+  @@map("bank_reconciliation_items")
+}
+
+model PaymentReceipt {
+  id                String        @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String        @db.Char(26)
+  branchId          String        @db.Char(26)
+  number            String        @db.VarChar(50)
+  customerId        String        @db.Char(26)
+  receiptDate       DateTime      @default(now())
+  amountIqd         Decimal       @db.Decimal(18, 3)
+  method            PaymentMethod
+  reference         String?       @db.VarChar(100)
+  cashAccountId     String        @db.Char(26)
+  appliedInvoices   Json?                                   // [{invoiceId, amount}]
+  unappliedAmount   Decimal       @default(0) @db.Decimal(18, 3)
+  journalEntryId    String?       @db.Char(26)
+  notes             String?
+  createdAt         DateTime      @default(now())
+  createdBy         String        @db.Char(26)
+
+  @@unique([companyId, number])
+  @@index([companyId, customerId])
+  @@index([companyId, receiptDate])
+  @@map("payment_receipts")
+}
+
+// ============================================================
+// WAVE 4 — FIXED ASSETS (M17)
+// ============================================================
+
+model FixedAsset {
+  id                  String              @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId           String              @db.Char(26)
+  branchId            String              @db.Char(26)
+  number              String              @db.VarChar(50)              // FA-2026-001
+  nameAr              String              @db.VarChar(200)
+  nameEn              String?             @db.VarChar(200)
+  categoryAccountId   String              @db.Char(26)                 // FK → ChartOfAccount (asset side)
+  accumDepAccountId   String              @db.Char(26)                 // FK → ChartOfAccount (contra)
+  depreciationExpenseAccountId String     @db.Char(26)                 // FK → ChartOfAccount (65x)
+  costCenterId        String?             @db.Char(26)
+  acquisitionDate     DateTime            @db.Date
+  purchaseCostIqd     Decimal             @db.Decimal(18, 3)
+  salvageValueIqd     Decimal             @default(0) @db.Decimal(18, 3)
+  usefulLifeMonths    Int
+  depreciationMethod  DepreciationMethod  @default(straight_line)
+  monthlyDepIqd       Decimal             @db.Decimal(18, 3)           // computed
+  accumulatedDepIqd   Decimal             @default(0) @db.Decimal(18, 3)
+  bookValueIqd        Decimal             @db.Decimal(18, 3)
+  serialNumber        String?             @db.VarChar(100)
+  vendorId            String?             @db.Char(26)                 // supplier
+  warrantyUntil       DateTime?           @db.Date
+  location            String?
+  assignedTo          String?             @db.Char(26)                 // employee
+  status              AssetStatus         @default(active)
+  disposedAt          DateTime?
+  disposalMethod      String?             @db.VarChar(50)              // sold | written_off | scrapped
+  disposalValueIqd    Decimal?            @db.Decimal(18, 3)
+  disposalGainLossIqd Decimal?            @db.Decimal(18, 3)
+  notes               String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  createdBy           String              @db.Char(26)
+
+  depreciationEntries AssetDepreciation[]
+  maintenanceRecords  AssetMaintenance[]
+
+  @@unique([companyId, number])
+  @@index([companyId, status])
+  @@index([companyId, categoryAccountId])
+  @@map("fixed_assets")
+}
+
+model AssetDepreciation {
+  id              String      @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  assetId         String      @db.Char(26)
+  periodYear      Int
+  periodMonth     Int
+  depreciationIqd Decimal     @db.Decimal(18, 3)
+  accumulatedIqd  Decimal     @db.Decimal(18, 3)
+  bookValueIqd    Decimal     @db.Decimal(18, 3)
+  journalEntryId  String?     @db.Char(26)
+  postedAt        DateTime?
+  postedBy        String?     @db.Char(26)
+  createdAt       DateTime    @default(now())
+
+  asset           FixedAsset  @relation(fields: [assetId], references: [id])
+
+  @@unique([assetId, periodYear, periodMonth])
+  @@index([periodYear, periodMonth])
+  @@map("asset_depreciation")
+}
+
+model AssetMaintenance {
+  id          String      @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  assetId     String      @db.Char(26)
+  date        DateTime    @db.Date
+  type        String      @db.VarChar(50)               // scheduled | breakdown | inspection
+  description String      @db.VarChar(500)
+  costIqd     Decimal     @default(0) @db.Decimal(18, 3)
+  isCapital   Boolean     @default(false)                // if true, increases asset cost
+  notes       String?
+  createdAt   DateTime    @default(now())
+  createdBy   String      @db.Char(26)
+
+  asset       FixedAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@index([assetId, date])
+  @@map("asset_maintenance")
+}
+
+// ============================================================
+// WAVE 5 — HUMAN RESOURCES (M08)
+// ============================================================
+
+model Department {
+  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String   @db.Char(26)
+  code            String   @db.VarChar(20)
+  nameAr          String   @db.VarChar(200)
+  nameEn          String?  @db.VarChar(200)
+  parentId        String?  @db.Char(26)
+  managerId       String?  @db.Char(26)
+  costCenterId    String?  @db.Char(26)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  parent          Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children        Department[] @relation("DepartmentHierarchy")
+
+  @@unique([companyId, code])
+  @@map("departments")
+}
+
+model PayGrade {
+  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String   @db.Char(26)
+  code            String   @db.VarChar(10)
+  nameAr          String   @db.VarChar(100)
+  minSalaryIqd    Decimal  @db.Decimal(18, 3)
+  midSalaryIqd    Decimal  @db.Decimal(18, 3)
+  maxSalaryIqd    Decimal  @db.Decimal(18, 3)
+  annualIncreasePct Decimal @default(5) @db.Decimal(5, 2)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  @@unique([companyId, code])
+  @@map("pay_grades")
+}
+
+model Employee {
+  id                  String          @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId           String          @db.Char(26)
+  branchId            String          @db.Char(26)
+  employeeNumber      String          @db.VarChar(20)
+  userId              String?         @db.Char(26)                    // linked login user
+  nameAr              String          @db.VarChar(200)
+  nameEn              String?         @db.VarChar(200)
+  nationalId          String?         @db.VarChar(30)
+  passportNumber      String?         @db.VarChar(30)
+  dateOfBirth         DateTime?       @db.Date
+  gender              String?         @db.VarChar(10)
+  maritalStatus       String?         @db.VarChar(20)
+  phone               String?         @db.VarChar(20)
+  whatsapp            String?         @db.VarChar(20)
+  email               String?         @db.VarChar(200)
+  address             String?
+  emergencyContact    String?         @db.VarChar(200)
+  emergencyPhone      String?         @db.VarChar(20)
+  departmentId        String?         @db.Char(26)
+  positionTitle       String?         @db.VarChar(100)
+  payGradeId          String?         @db.Char(26)
+  managerId           String?         @db.Char(26)
+  hireDate            DateTime        @db.Date
+  contractEndDate     DateTime?       @db.Date
+  baseSalaryIqd       Decimal         @db.Decimal(18, 3)
+  housingAllowanceIqd Decimal         @default(0) @db.Decimal(18, 3)
+  transportAllowanceIqd Decimal       @default(0) @db.Decimal(18, 3)
+  otherAllowancesIqd  Decimal         @default(0) @db.Decimal(18, 3)
+  bankAccountId       String?         @db.Char(26)
+  bankAccountNumber   String?         @db.VarChar(50)
+  socialSecurityEnrolled Boolean      @default(false)
+  status              EmployeeStatus  @default(active)
+  terminationDate     DateTime?       @db.Date
+  terminationReason   String?         @db.VarChar(500)
+  photoUrl            String?
+  notes               String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  createdBy           String          @db.Char(26)
+  updatedBy           String          @db.Char(26)
+  deletedAt           DateTime?
+
+  attendanceRecords   AttendanceRecord[]
+  leaveRequests       LeaveRequest[]
+  payrollLines        PayrollLine[]
+
+  @@unique([companyId, employeeNumber])
+  @@index([companyId, departmentId])
+  @@index([companyId, status])
+  @@map("employees")
+}
+
+model AttendanceRecord {
+  id              String             @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String             @db.Char(26)
+  employeeId      String             @db.Char(26)
+  date            DateTime           @db.Date
+  checkInAt       DateTime?
+  checkOutAt      DateTime?
+  checkInSource   AttendanceSource?
+  checkOutSource  AttendanceSource?
+  checkInLat      Decimal?           @db.Decimal(10, 7)
+  checkInLng      Decimal?           @db.Decimal(10, 7)
+  hoursWorked     Decimal?           @db.Decimal(6, 2)
+  lateMinutes     Int                @default(0)
+  overtimeMinutes Int                @default(0)
+  isAbsent        Boolean            @default(false)
+  isLeave         Boolean            @default(false)
+  leaveRequestId  String?            @db.Char(26)
+  notes           String?
+  createdAt       DateTime           @default(now())
+
+  employee        Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, date])
+  @@index([companyId, date])
+  @@map("attendance_records")
+}
+
+model LeaveRequest {
+  id              String       @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String       @db.Char(26)
+  employeeId      String       @db.Char(26)
+  type            LeaveType
+  startDate       DateTime     @db.Date
+  endDate         DateTime     @db.Date
+  totalDays       Decimal      @db.Decimal(5, 1)
+  reason          String?
+  status          LeaveStatus  @default(draft)
+  attachmentUrl   String?                                // medical cert etc.
+  approvedBy      String?      @db.Char(26)
+  approvedAt      DateTime?
+  rejectedBy      String?      @db.Char(26)
+  rejectionReason String?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  createdBy       String       @db.Char(26)
+
+  employee        Employee     @relation(fields: [employeeId], references: [id])
+
+  @@index([companyId, employeeId, status])
+  @@index([companyId, startDate])
+  @@map("leave_requests")
+}
+
+model PayrollRun {
+  id              String            @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String            @db.Char(26)
+  branchId        String?           @db.Char(26)
+  number          String            @db.VarChar(50)
+  periodYear      Int
+  periodMonth     Int
+  status          PayrollRunStatus  @default(draft)
+  totalGrossIqd   Decimal           @default(0) @db.Decimal(18, 3)
+  totalDeductionsIqd Decimal        @default(0) @db.Decimal(18, 3)
+  totalNetIqd     Decimal           @default(0) @db.Decimal(18, 3)
+  totalTaxIqd     Decimal           @default(0) @db.Decimal(18, 3)
+  totalSsIqd      Decimal           @default(0) @db.Decimal(18, 3)
+  approvedBy      String?           @db.Char(26)
+  approvedAt      DateTime?
+  journalEntryId  String?           @db.Char(26)
+  postedAt        DateTime?
+  paidAt          DateTime?
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  createdBy       String            @db.Char(26)
+
+  lines           PayrollLine[]
+
+  @@unique([companyId, periodYear, periodMonth, branchId])
+  @@index([companyId, status])
+  @@map("payroll_runs")
+}
+
+model PayrollLine {
+  id              String      @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  payrollRunId    String      @db.Char(26)
+  employeeId      String      @db.Char(26)
+  baseSalaryIqd   Decimal     @db.Decimal(18, 3)
+  housingIqd      Decimal     @default(0) @db.Decimal(18, 3)
+  transportIqd    Decimal     @default(0) @db.Decimal(18, 3)
+  otherAllowIqd   Decimal     @default(0) @db.Decimal(18, 3)
+  overtimeIqd     Decimal     @default(0) @db.Decimal(18, 3)
+  bonusIqd        Decimal     @default(0) @db.Decimal(18, 3)
+  commissionIqd   Decimal     @default(0) @db.Decimal(18, 3)
+  grossIqd        Decimal     @db.Decimal(18, 3)
+  absenceDeductIqd Decimal    @default(0) @db.Decimal(18, 3)
+  lateDeductIqd   Decimal     @default(0) @db.Decimal(18, 3)
+  advanceDeductIqd Decimal    @default(0) @db.Decimal(18, 3)
+  incomeTaxIqd    Decimal     @default(0) @db.Decimal(18, 3)
+  socialSecurityIqd Decimal   @default(0) @db.Decimal(18, 3)
+  otherDeductIqd  Decimal     @default(0) @db.Decimal(18, 3)
+  totalDeductIqd  Decimal     @db.Decimal(18, 3)
+  netIqd          Decimal     @db.Decimal(18, 3)
+  daysWorked      Decimal     @db.Decimal(5, 1)
+  hoursOvertime   Decimal     @default(0) @db.Decimal(6, 2)
+  payslipPdfUrl   String?
+  notes           String?
+
+  payrollRun      PayrollRun  @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee        Employee    @relation(fields: [employeeId], references: [id])
+
+  @@unique([payrollRunId, employeeId])
+  @@index([employeeId])
+  @@map("payroll_lines")
+}
+
+// ============================================================
+// WAVE 5 — CUSTOM ORDERS / JOB ORDERS (M10)
+// ============================================================
+
+model JobOrder {
+  id                String          @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String          @db.Char(26)
+  branchId          String          @db.Char(26)
+  number            String          @db.VarChar(50)
+  customerId        String          @db.Char(26)
+  salesOrderId      String?         @db.Char(26)
+  productName       String          @db.VarChar(200)
+  description       String?
+  designFileUrl     String?
+  quantity          Int
+  expectedDate      DateTime        @db.Date
+  status            JobOrderStatus  @default(quotation)
+  estimatedCostIqd  Decimal         @db.Decimal(18, 3)
+  actualCostIqd     Decimal         @default(0) @db.Decimal(18, 3)
+  pricePerUnitIqd   Decimal         @db.Decimal(18, 3)
+  totalPriceIqd     Decimal         @db.Decimal(18, 3)
+  depositIqd        Decimal         @default(0) @db.Decimal(18, 3)
+  notes             String?
+  completedAt       DateTime?
+  deliveredAt       DateTime?
+  cancelledAt       DateTime?
+  cancellationReason String?        @db.VarChar(500)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  createdBy         String          @db.Char(26)
+
+  bomLines          JobOrderBOM[]
+  stages            JobOrderStage[]
+
+  @@unique([companyId, number])
+  @@index([companyId, customerId])
+  @@index([companyId, status])
+  @@map("job_orders")
+}
+
+model JobOrderBOM {
+  id                String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  jobOrderId        String   @db.Char(26)
+  variantId         String?  @db.Char(26)                  // null if external/service
+  description       String   @db.VarChar(500)
+  qtyRequired       Decimal  @db.Decimal(18, 3)
+  qtyConsumed       Decimal  @default(0) @db.Decimal(18, 3)
+  unitCostIqd       Decimal  @db.Decimal(18, 6)
+  totalCostIqd      Decimal  @db.Decimal(18, 3)
+  sourceType        String   @db.VarChar(30)               // inventory | external | service
+  warehouseId       String?  @db.Char(26)
+  sortOrder         Int      @default(0)
+
+  jobOrder          JobOrder @relation(fields: [jobOrderId], references: [id], onDelete: Cascade)
+
+  @@index([jobOrderId])
+  @@map("job_order_bom")
+}
+
+model JobOrderStage {
+  id            String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  jobOrderId    String    @db.Char(26)
+  sequence      Int
+  nameAr        String    @db.VarChar(100)
+  description   String?
+  assignedTo    String?   @db.Char(26)                     // employee
+  plannedDate   DateTime?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  status        String    @default("pending") @db.VarChar(20)   // pending | in_progress | done | skipped
+  notes         String?
+
+  jobOrder      JobOrder  @relation(fields: [jobOrderId], references: [id], onDelete: Cascade)
+
+  @@index([jobOrderId, sequence])
+  @@map("job_order_stages")
+}
+
+// ============================================================
+// WAVE 5 — MARKETING (M14)
+// ============================================================
+
+model Campaign {
+  id                String           @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String           @db.Char(26)
+  name              String           @db.VarChar(200)
+  description       String?
+  channel           CampaignChannel
+  status            CampaignStatus   @default(draft)
+  audienceCriteria  Json?                                      // { loyaltyTier, lastPurchaseDaysAgo, etc. }
+  audienceSize      Int              @default(0)
+  messageTemplate   String?
+  messageTemplateId String?          @db.Char(26)
+  scheduledAt       DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  budgetIqd         Decimal          @default(0) @db.Decimal(18, 3)
+  spentIqd          Decimal          @default(0) @db.Decimal(18, 3)
+  utmSource         String?          @db.VarChar(50)
+  utmMedium         String?          @db.VarChar(50)
+  utmCampaign       String?          @db.VarChar(100)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  createdBy         String           @db.Char(26)
+
+  recipients        CampaignRecipient[]
+
+  @@index([companyId, status])
+  @@index([companyId, channel])
+  @@map("campaigns")
+}
+
+model CampaignRecipient {
+  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  campaignId      String   @db.Char(26)
+  customerId      String?  @db.Char(26)
+  phoneOrEmail    String   @db.VarChar(200)
+  sentAt          DateTime?
+  deliveredAt     DateTime?
+  openedAt        DateTime?
+  clickedAt       DateTime?
+  convertedAt     DateTime?
+  conversionValueIqd Decimal? @db.Decimal(18, 3)
+  errorMessage    String?
+
+  campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId])
+  @@index([customerId])
+  @@map("campaign_recipients")
+}
+
+model Promotion {
+  id                String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String   @db.Char(26)
+  code              String?  @db.VarChar(30)                   // coupon code, null for automatic
+  nameAr            String   @db.VarChar(200)
+  type              String   @db.VarChar(30)                   // percent | amount | bxgy | bundle | free_shipping
+  value             Decimal  @db.Decimal(18, 3)
+  minPurchaseIqd    Decimal  @default(0) @db.Decimal(18, 3)
+  maxDiscountIqd    Decimal? @db.Decimal(18, 3)
+  applicableCategories Json?                                   // [categoryId, ...]
+  applicableVariants   Json?                                   // [variantId, ...]
+  startDate         DateTime
+  endDate           DateTime
+  maxUses           Int?
+  maxUsesPerCustomer Int?
+  usedCount         Int      @default(0)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  createdBy         String   @db.Char(26)
+
+  @@unique([companyId, code])
+  @@index([companyId, isActive, startDate, endDate])
+  @@map("promotions")
+}
+
+// ============================================================
+// WAVE 6 — CRM (M09)
+// ============================================================
+
+model Lead {
+  id              String     @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String     @db.Char(26)
+  source          String?    @db.VarChar(50)
+  nameAr          String     @db.VarChar(200)
+  phone           String?    @db.VarChar(20)
+  email           String?    @db.VarChar(200)
+  interest        String?
+  estimatedValueIqd Decimal? @db.Decimal(18, 3)
+  status          LeadStatus @default(new)
+  score           Int        @default(0)                       // 0-100 (AI scoring)
+  assignedTo      String?    @db.Char(26)
+  customerId      String?    @db.Char(26)                      // if converted
+  wonAt           DateTime?
+  lostAt          DateTime?
+  lostReason      String?    @db.VarChar(500)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  createdBy       String     @db.Char(26)
+
+  activities      LeadActivity[]
+
+  @@index([companyId, status])
+  @@index([companyId, assignedTo])
+  @@map("leads")
+}
+
+model LeadActivity {
+  id            String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  leadId        String   @db.Char(26)
+  type          String   @db.VarChar(30)                      // call | email | meeting | whatsapp | note
+  subject       String?  @db.VarChar(200)
+  body          String?
+  scheduledAt   DateTime?
+  completedAt   DateTime?
+  outcome       String?  @db.VarChar(100)
+  createdAt     DateTime @default(now())
+  createdBy     String   @db.Char(26)
+
+  lead          Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, scheduledAt])
+  @@map("lead_activities")
+}
+
+// ============================================================
+// WAVE 6 — LICENSING (M12)
+// ============================================================
+
+model License {
+  id                  String       @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  licenseKey          String       @unique @db.VarChar(64)
+  clientName          String       @db.VarChar(200)
+  clientContactEmail  String?      @db.VarChar(200)
+  plan                LicensePlan
+  issuedAt            DateTime     @default(now())
+  expiresAt           DateTime
+  activatedAt         DateTime?
+  maxCompanies        Int          @default(1)
+  maxBranches         Int          @default(1)
+  maxUsers            Int          @default(5)
+  enabledModules      Json                                      // ["sales", "pos", ...]
+  hardwareFingerprint String?      @db.VarChar(200)
+  lastHeartbeatAt     DateTime?
+  isActive            Boolean      @default(true)
+  revokedAt           DateTime?
+  revokedReason       String?
+  signature           String                                     // RSA-2048 signed JWT
+  createdAt           DateTime     @default(now())
+  createdBy           String       @db.Char(26)
+
+  @@index([clientName])
+  @@map("licenses")
 }
 
 // Reorder Points
