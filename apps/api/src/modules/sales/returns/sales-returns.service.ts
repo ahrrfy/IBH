@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import {
   Injectable,
   NotFoundException,
@@ -6,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { UserSession } from '@erp/shared-types';
-import { PrismaService } from '../../../engines/prisma/prisma.service';
+import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
 import { SequenceService } from '../../../engines/sequence/sequence.service';
 import { PostingService } from '../../../engines/posting/posting.service';
@@ -42,7 +41,7 @@ export class SalesReturnsService {
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        include: { lines: true, invoice: true, customer: true },
+        include: { lines: true, originalInvoice: true },
       }),
       this.prisma.salesReturn.count({ where }),
     ]);
@@ -52,7 +51,7 @@ export class SalesReturnsService {
   async findOne(id: string, companyId: string) {
     const r = await this.prisma.salesReturn.findFirst({
       where: { id, companyId },
-      include: { lines: true, invoice: true, customer: true },
+      include: { lines: true, originalInvoice: true },
     });
     if (!r) {
       throw new NotFoundException({
@@ -71,7 +70,7 @@ export class SalesReturnsService {
       });
     }
     const invoice = await this.prisma.salesInvoice.findFirst({
-      where: { id: dto.invoiceId, companyId },
+      where: { id: dto.originalInvoiceId, companyId },
       include: { lines: true },
     });
     if (!invoice) {
@@ -128,17 +127,18 @@ export class SalesReturnsService {
     const ret = await this.prisma.salesReturn.create({
       data: {
         companyId,
-        returnNumber,
-        invoiceId: invoice.id,
-        customerId: invoice.customerId,
-        warehouseId: invoice.warehouseId,
-        returnDate: new Date(dto.returnDate ?? Date.now()),
-        status: 'draft',
-        reason: (dto.reason ?? 'other') as any,
-        subtotalIqd: subtotal,
-        totalIqd: subtotal,
-        notes: dto.notes,
-        createdBy: session.userId,
+        number:            returnNumber,
+        branchId:          invoice.branchId,
+        originalInvoiceId: invoice.id,
+        warehouseId:       invoice.warehouseId,
+        returnDate:        new Date(dto.returnDate ?? Date.now()),
+        status:            'draft',
+        reason:            (dto.reason ?? 'other') as any,
+        refundMethod:      (dto as any).refundMethod ?? 'cash',
+        subtotalIqd:       subtotal,
+        totalIqd:          subtotal,
+        notes:             dto.notes,
+        createdBy:         session.userId,
         lines: { create: linesData },
       },
       include: { lines: true },
@@ -166,7 +166,7 @@ export class SalesReturnsService {
       });
     }
     const invoice = await this.prisma.salesInvoice.findFirst({
-      where: { id: ret.invoiceId, companyId },
+      where: { id: ret.originalInvoiceId, companyId },
     });
     if (!invoice) {
       throw new NotFoundException({
@@ -179,55 +179,36 @@ export class SalesReturnsService {
       where: { companyId, type: 'damaged' as any },
     });
 
+    // No cogsIqd on return line — derive from unitCost × qty
     const totalCogs = ret.lines.reduce(
-      (acc, l) => acc.plus(l.cogsIqd ?? new Prisma.Decimal(0)),
+      (acc, l) => acc.plus(l.unitCostIqd.mul(l.qty)),
       new Prisma.Decimal(0),
     );
 
     const approved = await this.prisma.$transaction(async (tx) => {
       const isCash = invoice.paymentTerms === 'cash';
-      const jeLines: any[] = [
-        {
-          accountCode: '4100',
-          debitIqd: ret.totalIqd,
-          creditIqd: new Prisma.Decimal(0),
-          description: `Return revenue ${ret.returnNumber}`,
-        },
-        {
-          accountCode: isCash ? '1100' : '1200',
-          debitIqd: new Prisma.Decimal(0),
-          creditIqd: ret.totalIqd,
-          description: `Return ${isCash ? 'cash' : 'AR'} ${ret.returnNumber}`,
-        },
+      const jeLines: Array<{ accountCode: string; debit?: Prisma.Decimal; credit?: Prisma.Decimal; description: string }> = [
+        { accountCode: '4100',                   debit:  ret.totalIqd, description: `Return revenue ${ret.number}` },
+        { accountCode: isCash ? '1100' : '1200', credit: ret.totalIqd, description: `Return ${isCash ? 'cash' : 'AR'} ${ret.number}` },
       ];
       if (totalCogs.gt(0)) {
         jeLines.push(
-          {
-            accountCode: '1300',
-            debitIqd: totalCogs,
-            creditIqd: new Prisma.Decimal(0),
-            description: `Return inventory ${ret.returnNumber}`,
-          },
-          {
-            accountCode: '5100',
-            debitIqd: new Prisma.Decimal(0),
-            creditIqd: totalCogs,
-            description: `Return COGS ${ret.returnNumber}`,
-          },
+          { accountCode: '1300', debit:  totalCogs, description: `Return inventory ${ret.number}` },
+          { accountCode: '5100', credit: totalCogs, description: `Return COGS ${ret.number}` },
         );
       }
 
       const je = await this.posting.postJournalEntry(
         {
           companyId,
-          entryDate: new Date(),
-          refType: 'SalesReturn',
-          refId: ret.id,
-          description: `Sales Return ${ret.returnNumber}`,
-          lines: jeLines,
+          entryDate:   new Date(),
+          refType:     'SalesReturn',
+          refId:       ret.id,
+          description: `Sales Return ${ret.number}`,
+          lines:       jeLines,
         },
         session,
-        tx as any,
+        tx,
       );
 
       for (const line of ret.lines) {
@@ -237,32 +218,32 @@ export class SalesReturnsService {
         await this.inventory.move(
           {
             companyId,
-            warehouseId: destWh,
-            variantId: line.variantId,
-            qty: line.qty,
-            direction: 'in',
-            refType: 'SalesReturn',
-            refId: ret.id,
-            unitCostIqd: line.unitCostIqd,
+            warehouseId:   destWh,
+            variantId:     line.variantId,
+            qty:           Number(line.qty),
+            direction:     'in',
+            referenceType: 'SalesReturn' as any,
+            referenceId:   ret.id,
+            unitCostIqd:   Number(line.unitCostIqd),
+            performedBy:   session.userId,
           },
-          session,
-          tx as any,
+          tx,
         );
       }
 
       if (!isCash) {
         await tx.customer.update({
-          where: { id: ret.customerId },
-          data: { creditBalanceIqd: { decrement: ret.totalIqd } },
+          where: { id: invoice.customerId },
+          data:  { creditBalanceIqd: { decrement: ret.totalIqd } },
         });
       }
 
       return tx.salesReturn.update({
         where: { id },
         data: {
-          status: 'approved',
-          approvedAt: new Date(),
-          approvedBy: session.userId,
+          status:         'approved',
+          approvedAt:     new Date(),
+          approvedBy:     session.userId,
           journalEntryId: je.id,
         },
       });
@@ -291,7 +272,7 @@ export class SalesReturnsService {
     }
     const updated = await this.prisma.salesReturn.update({
       where: { id },
-      data: { status: 'rejected', rejectionReason: reason, rejectedAt: new Date() },
+      data: { status: 'cancelled', notes: (ret.notes ?? '') + `\n[rejected]: ${reason}` },
     });
     await this.audit.log({
       companyId,
