@@ -160,8 +160,190 @@ async function main() {
   }
   console.log(`✅ Accounting periods for ${year} created`);
 
+  // ─── Wave 2-6 Extensions ───────────────────────────────────────────────────
+
+  await seedWarehouses(company.id, branchBGD.id, branchARB.id, adminUser.id);
+  console.log('✅ Warehouses (main + damaged + quality hold) created');
+
+  await seedPayGrades(company.id);
+  console.log('✅ Pay grades (G1-G5) created');
+
+  await seedPostingProfiles(company.id);
+  console.log('✅ Posting profiles (pos_sale / cash_movement / goods_receipt / salary_payment / depreciation) created');
+
+  await seedWalkInCustomer(company.id, adminUser.id);
+  console.log('✅ Walk-in customer created');
+
   console.log('\n🎉 Seed complete!');
   console.log('   Login: super@ruya.iq / Admin@2026!');
+}
+
+// ─── Wave 2-6 Seed Helpers ───────────────────────────────────────────────────
+
+async function seedWarehouses(
+  companyId: string,
+  branchBGD: string,
+  branchARB: string,
+  adminUserId: string,
+) {
+  const warehouses = [
+    { code: 'MAIN-BGD', nameAr: 'المستودع الرئيسي — بغداد', branchId: branchBGD, type: 'main' },
+    { code: 'POS-BGD',  nameAr: 'رف المبيعات — بغداد',        branchId: branchBGD, type: 'sales_floor' },
+    { code: 'DMG-BGD',  nameAr: 'مخزن التالف — بغداد',         branchId: branchBGD, type: 'damaged' },
+    { code: 'QC-BGD',   nameAr: 'منطقة فحص الجودة — بغداد',    branchId: branchBGD, type: 'quality_hold' },
+    { code: 'MAIN-ARB', nameAr: 'المستودع الرئيسي — أربيل',    branchId: branchARB, type: 'main' },
+    { code: 'POS-ARB',  nameAr: 'رف المبيعات — أربيل',         branchId: branchARB, type: 'sales_floor' },
+  ];
+
+  for (const w of warehouses) {
+    const existing = await (prisma as any).warehouse.findFirst({
+      where: { companyId, code: w.code },
+    });
+    if (!existing) {
+      await (prisma as any).warehouse.create({
+        data: {
+          companyId,
+          branchId: w.branchId,
+          code:     w.code,
+          nameAr:   w.nameAr,
+          type:     w.type,
+          isActive: true,
+          createdBy: adminUserId,
+          updatedBy: adminUserId,
+        },
+      });
+    }
+  }
+}
+
+async function seedPayGrades(companyId: string) {
+  const grades = [
+    { code: 'G1', nameAr: 'الدرجة الأولى',   min:   300000, mid:   400000, max:   500000 },
+    { code: 'G2', nameAr: 'الدرجة الثانية',  min:   500000, mid:   650000, max:   800000 },
+    { code: 'G3', nameAr: 'الدرجة الثالثة',  min:   800000, mid:  1000000, max:  1200000 },
+    { code: 'G4', nameAr: 'الدرجة الرابعة',  min:  1200000, mid:  1500000, max:  1800000 },
+    { code: 'G5', nameAr: 'الدرجة الخامسة',  min:  1800000, mid:  2250000, max:  2700000 },
+  ];
+  for (const g of grades) {
+    const existing = await (prisma as any).payGrade.findFirst({
+      where: { companyId, code: g.code },
+    });
+    if (!existing) {
+      await (prisma as any).payGrade.create({
+        data: {
+          companyId,
+          code:              g.code,
+          nameAr:            g.nameAr,
+          minSalaryIqd:      g.min,
+          midSalaryIqd:      g.mid,
+          maxSalaryIqd:      g.max,
+          annualIncreasePct: 5,
+          isActive:          true,
+        },
+      });
+    }
+  }
+}
+
+async function seedPostingProfiles(companyId: string) {
+  // Posting profiles map business events → account codes (double-entry templates).
+  // Stored in posting_profiles Wave 1 model.
+  const profiles = [
+    {
+      name: 'pos_sale',
+      nameAr: 'فاتورة POS نقدية',
+      debitAccountCode:  '2411', // صندوق الفرع الرئيسي
+      creditAccountCode: '511',  // مبيعات نقدية
+      secondaryDebit:    '611',  // تكلفة البضاعة المباعة
+      secondaryCredit:   '212',  // بضاعة جاهزة
+    },
+    {
+      name: 'pos_sale_credit',
+      nameAr: 'فاتورة آجلة',
+      debitAccountCode:  '221',  // العملاء
+      creditAccountCode: '512',  // مبيعات آجلة
+      secondaryDebit:    '611',
+      secondaryCredit:   '212',
+    },
+    {
+      name: 'cash_movement',
+      nameAr: 'حركة نقدية',
+      debitAccountCode:  '2411',
+      creditAccountCode: '2411',
+    },
+    {
+      name: 'goods_receipt',
+      nameAr: 'استلام بضاعة',
+      debitAccountCode:  '212',  // مخزون
+      creditAccountCode: '321',  // موردون
+    },
+    {
+      name: 'salary_payment',
+      nameAr: 'دفع رواتب',
+      debitAccountCode:  '621',  // رواتب موظفين
+      creditAccountCode: '251',  // بنك
+    },
+    {
+      name: 'depreciation',
+      nameAr: 'استهلاك شهري',
+      debitAccountCode:  '65',   // مصروف استهلاك
+      creditAccountCode: '129',  // مجمع الاستهلاك (مباني)
+    },
+    {
+      name: 'sales_return',
+      nameAr: 'مرتجع مبيعات',
+      debitAccountCode:  '52',   // مردودات المبيعات
+      creditAccountCode: '2411', // صندوق
+      secondaryDebit:    '212',  // مخزون
+      secondaryCredit:   '611',  // COGS عكسي
+    },
+    {
+      name: 'cash_short_over',
+      nameAr: 'فرق الخزنة',
+      debitAccountCode:  '69',   // مصروفات متنوعة (عجز)
+      creditAccountCode: '593',  // إيرادات متنوعة (فائض)
+    },
+  ];
+
+  for (const p of profiles) {
+    const existing = await (prisma as any).postingProfile.findFirst({
+      where: { companyId, name: p.name },
+    });
+    if (!existing) {
+      await (prisma as any).postingProfile.create({
+        data: {
+          companyId,
+          name:              p.name,
+          nameAr:            p.nameAr,
+          debitAccountCode:  p.debitAccountCode,
+          creditAccountCode: p.creditAccountCode,
+          secondaryDebit:    (p as any).secondaryDebit,
+          secondaryCredit:   (p as any).secondaryCredit,
+          isActive:          true,
+        },
+      });
+    }
+  }
+}
+
+async function seedWalkInCustomer(companyId: string, adminUserId: string) {
+  const existing = await (prisma as any).customer.findFirst({
+    where: { companyId, code: 'WALK-IN' },
+  });
+  if (!existing) {
+    await (prisma as any).customer.create({
+      data: {
+        companyId,
+        code:     'WALK-IN',
+        type:     'walk_in',
+        nameAr:   'عميل نقدي',
+        nameEn:   'Walk-in Customer',
+        isActive: true,
+        createdBy: adminUserId,
+        updatedBy: adminUserId,
+      },
+    });
+  }
 }
 
 // ─── Roles ───────────────────────────────────────────────────────────────────
