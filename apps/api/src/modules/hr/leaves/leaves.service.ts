@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
@@ -65,15 +64,16 @@ export class LeavesService {
 
     const req = await this.prisma.leaveRequest.create({
       data: {
-        companyId: session.companyId,
-        employeeId: dto.employeeId,
-        type: dto.type,
-        startDate: start,
-        endDate: end,
-        totalDays,
-        reason: dto.reason,
-        status: 'submitted',
+        companyId:     session.companyId,
+        employeeId:    dto.employeeId,
+        type:          dto.type,
+        startDate:     start,
+        endDate:       end,
+        totalDays:     new Prisma.Decimal(totalDays),
+        reason:        dto.reason,
+        status:        'submitted',
         attachmentUrl: dto.attachmentUrl,
+        createdBy:     session.userId,
       },
     });
     await this.audit.log({
@@ -219,7 +219,7 @@ export class LeavesService {
     });
     const result: Record<string, { entitled: number; used: number; remaining: number }> = {};
     for (const [type, entitled] of Object.entries(ENTITLEMENTS)) {
-      const used = approved.filter((r) => r.type === (type as any)).reduce((s, r) => s + r.totalDays, 0);
+      const used = approved.filter((r) => r.type === (type as any)).reduce((s, r) => s + Number(r.totalDays), 0);
       result[type] = { entitled, used, remaining: Math.max(0, entitled - used) };
     }
     return result;

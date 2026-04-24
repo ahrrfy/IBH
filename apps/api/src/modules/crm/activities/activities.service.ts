@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
@@ -19,11 +18,12 @@ export class ActivitiesService {
 
     const activity = await this.prisma.leadActivity.create({
       data: {
-        leadId: dto.leadId,
-        type: dto.type,
-        subject: dto.subject,
-        body: dto.body,
+        leadId:      dto.leadId,
+        type:        dto.type,
+        subject:     dto.subject,
+        body:        dto.body,
         scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
+        createdBy:   session.userId,
       },
     });
 

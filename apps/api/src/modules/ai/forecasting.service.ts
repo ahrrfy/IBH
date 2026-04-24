@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../platform/prisma/prisma.service';
@@ -49,7 +48,7 @@ export class ForecastingService {
           body: JSON.stringify({ companyId, historical, horizonDays: horizon, variantId: params.variantId }),
         });
         if (res.ok) {
-          const data = await res.json();
+          const data = (await res.json()) as Record<string, unknown>;
           return { available: true, source: 'ai_brain', ...data };
         }
       } catch {
@@ -151,7 +150,10 @@ export class ForecastingService {
           },
           body: JSON.stringify({ companyId }),
         });
-        if (res.ok) return { available: true, source: 'ai_brain', ...(await res.json()) };
+        if (res.ok) {
+          const data = (await res.json()) as Record<string, unknown>;
+          return { available: true, source: 'ai_brain', ...data };
+        }
       } catch {}
     }
     return {
