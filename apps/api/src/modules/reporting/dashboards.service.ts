@@ -1,0 +1,281 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../platform/prisma/prisma.service';
+
+@Injectable()
+export class DashboardsService {
+  constructor(private prisma: PrismaService) {}
+
+  private startOfDay(d: Date = new Date()) {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  }
+
+  async executiveDashboard(companyId: string) {
+    const today = this.startOfDay();
+    const weekStart = new Date(today);
+    weekStart.setDate(weekStart.getDate() - 7);
+    const monthStart = new Date(today);
+    monthStart.setDate(1);
+    const prevMonthStart = new Date(monthStart);
+    prevMonthStart.setMonth(prevMonthStart.getMonth() - 1);
+    const prevMonthEnd = new Date(monthStart);
+    prevMonthEnd.setMilliseconds(-1);
+
+    const sum = async (from: Date, to?: Date) => {
+      const rows: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COALESCE(SUM("totalIqd"), 0)::float AS total
+         FROM "SalesInvoice" WHERE "companyId" = $1 AND "invoiceDate" >= $2
+         ${to ? `AND "invoiceDate" <= $3` : ''}`,
+        ...(to ? [companyId, from, to] : [companyId, from]),
+      );
+      return Number(rows?.[0]?.total ?? 0);
+    };
+
+    const [todaySales, weekSales, monthSales, prevMonthSales] = await Promise.all([
+      sum(today),
+      sum(weekStart),
+      sum(monthStart),
+      sum(prevMonthStart, prevMonthEnd),
+    ]);
+
+    const cashRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT COALESCE(SUM(CASE WHEN "direction" = 'in' THEN "amountIqd" ELSE -"amountIqd" END), 0)::float AS cash
+       FROM "CashMovement" WHERE "companyId" = $1`,
+      companyId,
+    );
+
+    const arRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT COALESCE(SUM("balanceIqd"), 0)::float AS total FROM "SalesInvoice"
+       WHERE "companyId" = $1 AND "balanceIqd" > 0`,
+      companyId,
+    );
+    const apRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT COALESCE(SUM("balanceIqd"), 0)::float AS total FROM "PurchaseInvoice"
+       WHERE "companyId" = $1 AND "balanceIqd" > 0`,
+      companyId,
+    );
+
+    const topProducts: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT sil."variantId", p."nameAr" AS name, SUM(sil."qty")::float AS qty,
+              SUM(sil."lineTotalIqd")::float AS revenue
+       FROM "SalesInvoiceLine" sil
+       JOIN "SalesInvoice" si ON si.id = sil."salesInvoiceId"
+       JOIN "ProductVariant" pv ON pv.id = sil."variantId"
+       JOIN "Product" p ON p.id = pv."productId"
+       WHERE si."companyId" = $1 AND si."invoiceDate" >= $2
+       GROUP BY sil."variantId", p."nameAr" ORDER BY revenue DESC LIMIT 5`,
+      companyId,
+      monthStart,
+    );
+
+    return {
+      todaySales,
+      weekSales,
+      monthSales: {
+        current: monthSales,
+        previous: prevMonthSales,
+        changePct: prevMonthSales > 0 ? (monthSales - prevMonthSales) / prevMonthSales : 0,
+      },
+      cashPosition: Number(cashRows?.[0]?.cash ?? 0),
+      arTotal: Number(arRows?.[0]?.total ?? 0),
+      apTotal: Number(apRows?.[0]?.total ?? 0),
+      topProducts,
+      recentActivities: [],
+      alerts: [],
+    };
+  }
+
+  async operationsDashboard(companyId: string, branchId?: string) {
+    const today = this.startOfDay();
+    const branchFilter = branchId ? `AND "branchId" = '${branchId}'` : '';
+
+    const receiptsRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT COUNT(*)::int AS count, COALESCE(SUM("totalIqd"), 0)::float AS total
+       FROM "SalesInvoice" WHERE "companyId" = $1 AND "invoiceDate" >= $2 ${branchFilter}`,
+      companyId,
+      today,
+    );
+
+    const activeShiftsRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT COUNT(*)::int AS count FROM "Shift"
+       WHERE "companyId" = $1 AND "closedAt" IS NULL ${branchFilter}`,
+      companyId,
+    );
+
+    const lowStockRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT COUNT(*)::int AS count FROM (
+         SELECT pv.id FROM "ProductVariant" pv
+         JOIN "Product" p ON p.id = pv."productId"
+         LEFT JOIN "InventoryBalance" ib ON ib."variantId" = pv.id AND ib."companyId" = $1
+         WHERE p."companyId" = $1
+         GROUP BY pv.id, pv."reorderLevel"
+         HAVING COALESCE(SUM(ib."qtyOnHand"), 0) <= COALESCE(pv."reorderLevel", 0)
+       ) s`,
+      companyId,
+    );
+
+    let pendingDeliveries = 0;
+    let deliveryOnTimeRate = 0;
+    try {
+      const pd: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COUNT(*)::int AS count FROM "Delivery"
+         WHERE "companyId" = $1 AND "status" IN ('pending','in_transit')`,
+        companyId,
+      );
+      pendingDeliveries = Number(pd?.[0]?.count ?? 0);
+      const otr: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT
+            SUM(CASE WHEN "deliveredAt" <= "scheduledAt" THEN 1 ELSE 0 END)::float AS on_time,
+            COUNT(*)::float AS total
+         FROM "Delivery"
+         WHERE "companyId" = $1 AND "status" = 'delivered' AND "deliveredAt" >= NOW() - INTERVAL '30 days'`,
+        companyId,
+      );
+      const total = Number(otr?.[0]?.total ?? 0);
+      deliveryOnTimeRate = total > 0 ? Number(otr[0].on_time) / total : 0;
+    } catch {}
+
+    return {
+      todayReceipts: {
+        count: Number(receiptsRows?.[0]?.count ?? 0),
+        total: Number(receiptsRows?.[0]?.total ?? 0),
+      },
+      activeShifts: Number(activeShiftsRows?.[0]?.count ?? 0),
+      lowStockCount: Number(lowStockRows?.[0]?.count ?? 0),
+      pendingDeliveries,
+      deliveryOnTimeRate,
+    };
+  }
+
+  async financeDashboard(companyId: string) {
+    const cashRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT ba."accountType" AS kind,
+              COALESCE(SUM(CASE WHEN cm."direction" = 'in' THEN cm."amountIqd" ELSE -cm."amountIqd" END), 0)::float AS balance
+       FROM "BankAccount" ba
+       LEFT JOIN "CashMovement" cm ON cm."bankAccountId" = ba.id
+       WHERE ba."companyId" = $1 GROUP BY ba."accountType"`,
+      companyId,
+    );
+
+    const cashInBanks = cashRows.filter((r) => r.kind === 'bank').reduce((s, r) => s + Number(r.balance), 0);
+    const cashInHand = cashRows.filter((r) => r.kind === 'cash').reduce((s, r) => s + Number(r.balance), 0);
+
+    const arAgingRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT
+         SUM(CASE WHEN NOW() - "invoiceDate" <= INTERVAL '30 days' THEN "balanceIqd" ELSE 0 END)::float AS bucket_0_30,
+         SUM(CASE WHEN NOW() - "invoiceDate" > INTERVAL '30 days' AND NOW() - "invoiceDate" <= INTERVAL '90 days' THEN "balanceIqd" ELSE 0 END)::float AS bucket_31_90,
+         SUM(CASE WHEN NOW() - "invoiceDate" > INTERVAL '90 days' THEN "balanceIqd" ELSE 0 END)::float AS bucket_90_plus
+       FROM "SalesInvoice" WHERE "companyId" = $1 AND "balanceIqd" > 0`,
+      companyId,
+    );
+    const apAgingRows: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT
+         SUM(CASE WHEN NOW() - "invoiceDate" <= INTERVAL '30 days' THEN "balanceIqd" ELSE 0 END)::float AS bucket_0_30,
+         SUM(CASE WHEN NOW() - "invoiceDate" > INTERVAL '30 days' AND NOW() - "invoiceDate" <= INTERVAL '90 days' THEN "balanceIqd" ELSE 0 END)::float AS bucket_31_90,
+         SUM(CASE WHEN NOW() - "invoiceDate" > INTERVAL '90 days' THEN "balanceIqd" ELSE 0 END)::float AS bucket_90_plus
+       FROM "PurchaseInvoice" WHERE "companyId" = $1 AND "balanceIqd" > 0`,
+      companyId,
+    );
+
+    const recentJEs: any[] = await this.prisma.$queryRawUnsafe(
+      `SELECT id, "entryDate", "description", "totalDebitIqd"::float AS total
+       FROM "JournalEntry" WHERE "companyId" = $1 ORDER BY "entryDate" DESC LIMIT 10`,
+      companyId,
+    );
+
+    let periodStatus: any = { open: true };
+    try {
+      const p: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT "status", "periodStart", "periodEnd" FROM "AccountingPeriod"
+         WHERE "companyId" = $1 ORDER BY "periodStart" DESC LIMIT 1`,
+        companyId,
+      );
+      if (p?.[0]) periodStatus = p[0];
+    } catch {}
+
+    return {
+      cashInBanks,
+      cashInHand,
+      arAging: arAgingRows?.[0] ?? {},
+      apAging: apAgingRows?.[0] ?? {},
+      recentJEs,
+      periodStatus,
+    };
+  }
+
+  async branchDashboard(companyId: string, branchId: string) {
+    return this.operationsDashboard(companyId, branchId);
+  }
+
+  async hrDashboard(companyId: string) {
+    const today = this.startOfDay();
+    const in30 = new Date(today);
+    in30.setDate(in30.getDate() + 30);
+
+    let totalEmployees = 0;
+    let presentToday = 0;
+    let onLeaveToday = 0;
+    let pendingLeaveRequests = 0;
+    let upcomingBirthdays: any[] = [];
+    let contractExpirations: any[] = [];
+
+    try {
+      const emp: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COUNT(*)::int AS count FROM "Employee"
+         WHERE "companyId" = $1 AND ("terminationDate" IS NULL OR "terminationDate" > NOW())`,
+        companyId,
+      );
+      totalEmployees = Number(emp?.[0]?.count ?? 0);
+
+      const att: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COUNT(DISTINCT "employeeId")::int AS count FROM "Attendance"
+         WHERE "companyId" = $1 AND "date" = $2 AND "checkIn" IS NOT NULL`,
+        companyId,
+        today,
+      );
+      presentToday = Number(att?.[0]?.count ?? 0);
+
+      const leaves: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COUNT(*)::int AS count FROM "LeaveRequest"
+         WHERE "companyId" = $1 AND "status" = 'approved' AND "startDate" <= $2 AND "endDate" >= $2`,
+        companyId,
+        today,
+      );
+      onLeaveToday = Number(leaves?.[0]?.count ?? 0);
+
+      const pending: any[] = await this.prisma.$queryRawUnsafe(
+        `SELECT COUNT(*)::int AS count FROM "LeaveRequest"
+         WHERE "companyId" = $1 AND "status" = 'pending'`,
+        companyId,
+      );
+      pendingLeaveRequests = Number(pending?.[0]?.count ?? 0);
+
+      upcomingBirthdays = (await this.prisma.$queryRawUnsafe(
+        `SELECT id, "nameAr", "birthDate" FROM "Employee"
+         WHERE "companyId" = $1
+           AND EXTRACT(MONTH FROM "birthDate") = EXTRACT(MONTH FROM NOW())
+         ORDER BY EXTRACT(DAY FROM "birthDate") ASC LIMIT 10`,
+        companyId,
+      )) as any[];
+
+      contractExpirations = (await this.prisma.$queryRawUnsafe(
+        `SELECT id, "nameAr", "contractEndDate" FROM "Employee"
+         WHERE "companyId" = $1 AND "contractEndDate" BETWEEN $2 AND $3
+         ORDER BY "contractEndDate" ASC`,
+        companyId,
+        today,
+        in30,
+      )) as any[];
+    } catch {}
+
+    return {
+      totalEmployees,
+      presentToday,
+      onLeaveToday,
+      pendingLeaveRequests,
+      upcomingBirthdays,
+      contractExpirations,
+    };
+  }
+}

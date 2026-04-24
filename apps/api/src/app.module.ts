@@ -30,6 +30,21 @@ import { DeliveryModule }  from './modules/delivery/delivery.module';
 // Business Modules (Wave 3)
 import { PurchasesModule } from './modules/purchases/purchases.module';
 
+// Business Modules (Wave 4)
+import { FinanceModule }   from './modules/finance/finance.module';
+import { AssetsModule }    from './modules/assets/assets.module';
+
+// Business Modules (Wave 5)
+import { HrModule }        from './modules/hr/hr.module';
+import { JobOrdersModule } from './modules/job-orders/job-orders.module';
+import { MarketingModule } from './modules/marketing/marketing.module';
+
+// Business Modules (Wave 6)
+import { CrmModule }       from './modules/crm/crm.module';
+import { LicensingModule } from './modules/licensing/licensing.module';
+import { AiModule }        from './modules/ai/ai.module';
+import { ReportingModule } from './modules/reporting/reporting.module';
+
 @Module({
   imports: [
     // ── Config ────────────────────────────────────────────────────────────
@@ -88,6 +103,21 @@ import { PurchasesModule } from './modules/purchases/purchases.module';
 
     // ── Business Modules — Wave 3 ───────────────────────────────────────────
     PurchasesModule,
+
+    // ── Business Modules — Wave 4 ───────────────────────────────────────────
+    FinanceModule,
+    AssetsModule,
+
+    // ── Business Modules — Wave 5 ───────────────────────────────────────────
+    HrModule,
+    JobOrdersModule,
+    MarketingModule,
+
+    // ── Business Modules — Wave 6 ───────────────────────────────────────────
+    CrmModule,
+    LicensingModule,
+    AiModule,
+    ReportingModule,
   ],
 })
 export class AppModule {}
