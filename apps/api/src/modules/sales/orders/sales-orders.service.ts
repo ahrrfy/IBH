@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import {
   Injectable,
   NotFoundException,
@@ -6,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { UserSession } from '@erp/shared-types';
-import { PrismaService } from '../../../engines/prisma/prisma.service';
+import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
 import { SequenceService } from '../../../engines/sequence/sequence.service';
 import { PolicyService } from '../../../engines/policy/policy.service';
@@ -104,7 +103,7 @@ export class SalesOrdersService {
       const bal = await this.prisma.inventoryBalance.findFirst({
         where: { companyId, warehouseId: dto.warehouseId, variantId: l.variantId },
       });
-      const avail = bal ? bal.qtyAvailable : new Prisma.Decimal(0);
+      const avail = bal ? bal.qtyOnHand.minus(bal.qtyReserved) : new Prisma.Decimal(0);
       if (avail.lt(new Prisma.Decimal(l.qty))) {
         throw new BadRequestException({
           code: 'VALIDATION_ERROR',
@@ -152,36 +151,32 @@ export class SalesOrdersService {
       const so = await tx.salesOrder.create({
         data: {
           companyId,
-          orderNumber,
-          customerId: dto.customerId,
+          number:      orderNumber,
+          branchId:    (dto as any).branchId,
+          customerId:  dto.customerId,
           warehouseId: dto.warehouseId,
-          orderDate: new Date(dto.orderDate ?? Date.now()),
-          status: 'draft',
-          channel: channel as any,
-          paymentMethod: paymentMethod as any,
+          orderDate:   new Date(dto.orderDate ?? Date.now()),
+          status:      'draft',
+          channel:     channel,
           subtotalIqd: subtotal,
           discountIqd: headerDiscount,
           taxIqd,
-          totalIqd: total,
-          notes: dto.notes,
-          createdBy: session.userId,
-          lines: { create: linesData },
+          totalIqd:    total,
+          notes:       dto.notes,
+          createdBy:   session.userId,
+          updatedBy:   session.userId,
+          lines: { create: linesData.map(({ qtyDelivered, qtyInvoiced, ...l }) => l) },
         },
         include: { lines: true },
       });
 
       for (const line of so.lines) {
         await this.inventory.reserve(
-          {
-            companyId,
-            warehouseId: dto.warehouseId,
-            variantId: line.variantId,
-            qty: line.qty,
-            refType: 'SalesOrder',
-            refId: so.id,
-          },
-          session,
-          tx as any,
+          line.variantId,
+          dto.warehouseId,
+          Number(line.qty),
+          companyId,
+          tx,
         );
       }
 
@@ -211,7 +206,7 @@ export class SalesOrdersService {
     }
     const updated = await this.prisma.salesOrder.update({
       where: { id },
-      data: { status: 'confirmed', confirmedAt: new Date() },
+      data: { status: 'confirmed', updatedBy: session.userId },
     });
     await this.audit.log({
       companyId,
@@ -237,18 +232,12 @@ export class SalesOrdersService {
       for (const line of o.lines) {
         try {
           await this.inventory.releaseReservation(
-            {
-              companyId,
-              warehouseId: o.warehouseId,
-              variantId: line.variantId,
-              qty: line.qty.minus(line.qtyDelivered),
-              refType: 'SalesOrder',
-              refId: o.id,
-            },
-            session,
-            tx as any,
+            line.variantId,
+            o.warehouseId,
+            Number(line.qty.minus(line.qtyDelivered)),
+            tx,
           );
-        } catch (_) {
+        } catch {
           // ignore if nothing to release
         }
       }

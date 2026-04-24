@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import {
   Injectable,
   NotFoundException,
@@ -6,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { UserSession } from '@erp/shared-types';
-import { PrismaService } from '../../../engines/prisma/prisma.service';
+import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
 import { SequenceService } from '../../../engines/sequence/sequence.service';
 
@@ -112,17 +111,19 @@ export class QuotationsService {
     const quotation = await this.prisma.quotation.create({
       data: {
         companyId,
-        quotationNumber,
-        customerId: dto.customerId,
+        number:      quotationNumber,
+        branchId:    (dto as any).branchId,
+        customerId:  dto.customerId,
         quotationDate,
         validUntil,
-        status: 'draft',
+        status:      'draft',
         subtotalIqd: subtotal,
         discountIqd: headerDiscount,
         taxIqd,
-        totalIqd: total,
-        notes: dto.notes,
-        createdBy: session.userId,
+        totalIqd:    total,
+        notes:       dto.notes,
+        createdBy:   session.userId,
+        updatedBy:   session.userId,
         lines: { create: linesData },
       },
       include: { lines: true },
@@ -216,7 +217,7 @@ export class QuotationsService {
     }
     const updated = await this.prisma.quotation.update({
       where: { id },
-      data: { status: 'sent', sentAt: new Date() },
+      data: { status: 'sent', updatedBy: session.userId },
     });
     await this.audit.log({
       companyId,
@@ -240,7 +241,7 @@ export class QuotationsService {
     }
     const updated = await this.prisma.quotation.update({
       where: { id },
-      data: { status: 'accepted', acceptedAt: new Date() },
+      data: { status: 'accepted', updatedBy: session.userId },
     });
     await this.audit.log({
       companyId,
@@ -264,7 +265,7 @@ export class QuotationsService {
     }
     const updated = await this.prisma.quotation.update({
       where: { id },
-      data: { status: 'rejected', rejectedAt: new Date(), rejectionReason: reason },
+      data: { status: 'rejected', updatedBy: session.userId, notes: reason },
     });
     await this.audit.log({
       companyId,
@@ -293,30 +294,29 @@ export class QuotationsService {
       const so = await tx.salesOrder.create({
         data: {
           companyId,
-          orderNumber,
-          customerId: q.customerId,
+          number:            orderNumber,
+          branchId:          q.branchId,
+          customerId:        q.customerId,
           warehouseId,
-          quotationId: q.id,
-          orderDate: new Date(),
-          status: 'draft',
-          channel: 'in_store',
-          subtotalIqd: q.subtotalIqd,
-          discountIqd: q.discountIqd,
-          taxIqd: q.taxIqd,
-          totalIqd: q.totalIqd,
-          notes: q.notes,
-          createdBy: session.userId,
+          sourceQuotationId: q.id,
+          orderDate:         new Date(),
+          status:            'draft',
+          channel:           'in_store',
+          subtotalIqd:       q.subtotalIqd,
+          discountIqd:       q.discountIqd,
+          taxIqd:            q.taxIqd,
+          totalIqd:          q.totalIqd,
+          notes:             q.notes,
+          createdBy:         session.userId,
+          updatedBy:         session.userId,
           lines: {
             create: q.lines.map((l) => ({
-              variantId: l.variantId,
-              description: l.description,
-              qty: l.qty,
+              variantId:    l.variantId,
+              qty:          l.qty,
               unitPriceIqd: l.unitPriceIqd,
-              discountPct: l.discountPct,
-              discountIqd: l.discountIqd,
+              discountPct:  l.discountPct,
+              discountIqd:  l.discountIqd,
               lineTotalIqd: l.lineTotalIqd,
-              qtyDelivered: new Prisma.Decimal(0),
-              qtyInvoiced: new Prisma.Decimal(0),
             })),
           },
         },
@@ -324,7 +324,11 @@ export class QuotationsService {
       });
       await tx.quotation.update({
         where: { id: q.id },
-        data: { status: 'converted', convertedAt: new Date(), convertedOrderId: so.id },
+        data: {
+          status:             'converted',
+          convertedToOrderId: so.id,
+          updatedBy:          session.userId,
+        },
       });
       return so;
     });
@@ -336,7 +340,7 @@ export class QuotationsService {
       action: 'quotation.convert',
       entityType: 'Quotation',
       entityId: id,
-      after: { orderId: order.id, orderNumber: order.orderNumber },
+      after: { orderId: order.id, orderNumber: order.number },
     });
 
     return order;
