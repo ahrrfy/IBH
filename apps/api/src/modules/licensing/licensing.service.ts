@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../platform/prisma/prisma.service';
@@ -102,6 +101,7 @@ export class LicensingService {
     const license = await this.prisma.license.create({
       data: {
         licenseKey,
+        createdBy:  session.userId,
         clientName: dto.clientName,
         clientContactEmail: dto.clientContactEmail,
         plan: dto.plan as any,

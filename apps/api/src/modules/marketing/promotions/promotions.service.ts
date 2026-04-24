@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
@@ -42,6 +41,7 @@ export class PromotionsService {
     const p = await this.prisma.promotion.create({
       data: {
         companyId: session.companyId,
+        createdBy: session.userId,
         code: dto.code,
         nameAr: dto.nameAr,
         type: dto.type,
@@ -175,13 +175,13 @@ export class PromotionsService {
       return { applicable: false, reason: 'EXHAUSTED', messageAr: 'تم استنفاد العرض' };
     }
     if (promo.maxUsesPerCustomer > 0 && params.customerId) {
-      const uses = await this.prisma.audit.count({
+      const uses = await this.prisma.auditLog.count({
         where: {
-          companyId: params.companyId,
-          entity: 'Promotion',
-          entityId: promo.id,
-          action: 'USE',
-          metadata: { path: ['customerId'], equals: params.customerId } as any,
+          companyId:  params.companyId,
+          entityType: 'Promotion',
+          entityId:   promo.id,
+          action:     'USE',
+          changedFields: { path: ['customerId'], equals: params.customerId } as any,
         },
       }).catch(() => 0);
       if (uses >= promo.maxUsesPerCustomer) {

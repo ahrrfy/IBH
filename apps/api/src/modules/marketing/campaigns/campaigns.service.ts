@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
@@ -30,6 +29,7 @@ export class CampaignsService {
     const campaign = await this.prisma.campaign.create({
       data: {
         companyId: session.companyId,
+        createdBy: session.userId,
         name: dto.name,
         description: dto.description ?? '',
         channel: dto.channel,

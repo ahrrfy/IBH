@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../platform/prisma/prisma.service';
 import { AuditService } from '../../engines/audit/audit.service';
@@ -65,15 +64,16 @@ export class JobOrdersService {
     return this.prisma.$transaction(async (tx) => {
       const jo = await tx.jobOrder.create({
         data: {
-          companyId: session.companyId,
-          branchId: dto.branchId,
+          companyId:  session.companyId,
+          branchId:   dto.branchId,
+          createdBy:  session.userId,
           number,
           customerId: dto.customerId,
           salesOrderId: dto.salesOrderId,
           productName: dto.productName,
           description: dto.description,
           designFileUrl: dto.designFileUrl,
-          quantity: new Prisma.Decimal(dto.quantity),
+          quantity: Number(dto.quantity),
           expectedDate: new Date(dto.expectedDate),
           status: 'quotation',
           estimatedCostIqd: estimatedCost,

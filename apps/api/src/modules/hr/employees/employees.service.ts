@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
@@ -83,7 +82,9 @@ export class EmployeesService {
       const emp = await tx.employee.create({
         data: {
           companyId: session.companyId,
-          branchId: dto.branchId,
+          branchId:  dto.branchId,
+          createdBy: session.userId,
+          updatedBy: session.userId,
           employeeNumber,
           userId,
           nameAr: dto.nameAr,

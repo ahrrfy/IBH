@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
@@ -28,16 +27,17 @@ export class LeadsService {
     }
     const lead = await this.prisma.lead.create({
       data: {
-        companyId: session.companyId,
-        source: dto.source ?? 'manual',
-        nameAr: dto.nameAr,
-        phone: dto.phone,
-        email: dto.email,
-        interest: dto.interest,
+        companyId:         session.companyId,
+        source:            dto.source ?? 'manual',
+        nameAr:            dto.nameAr,
+        phone:             dto.phone,
+        email:             dto.email,
+        interest:          dto.interest,
         estimatedValueIqd: dto.estimatedValueIqd ? new Prisma.Decimal(dto.estimatedValueIqd) : null,
-        assignedTo: dto.assignedTo,
-        status: 'new',
-        score: 0,
+        assignedTo:        dto.assignedTo,
+        status:            'new',
+        score:             0,
+        createdBy:         session.userId,
       },
     });
     await this.audit.log({
