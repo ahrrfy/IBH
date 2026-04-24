@@ -48,6 +48,33 @@ export class SequenceService {
    * Generate the next document number.
    * Uses SELECT ... FOR UPDATE to ensure atomic increment.
    */
+  /**
+   * Simple helper used by services: returns the next human-readable document number.
+   * Resolves companyCode + branchCode automatically from the DB.
+   * Accepts any string prefix (not limited to DocumentPrefix enum).
+   */
+  async next(companyId: string, prefix: string, branchId?: string): Promise<string> {
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { code: true },
+    });
+    let branchCode: string | undefined;
+    if (branchId) {
+      const b = await this.prisma.branch.findUnique({
+        where: { id: branchId },
+        select: { code: true },
+      });
+      branchCode = b?.code;
+    }
+    return this.nextNumber({
+      companyId,
+      branchId,
+      companyCode: company?.code ?? 'XXX',
+      branchCode,
+      prefix: prefix as DocumentPrefix,
+    });
+  }
+
   async nextNumber(params: SequenceParams): Promise<string> {
     const year = params.year ?? new Date().getFullYear();
     const branchId = params.branchId ?? null;

@@ -57,6 +57,98 @@ export class PostingService {
   ) {}
 
   /**
+   * Pragmatic alias used by Wave 2-6 services. Accepts a simpler shape:
+   *   { companyId, entryDate, refType, refId, description, lines: [{accountCode, debit?, credit?, description?, costCenterId?}] }
+   * Resolves period + company code + accountIds from DB.
+   * Returns `{ id }` for compatibility with agent-written code.
+   */
+  async postJournalEntry(
+    params: {
+      companyId: string;
+      branchId?: string;
+      entryDate: Date;
+      refType: string;
+      refId: string;
+      description: string;
+      lines: Array<{
+        accountCode: string;
+        debit?: number | Prisma.Decimal;
+        credit?: number | Prisma.Decimal;
+        description?: string;
+        costCenterId?: string;
+      }>;
+    },
+    session: { userId: string },
+    tx?: Prisma.TransactionClient,
+  ): Promise<{ id: string; entryNumber: string }> {
+    const client = (tx ?? this.prisma) as any;
+    const company = await client.company.findUnique({
+      where: { id: params.companyId },
+      select: { code: true },
+    });
+    let branchCode: string | undefined;
+    if (params.branchId) {
+      const b = await client.branch.findUnique({
+        where: { id: params.branchId },
+        select: { code: true },
+      });
+      branchCode = b?.code;
+    }
+    // Resolve period for entryDate
+    const year = params.entryDate.getFullYear();
+    const month = params.entryDate.getMonth() + 1;
+    const period = await client.accountingPeriod.findFirst({
+      where: { companyId: params.companyId, periodYear: year, periodMonth: month },
+      select: { id: true },
+    });
+
+    // Resolve account IDs by code (fetch all in one go)
+    const codes = Array.from(new Set(params.lines.map((l) => l.accountCode)));
+    const accounts = await client.chartOfAccount.findMany({
+      where: { companyId: params.companyId, code: { in: codes } },
+      select: { id: true, code: true, nameAr: true },
+    });
+    const accMap = new Map<string, { id: string; nameAr: string }>();
+    for (const a of accounts) accMap.set(a.code, { id: a.id, nameAr: a.nameAr });
+
+    const lines: PostingLine[] = params.lines.map((l) => {
+      const acc = accMap.get(l.accountCode);
+      if (!acc) {
+        throw new BadRequestException({
+          code: 'ACCOUNT_NOT_FOUND',
+          messageAr: `الحساب ${l.accountCode} غير موجود`,
+        });
+      }
+      const debit = l.debit ? Number(l.debit) : 0;
+      const credit = l.credit ? Number(l.credit) : 0;
+      return {
+        accountId: acc.id,
+        accountCode: l.accountCode,
+        accountNameAr: acc.nameAr,
+        side: debit > 0 ? 'debit' : 'credit',
+        amountIqd: debit > 0 ? debit : credit,
+        description: l.description,
+        costCenterId: l.costCenterId,
+      };
+    });
+
+    const result = await this.post({
+      companyId: params.companyId,
+      companyCode: company?.code ?? 'XXX',
+      branchCode,
+      periodId: period?.id ?? '',
+      entryDate: params.entryDate,
+      description: params.description,
+      referenceType: params.refType as DocumentType,
+      referenceId: params.refId,
+      lines,
+      postedBy: session.userId,
+    }, tx);
+
+    return { id: result.journalEntryId, entryNumber: result.entryNumber };
+  }
+
+  /**
    * Post a journal entry.
    * Validates: balanced entry, open period, valid accounts.
    * This is the ONLY way to create journal entries.

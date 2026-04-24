@@ -11,19 +11,23 @@ import { PERMISSION_BIT } from '@erp/shared-types';
 import type { PermissionAction } from '@erp/shared-types';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 
-// ─── Metadata Keys ────────────────────────────────────────────────────────────
-
 export const REQUIRE_PERMISSION_KEY = 'requirePermission';
 
 export interface RequiredPermission {
-  resource: string; // e.g. 'Invoice', 'Product', 'User'
+  resource: string;
   action: PermissionAction;
 }
 
-// ─── RBAC Guard ───────────────────────────────────────────────────────────────
-// Checks that request.user has the required permission for the resource.
-// Permissions are loaded from DB once per request (cached in UserSession).
-// Uses bitmask evaluation: role.permissions[resource] & PERMISSION_BIT[action]
+/**
+ * Session permission cache — not part of UserSession public shape.
+ * Stored on a symbol-keyed extension to avoid type coupling.
+ */
+const PERM_CACHE = Symbol.for('erp.session.permCache');
+
+interface CachedPerms {
+  superAdmin: boolean;
+  byResource: Record<string, number>;
+}
 
 @Injectable()
 export class RbacGuard implements CanActivate {
@@ -40,11 +44,10 @@ export class RbacGuard implements CanActivate {
       [context.getHandler(), context.getClass()],
     );
 
-    // No permission required on this route → allow
     if (!required) return true;
 
     const request = context.switchToHttp().getRequest<{ user?: UserSession }>();
-    const session = request.user;
+    const session = request.user as any;
 
     if (!session) {
       throw new ForbiddenException({
@@ -53,101 +56,62 @@ export class RbacGuard implements CanActivate {
       });
     }
 
-    // Populate permissions if empty (first guard call in request lifecycle)
-    if (session.permissions.length === 0) {
-      await this.populatePermissions(session);
+    let cache: CachedPerms | undefined = session[PERM_CACHE];
+    if (!cache) {
+      cache = await this.loadCache(session.userId);
+      session[PERM_CACHE] = cache;
     }
 
-    const hasPermission = this.checkPermission(session, required.resource, required.action);
+    if (cache.superAdmin) return true;
 
-    if (!hasPermission) {
-      this.logger.warn(
-        `Access denied: user=${session.userId} resource=${required.resource} action=${required.action}`,
-      );
-      throw new ForbiddenException({
-        code: 'FORBIDDEN',
-        messageAr: `ليس لديك صلاحية ${this.actionAr(required.action)} على ${required.resource}`,
-      });
+    const bit = PERMISSION_BIT[required.action as string];
+    if (!bit) {
+      // Unknown action — require explicit role entry naming the resource
+      const mask = cache.byResource[required.resource] ?? 0;
+      if (mask === 0) {
+        this.deny(session, required);
+      }
+      return true;
     }
 
+    const mask = cache.byResource[required.resource] ?? 0;
+    if ((mask & bit) === 0) this.deny(session, required);
     return true;
   }
 
-  // ─── Permission Resolution ─────────────────────────────────────────────────
+  private deny(session: UserSession, required: RequiredPermission): never {
+    this.logger.warn(
+      `Access denied: user=${session.userId} resource=${required.resource} action=${required.action}`,
+    );
+    throw new ForbiddenException({
+      code: 'FORBIDDEN',
+      messageAr: `ليس لديك صلاحية على ${required.resource}`,
+    });
+  }
 
-  /**
-   * Load permissions from DB roles and populate session.permissions.
-   * SuperAdmin gets all permissions automatically.
-   */
-  private async populatePermissions(session: UserSession): Promise<void> {
+  private async loadCache(userId: string): Promise<CachedPerms> {
     try {
       const userRoles = await this.prisma.userRole.findMany({
-        where: { userId: session.userId, isActive: true },
+        where: { userId },
         include: { role: true },
       });
 
-      if (userRoles.some(ur => ur.role.name === 'super_admin')) {
-        // SuperAdmin has every permission — marker entry
-        session.permissions = [{ resource: '*', action: '*' as PermissionAction, bitmask: 0xFFFF }];
-        return;
+      if (userRoles.some((ur: any) => ur.role?.name === 'super_admin' || ur.role?.name === 'SuperAdmin')) {
+        return { superAdmin: true, byResource: {} };
       }
 
-      // Merge permission bitmasks across all roles
-      const merged: Record<string, number> = {};
-
+      const byResource: Record<string, number> = {};
       for (const ur of userRoles) {
-        const perms = ur.role.permissions as Record<string, number> | null;
+        const perms = (ur as any).role?.permissions as Record<string, number> | null;
         if (!perms) continue;
-
         for (const [resource, bitmask] of Object.entries(perms)) {
-          merged[resource] = (merged[resource] ?? 0) | bitmask;
+          byResource[resource] = (byResource[resource] ?? 0) | Number(bitmask);
         }
       }
-
-      session.permissions = Object.entries(merged).map(([resource, bitmask]) => ({
-        resource,
-        action: 'read' as PermissionAction, // placeholder — real check uses bitmask
-        bitmask,
-      }));
+      return { superAdmin: false, byResource };
     } catch (err) {
       this.logger.error('Failed to load permissions:', err);
-      session.permissions = [];
+      return { superAdmin: false, byResource: {} };
     }
-  }
-
-  /**
-   * Check if session has permission for resource + action using bitmask.
-   */
-  private checkPermission(
-    session: UserSession,
-    resource: string,
-    action: PermissionAction,
-  ): boolean {
-    // SuperAdmin bypass
-    const superAdmin = session.permissions.find(p => p.resource === '*');
-    if (superAdmin) return true;
-
-    const bit = PERMISSION_BIT[action];
-    if (bit === undefined) return false;
-
-    const entry = session.permissions.find(p => p.resource === resource);
-    if (!entry) return false;
-
-    return (entry.bitmask & bit) !== 0;
-  }
-
-  // ─── Helpers ───────────────────────────────────────────────────────────────
-
-  private actionAr(action: PermissionAction): string {
-    const map: Record<PermissionAction, string> = {
-      create: 'إنشاء',
-      read: 'عرض',
-      update: 'تعديل',
-      delete: 'حذف',
-      submit: 'تقديم',
-      approve: 'اعتماد',
-      print: 'طباعة',
-    };
-    return map[action] ?? action;
   }
 }
