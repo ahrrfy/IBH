@@ -1,4 +1,3 @@
-// @ts-nocheck -- Prisma input shape refinement pending (G4-G6)
 import {
   Injectable,
   NotFoundException,
@@ -10,7 +9,7 @@ import { AuthService } from '../../../engines/auth/auth.service';
 import { AuditService } from '../../../engines/audit/audit.service';
 import type { UserSession } from '@erp/shared-types';
 import type { CreateUserInput } from '@erp/validation-schemas';
-import { Prisma } from '@prisma/client';
+import { Prisma, UserStatus } from '@prisma/client';
 
 // ─── Users Service ─────────────────────────────────────────────────────────────
 // Creates, updates, and queries system users.
@@ -46,9 +45,12 @@ export class UsersService {
       });
     }
 
-    // Validate roles exist
+    // Validate roles exist (scoped to company OR global system roles)
     const roles = await this.prisma.role.findMany({
-      where: { id: { in: dto.roles }, companyId },
+      where: {
+        id: { in: dto.roles },
+        OR: [{ companyId }, { companyId: null }],
+      },
     });
 
     if (roles.length !== dto.roles.length) {
@@ -68,12 +70,13 @@ export class UsersService {
         passwordHash,
         companyId,
         branchId:     dto.branchId ?? null,
-        status:       'active',
+        status:       UserStatus.active,
         createdBy:    session.userId,
+        updatedBy:    session.userId,
         userRoles: {
-          create: roles.map(r => ({
-            roleId:    r.id,
-            createdBy: session.userId,
+          create: roles.map((r) => ({
+            roleId:     r.id,
+            assignedBy: session.userId,
           })),
         },
       },
@@ -109,15 +112,15 @@ export class UsersService {
       deletedAt: null,
       ...(search ? {
         OR: [
-          { email: { contains: search, mode: 'insensitive' } },
+          { email:  { contains: search, mode: Prisma.QueryMode.insensitive } },
           { nameAr: { contains: search } },
-          { nameEn: { contains: search, mode: 'insensitive' } },
+          { nameEn: { contains: search, mode: Prisma.QueryMode.insensitive } },
         ],
       } : {}),
       ...(branchId ? { branchId } : {}),
-      ...(isActive !== undefined ? {
-        status: isActive ? 'active' : 'inactive',
-      } : {}),
+      ...(isActive !== undefined
+        ? { status: isActive ? UserStatus.active : UserStatus.inactive }
+        : {}),
     };
 
     const [users, total] = await Promise.all([
@@ -146,9 +149,15 @@ export class UsersService {
       select: {
         ...this.safeSelect(),
         userRoles: {
-          where: { isActive: true },
           include: {
-            role: { select: { id: true, name: true, displayName: true } },
+            role: {
+              select: {
+                id:            true,
+                name:          true,
+                displayNameAr: true,
+                displayNameEn: true,
+              },
+            },
           },
         },
       },
@@ -166,7 +175,7 @@ export class UsersService {
   async update(
     id: string,
     companyId: string,
-    dto: Partial<{ nameAr: string; nameEn: string; branchId: string; status: string }>,
+    dto: Partial<{ nameAr: string; nameEn: string; branchId: string; status: UserStatus }>,
     session: UserSession,
   ) {
     const user = await this.prisma.user.findFirst({
@@ -222,7 +231,8 @@ export class UsersService {
       where: { id },
       data: {
         deletedAt: new Date(),
-        status:    'inactive',
+        deletedBy: session.userId,
+        status:    UserStatus.inactive,
         updatedBy: session.userId,
       },
     });
@@ -238,6 +248,8 @@ export class UsersService {
   }
 
   // ─── Roles ────────────────────────────────────────────────────────────────
+  // UserRole is a pure join table (no isActive) — assignment/revocation
+  // is done by inserting/deleting rows atomically.
 
   async assignRoles(
     userId: string,
@@ -249,28 +261,34 @@ export class UsersService {
       where: { id: userId, companyId, deletedAt: null },
     });
 
-    // Deactivate existing roles
-    await this.prisma.userRole.updateMany({
-      where: { userId },
-      data: { isActive: false },
+    // Validate roles exist (company-scoped OR global)
+    const roles = await this.prisma.role.findMany({
+      where: {
+        id: { in: roleIds },
+        OR: [{ companyId }, { companyId: null }],
+      },
+      select: { id: true },
     });
+    if (roles.length !== roleIds.length) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        messageAr: 'أحد الأدوار المحددة غير موجود',
+      });
+    }
 
-    // Create new role assignments
-    await this.prisma.userRole.createMany({
-      data: roleIds.map(roleId => ({
-        userId,
-        roleId,
-        createdBy: session.userId,
-        isActive:  true,
-      })),
-      skipDuplicates: true,
-    });
-
-    // Re-activate if they already exist
-    await this.prisma.userRole.updateMany({
-      where: { userId, roleId: { in: roleIds } },
-      data: { isActive: true },
-    });
+    await this.prisma.$transaction([
+      // Remove all current role assignments
+      this.prisma.userRole.deleteMany({ where: { userId } }),
+      // Re-insert the new set
+      this.prisma.userRole.createMany({
+        data: roleIds.map((roleId) => ({
+          userId,
+          roleId,
+          assignedBy: session.userId,
+        })),
+        skipDuplicates: true,
+      }),
+    ]);
 
     await this.audit.log({
       companyId,
@@ -288,21 +306,21 @@ export class UsersService {
   /** Never return passwordHash to API consumers */
   private safeSelect() {
     return {
-      id:             true,
-      email:          true,
-      nameAr:         true,
-      nameEn:         true,
-      status:         true,
-      companyId:      true,
-      branchId:       true,
-      avatarUrl:      true,
-      locale:         true,
-      requires2FA:    true,
-      lastLoginAt:    true,
-      lastLoginIp:    true,
+      id:               true,
+      email:            true,
+      nameAr:           true,
+      nameEn:           true,
+      status:           true,
+      companyId:        true,
+      branchId:         true,
+      avatarUrl:        true,
+      locale:           true,
+      requires2FA:      true,
+      lastLoginAt:      true,
+      lastLoginIp:      true,
       failedLoginCount: true,
-      createdAt:      true,
-      updatedAt:      true,
-    } as const;
+      createdAt:        true,
+      updatedAt:        true,
+    } satisfies Prisma.UserSelect;
   }
 }

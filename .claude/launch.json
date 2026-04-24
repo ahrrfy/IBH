@@ -1,0 +1,35 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "API (NestJS)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@erp/api", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "Admin Web (Next.js)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@erp/web", "dev"],
+      "port": 3001
+    },
+    {
+      "name": "Storefront (Next.js)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@erp/storefront", "dev"],
+      "port": 3002
+    },
+    {
+      "name": "POS UI (Vite)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@erp/pos", "dev"],
+      "port": 1420
+    },
+    {
+      "name": "POS Desktop (Tauri)",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@erp/pos", "tauri:dev"],
+      "port": 1420
+    }
+  ]
+}

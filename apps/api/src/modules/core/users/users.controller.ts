@@ -17,6 +17,7 @@ import { ZodValidationPipe } from '../../../platform/pipes/zod-validation.pipe';
 import { createUserSchema } from '@erp/validation-schemas';
 import type { CreateUserInput } from '@erp/validation-schemas';
 import type { UserSession } from '@erp/shared-types';
+import { UserStatus } from '@prisma/client';
 import { z } from 'zod';
 
 const assignRolesSchema = z.object({
@@ -68,7 +69,7 @@ export class UsersController {
   @RequirePermission('User', 'update')
   async update(
     @Param('id') id: string,
-    @Body() body: { nameAr?: string; nameEn?: string; branchId?: string; status?: string },
+    @Body() body: { nameAr?: string; nameEn?: string; branchId?: string; status?: UserStatus },
     @CurrentUser() user: UserSession,
   ) {
     return this.usersService.update(id, user.companyId, body, user);

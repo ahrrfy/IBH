@@ -1,16 +1,17 @@
-// @ts-nocheck -- Prisma input shape refinement pending (G4-G6)
 import {
   Injectable,
   NotFoundException,
-  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
 import type { UserSession } from '@erp/shared-types';
+import { Prisma } from '@prisma/client';
 
 // ─── Companies Service ─────────────────────────────────────────────────────────
 // Manages the top-level Company entity and its Branches.
 // Only SuperAdmin can create companies; CompanyAdmin manages their own company.
+// Roles are a pure domain model — they have no soft-delete or audit trail columns
+// of their own (audit is captured via the AuditService).
 
 @Injectable()
 export class CompaniesService {
@@ -94,12 +95,28 @@ export class CompaniesService {
     },
     session: UserSession,
   ) {
+    // Prevent duplicate code within company
+    const existing = await this.prisma.branch.findFirst({
+      where: { companyId, code: dto.code, deletedAt: null },
+    });
+    if (existing) {
+      throw new NotFoundException({
+        code: 'CONFLICT',
+        messageAr: `رمز الفرع "${dto.code}" مستخدم مسبقاً`,
+      });
+    }
+
     const branch = await this.prisma.branch.create({
       data: {
-        ...dto,
         companyId,
-        isActive:  true,
-        createdBy: session.userId,
+        code:       dto.code,
+        nameAr:     dto.nameAr,
+        nameEn:     dto.nameEn,
+        phone:      dto.phone,
+        address:    dto.address,
+        isActive:   true,
+        createdBy:  session.userId,
+        updatedBy:  session.userId,
       },
     });
 
@@ -131,26 +148,41 @@ export class CompaniesService {
       throw new NotFoundException({ code: 'NOT_FOUND', messageAr: 'الفرع غير موجود' });
     }
 
-    return this.prisma.branch.update({
+    const updated = await this.prisma.branch.update({
       where: { id: branchId },
       data: { ...dto, updatedBy: session.userId },
     });
+
+    await this.audit.log({
+      companyId,
+      userId:     session.userId,
+      userEmail:  session.userId,
+      action:     'branch.update',
+      entityType: 'Branch',
+      entityId:   branchId,
+      before:     branch,
+      after:      dto,
+    });
+
+    return updated;
   }
 
   // ─── Roles ────────────────────────────────────────────────────────────────
 
   async getRoles(companyId: string) {
     return this.prisma.role.findMany({
-      where: { companyId, deletedAt: null },
-      orderBy: { name: 'asc' },
+      where: {
+        OR: [{ companyId }, { companyId: null }],          // company roles + global system roles
+      },
+      orderBy: [{ isSystem: 'desc' }, { name: 'asc' }],
       select: {
-        id:          true,
-        name:        true,
-        displayName: true,
-        description: true,
-        isSystem:    true,
-        permissions: true,
-        createdAt:   true,
+        id:             true,
+        name:           true,
+        displayNameAr:  true,
+        displayNameEn:  true,
+        isSystem:       true,
+        permissions:    true,
+        createdAt:      true,
       },
     });
   }
@@ -159,18 +191,31 @@ export class CompaniesService {
     companyId: string,
     dto: {
       name: string;
-      displayName: string;
-      description?: string;
-      permissions: Record<string, number>;
+      displayNameAr: string;
+      displayNameEn?: string;
+      permissions: Prisma.InputJsonValue;
     },
     session: UserSession,
   ) {
+    // Prevent collision with an existing role name in this company or globally
+    const existing = await this.prisma.role.findFirst({
+      where: { companyId, name: dto.name },
+    });
+    if (existing) {
+      throw new NotFoundException({
+        code: 'CONFLICT',
+        messageAr: `اسم الدور "${dto.name}" مستخدم مسبقاً`,
+      });
+    }
+
     const role = await this.prisma.role.create({
       data: {
-        ...dto,
         companyId,
-        isSystem:  false,
-        createdBy: session.userId,
+        name:           dto.name,
+        displayNameAr:  dto.displayNameAr,
+        displayNameEn:  dto.displayNameEn,
+        isSystem:       false,
+        permissions:    dto.permissions,
       },
     });
 
@@ -190,20 +235,37 @@ export class CompaniesService {
   async updateRolePermissions(
     roleId: string,
     companyId: string,
-    permissions: Record<string, number>,
+    permissions: Prisma.InputJsonValue,
     session: UserSession,
   ) {
+    // Only non-system, company-owned roles can be modified
     const role = await this.prisma.role.findFirst({
-      where: { id: roleId, companyId, isSystem: false, deletedAt: null },
+      where: { id: roleId, companyId, isSystem: false },
     });
 
     if (!role) {
-      throw new NotFoundException({ code: 'NOT_FOUND', messageAr: 'الدور غير موجود أو لا يمكن تعديله' });
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        messageAr: 'الدور غير موجود أو لا يمكن تعديله',
+      });
     }
 
-    return this.prisma.role.update({
+    const updated = await this.prisma.role.update({
       where: { id: roleId },
-      data: { permissions, updatedBy: session.userId },
+      data: { permissions },
     });
+
+    await this.audit.log({
+      companyId,
+      userId:     session.userId,
+      userEmail:  session.userId,
+      action:     'role.update_permissions',
+      entityType: 'Role',
+      entityId:   roleId,
+      before:     { permissions: role.permissions },
+      after:      { permissions },
+    });
+
+    return updated;
   }
 }
