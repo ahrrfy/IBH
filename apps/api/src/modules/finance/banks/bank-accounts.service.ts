@@ -1,4 +1,3 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
@@ -37,18 +36,19 @@ export class BankAccountsService {
     const opening = new Prisma.Decimal(dto.openingBalance ?? 0);
     const bank = await this.prisma.bankAccount.create({
       data: {
-        companyId: session.companyId,
-        accountId: dto.accountId,
-        bankName: dto.bankName,
-        branchName: dto.branchName,
-        accountNumber: dto.accountNumber,
-        iban: dto.iban,
-        swift: dto.swift,
-        type: dto.type as any,
-        currency: dto.currency,
+        companyId:      session.companyId,
+        accountId:      dto.accountId,
+        bankName:       dto.bankName,
+        branchName:     dto.branchName,
+        accountNumber:  dto.accountNumber,
+        iban:           dto.iban,
+        swift:          dto.swift,
+        type:           dto.type as any,
+        currency:       dto.currency,
         openingBalance: opening,
         currentBalance: opening,
-        isActive: true,
+        isActive:       true,
+        createdBy:      session.userId,
       },
     });
     await this.audit.log({
@@ -112,7 +112,6 @@ export class BankAccountsService {
   async findAll(companyId: string) {
     return this.prisma.bankAccount.findMany({
       where: { companyId },
-      include: { account: { select: { code: true, nameAr: true } } },
       orderBy: { bankName: 'asc' },
     });
   }
@@ -120,7 +119,6 @@ export class BankAccountsService {
   async findOne(id: string, companyId: string) {
     const b = await this.prisma.bankAccount.findFirst({
       where: { id, companyId },
-      include: { account: true },
     });
     if (!b) {
       throw new NotFoundException({
@@ -145,23 +143,37 @@ export class BankAccountsService {
       });
     }
     const at = asOf ?? new Date();
-    const agg = await this.prisma.journalEntryLine.aggregate({
-      where: {
-        accountId: b.accountId,
-        entry: { status: 'posted', entryDate: { lte: at } },
-      },
-      _sum: { debitIqd: true, creditIqd: true },
-    });
-    const d = agg._sum.debitIqd ?? new Prisma.Decimal(0);
-    const c = agg._sum.creditIqd ?? new Prisma.Decimal(0);
+
+    // Aggregate debit + credit separately (side-based schema)
+    const [debitAgg, creditAgg] = await Promise.all([
+      this.prisma.journalEntryLine.aggregate({
+        where: {
+          accountId:    b.accountId,
+          side:         'debit',
+          journalEntry: { status: 'posted', entryDate: { lte: at } },
+        },
+        _sum: { amountIqd: true },
+      }),
+      this.prisma.journalEntryLine.aggregate({
+        where: {
+          accountId:    b.accountId,
+          side:         'credit',
+          journalEntry: { status: 'posted', entryDate: { lte: at } },
+        },
+        _sum: { amountIqd: true },
+      }),
+    ]);
+
+    const d = debitAgg._sum.amountIqd  ?? new Prisma.Decimal(0);
+    const c = creditAgg._sum.amountIqd ?? new Prisma.Decimal(0);
     // Bank accounts are asset-natured: debit-positive.
     const balance = b.openingBalance.plus(d).minus(c);
     return {
       bankAccountId,
-      asOf: at,
+      asOf:           at,
       openingBalance: b.openingBalance,
-      debitIqd: d,
-      creditIqd: c,
+      debitIqd:       d,
+      creditIqd:      c,
       balance,
     };
   }
