@@ -22,6 +22,11 @@ import { CoreModule }      from './modules/core/core.module';
 import { ProductsModule }  from './modules/products/products.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
 
+// Business Modules (Wave 2)
+import { SalesModule }     from './modules/sales/sales.module';
+import { POSModule }       from './modules/pos/pos.module';
+import { DeliveryModule }  from './modules/delivery/delivery.module';
+
 @Module({
   imports: [
     // ── Config ────────────────────────────────────────────────────────────
@@ -68,10 +73,15 @@ import { InventoryModule } from './modules/inventory/inventory.module';
     PostingModule,
     WorkflowModule,
 
-    // ── Business Modules ───────────────────────────────────────────────────
+    // ── Business Modules — Wave 1 ───────────────────────────────────────────
     CoreModule,
     ProductsModule,
     InventoryModule,
+
+    // ── Business Modules — Wave 2 ───────────────────────────────────────────
+    SalesModule,
+    POSModule,
+    DeliveryModule,
   ],
 })
 export class AppModule {}
