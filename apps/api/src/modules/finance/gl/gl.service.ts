@@ -1,4 +1,4 @@
-// @ts-nocheck -- agent-written; schema field mapping to be refined in G4-G6
+// @ts-nocheck -- TODO: refactor to use side-based JournalEntryLine schema (amountIqd + side='debit'|'credit') instead of debitIqd/creditIqd, and journalEntry relation instead of 'entry'
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
