@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 
@@ -9,6 +10,14 @@ interface Line { variantId: string; qty: number; unitPriceIqd: number }
 
 export default function NewPurchaseOrderPage() {
   const router = useRouter();
+  const { data: suppliers } = useQuery({
+    queryKey: ['suppliers', 'picker'],
+    queryFn: () => api<any>('/purchases/suppliers'),
+  });
+  const { data: warehouses } = useQuery({
+    queryKey: ['warehouses', 'picker'],
+    queryFn: () => api<any>('/inventory/warehouses'),
+  });
   const [supplierId, setSupplierId] = useState('');
   const [warehouseId, setWarehouseId] = useState('');
   const [notes, setNotes] = useState('');
@@ -41,12 +50,22 @@ export default function NewPurchaseOrderPage() {
 
       <section className="grid gap-3 rounded-lg bg-white p-4 shadow-sm md:grid-cols-3">
         <label className="block">
-          <span className="text-sm text-slate-500">المورد (ID)</span>
-          <input className="mt-1 w-full rounded border px-3 py-2" value={supplierId} onChange={(e) => setSupplierId(e.target.value)} />
+          <span className="text-sm text-slate-500">المورد</span>
+          <select className="mt-1 w-full rounded border px-3 py-2" value={supplierId} onChange={(e) => setSupplierId(e.target.value)}>
+            <option value="">— اختر —</option>
+            {(suppliers?.items ?? []).map((s: any) => (
+              <option key={s.id} value={s.id}>{s.code} · {s.nameAr}</option>
+            ))}
+          </select>
         </label>
         <label className="block">
-          <span className="text-sm text-slate-500">المستودع (ID)</span>
-          <input className="mt-1 w-full rounded border px-3 py-2" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)} />
+          <span className="text-sm text-slate-500">المستودع</span>
+          <select className="mt-1 w-full rounded border px-3 py-2" value={warehouseId} onChange={(e) => setWarehouseId(e.target.value)}>
+            <option value="">— اختر —</option>
+            {(warehouses?.items ?? []).map((w: any) => (
+              <option key={w.id} value={w.id}>{w.code} · {w.nameAr}</option>
+            ))}
+          </select>
         </label>
         <label className="block md:col-span-3">
           <span className="text-sm text-slate-500">ملاحظات</span>
