@@ -2,7 +2,7 @@
  * Full seed for الرؤية العربية ERP
  *   1. Company + 2 branches
  *   2. Default Roles (super_admin, accountant, cashier, ...)
- *   3. Admin user (super@ruya.iq) + role assignment
+ *   3. Admin user (from SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD env vars)
  *   4. System policies
  *   5. Units of Measure
  *   6. Iraqi Chart of Accounts (~70 accounts)
@@ -125,15 +125,21 @@ async function main() {
   console.log(`✅ Roles: ${Object.keys(roles).length}`);
 
   // ─── 4. Admin user ───────────────────────────────────────────────────────
-  const passwordHash = await argon2.hash('Admin@2026!', {
+  // Password from env — fail if not set, no defaults.
+  const adminPwd = process.env.SEED_ADMIN_PASSWORD;
+  if (!adminPwd || adminPwd.length < 12) {
+    throw new Error('SEED_ADMIN_PASSWORD env var required (≥12 chars)');
+  }
+  const passwordHash = await argon2.hash(adminPwd, {
     type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 4,
   });
+  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@al-ruya.iq';
   const adminUser = await prisma.user.upsert({
-    where: { companyId_email: { companyId: company.id, email: 'super@ruya.iq' } },
+    where: { companyId_email: { companyId: company.id, email: adminEmail } },
     update: {},
     create: {
       companyId: company.id, branchId: branchBGD.id,
-      email: 'super@ruya.iq', passwordHash,
+      email: adminEmail, passwordHash,
       nameAr: 'مدير النظام', nameEn: 'System Admin',
       status: 'active', locale: 'ar',
       createdBy: 'seed', updatedBy: 'seed',
@@ -315,7 +321,7 @@ async function main() {
   console.log('✅ Walk-in customer');
 
   console.log('\n🎉 Seed complete!');
-  console.log('   Login: super@ruya.iq / Admin@2026!');
+  console.log('   Login: see SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD env vars');
 }
 
 // ────────────────────────────────────────────────────────────────────────────

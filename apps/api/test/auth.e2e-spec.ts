@@ -27,14 +27,14 @@ describe('Auth (e2e)', () => {
   it('POST /auth/login with wrong password → 401', async () => {
     const res = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: 'super@ruya.iq', password: 'wrong-password' });
+      .send({ email: process.env.TEST_ADMIN_EMAIL ?? 'test@example.com', password: 'wrong-password' });
     expect([400, 401]).toContain(res.status);
   });
 
   it('POST /auth/login with valid admin creds → 200 with tokens', async () => {
     const res = await request(app.getHttpServer())
       .post('/auth/login')
-      .send({ email: 'super@ruya.iq', password: 'Admin@2026!' });
+      .send({ email: process.env.TEST_ADMIN_EMAIL ?? 'test@example.com', password: process.env.TEST_ADMIN_PASSWORD ?? 'INVALID' });
 
     if (res.status === 200) {
       expect(res.body).toMatchObject({

@@ -157,8 +157,9 @@ services:
       OWNER_USERNAME: ${OWNER_USERNAME:-}
       OWNER_PASSWORD: ${OWNER_PASSWORD:-}
       OWNER_EMAIL: ${OWNER_EMAIL:-}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@al-ruya.iq}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      # No defaults — admin user only created if both vars are set in .env
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     networks:
       - erp-internal
     depends_on:

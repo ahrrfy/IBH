@@ -503,7 +503,7 @@ export default function PreviewV2() {
           <div className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
           <span>متصل</span>
         </div>
-        <span>المستخدم: <strong>admin@al-ruya.iq</strong></span>
+        <span>المستخدم: <strong>user@company.iq</strong></span>
         <span>الفرع: <strong>بغداد الرئيسي</strong></span>
         <span>الفترة: <strong className="num-latin">2026-04</strong></span>
         <div className="flex-1" />

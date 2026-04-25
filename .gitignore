@@ -9,11 +9,17 @@ build/
 .turbo/
 out/
 
-# Environment files (NEVER commit)
+# ─── Secrets & credentials — NEVER commit ───────────────────────────────
 .env
 .env.local
 .env.*.local
+.env.production
+.env.staging
+.env.development
 *.env
+# Allow only documented examples
+!.env.example
+!.env.production.example
 
 # Database
 *.sqlite
@@ -59,13 +65,30 @@ __pycache__/
 .venv/
 venv/
 
-# Secrets
+# Secrets — keys, certs, credentials
 *.pem
 *.key
 *.crt
+*.cer
 *.p12
 *.pfx
+id_rsa*
+id_ed25519*
 license-server-private.key
+# Letsencrypt / certbot artifacts
+letsencrypt/
+ssl/private/
+# DB dumps (may contain personal/payment data)
+*.sql.gz
+*.sql.bak
+backup-*.tar
+backup-*.gz
+# Misc
+secrets/
+credentials/
+*.secret
+auth.json
+service-account*.json
 
 # Test coverage
 coverage/
