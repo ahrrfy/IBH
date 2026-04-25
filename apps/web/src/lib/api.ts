@@ -37,7 +37,20 @@ export interface ApiRequestInit extends Omit<RequestInit, 'body'> {
 }
 
 function buildUrl(path: string, query?: ApiRequestInit['query']): string {
-  const base = path.startsWith('/api') ? path : `/api${path.startsWith('/') ? path : `/${path}`}`;
+  // API uses URI versioning: /api/v1/...
+  // Accept paths in any of these forms and normalize:
+  //   '/auth/login'          → '/api/v1/auth/login'
+  //   'auth/login'           → '/api/v1/auth/login'
+  //   '/api/v1/auth/login'   → unchanged
+  //   '/api/auth/login'      → '/api/v1/auth/login' (back-compat)
+  let base: string;
+  if (path.startsWith('/api/v')) {
+    base = path;
+  } else if (path.startsWith('/api/')) {
+    base = '/api/v1' + path.slice(4);
+  } else {
+    base = `/api/v1${path.startsWith('/') ? path : `/${path}`}`;
+  }
   if (!query) return base;
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
