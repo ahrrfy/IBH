@@ -1,25 +1,20 @@
 'use client';
 
-import { Suspense, useState, useRef, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Loader2, User as UserIcon, Lock, Eye, EyeOff, Shield, KeyRound } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { ApiError } from '@/lib/api';
 
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<div className="text-slate-500">جارٍ التحميل…</div>}>
-      <LoginFlow />
-    </Suspense>
-  );
-}
-
 type Step = 'credentials' | 'mfa';
 
-function LoginFlow() {
+/**
+ * Login page — minimal implementation to avoid hydration/Suspense edge cases.
+ * No <form> element (everything is button-driven) so native form submission
+ * cannot race with React event handlers.
+ */
+export default function LoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { login, verifyMfa } = useAuth();
 
   const [step, setStep] = useState<Step>('credentials');
@@ -32,14 +27,22 @@ function LoginFlow() {
   // MFA state
   const [mfaToken, setMfaToken] = useState('');
   const [code, setCode] = useState('');
-  const codeInputRef = useRef<HTMLInputElement>(null);
+  const codeRef = useRef<HTMLInputElement>(null);
+
+  // Read ?next=... from URL on mount (no useSearchParams to avoid Suspense)
+  const [nextPath, setNextPath] = useState('/dashboard');
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const n = params.get('next');
+    if (n && n.startsWith('/')) setNextPath(n);
+  }, []);
 
   useEffect(() => {
-    if (step === 'mfa') codeInputRef.current?.focus();
+    if (step === 'mfa') codeRef.current?.focus();
   }, [step]);
 
-  async function handleCredentialsSubmit(e?: { preventDefault?: () => void }) {
-    e?.preventDefault?.();
+  async function doCredentialsLogin() {
     if (submitting) return;
     if (!emailOrUsername.trim() || !password) {
       setError('يرجى إدخال اسم المستخدم/البريد وكلمة المرور');
@@ -48,43 +51,54 @@ function LoginFlow() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await login(emailOrUsername, password);
+      const res = await login(emailOrUsername.trim(), password);
       if (res.mfaRequired) {
         setMfaToken(res.mfaToken);
         setStep('mfa');
       } else {
-        const next = searchParams.get('next') || '/dashboard';
-        router.replace(next);
+        router.replace(nextPath);
       }
     } catch (err) {
+      console.error('Login failed:', err);
       if (err instanceof ApiError) setError(err.messageAr);
+      else if (err instanceof Error) setError(err.message);
       else setError('حدث خطأ غير متوقع، يرجى المحاولة مجدداً');
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function handleMfaSubmit(e?: { preventDefault?: () => void }) {
-    e?.preventDefault?.();
+  async function doMfaVerify() {
     if (submitting) return;
-    if (!/^\d{6}$/.test(code) && !/^[A-Z2-9]{8}$/i.test(code)) {
+    const c = code.trim();
+    if (!/^\d{6}$/.test(c) && !/^[A-Z2-9]{8}$/i.test(c)) {
       setError('الرمز يجب أن يكون 6 أرقام (Authenticator) أو 8 أحرف (رمز احتياطي)');
       return;
     }
     setError(null);
     setSubmitting(true);
     try {
-      await verifyMfa(mfaToken, code.trim());
-      const next = searchParams.get('next') || '/dashboard';
-      router.replace(next);
+      await verifyMfa(mfaToken, c);
+      router.replace(nextPath);
     } catch (err) {
+      console.error('MFA verify failed:', err);
       if (err instanceof ApiError) setError(err.messageAr);
       else setError('الرمز غير صحيح، حاول مجدداً');
       setCode('');
-      codeInputRef.current?.focus();
+      codeRef.current?.focus();
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // Submit on Enter inside any input
+  function handleEnter(action: () => void) {
+    return (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        action();
+      }
+    };
   }
 
   return (
@@ -101,13 +115,7 @@ function LoginFlow() {
 
       {/* ─── Step 1: credentials ─────────────────────────────────────── */}
       {step === 'credentials' && (
-        <form
-          onSubmit={handleCredentialsSubmit}
-          action="javascript:void(0)"
-          method="post"
-          noValidate
-          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           {error && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
               {error}
@@ -124,6 +132,7 @@ function LoginFlow() {
                 placeholder="name@company.iq"
                 value={emailOrUsername}
                 onChange={(e) => setEmailOrUsername(e.target.value)}
+                onKeyDown={handleEnter(doCredentialsLogin)}
                 className="h-11 w-full rounded-lg border border-slate-200 bg-white pr-10 pl-3 text-sm outline-none focus:border-sky-500"
                 dir="ltr"
               />
@@ -140,6 +149,7 @@ function LoginFlow() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={handleEnter(doCredentialsLogin)}
                 className="h-11 w-full rounded-lg border border-slate-200 bg-white pr-10 pl-10 text-sm outline-none focus:border-sky-500"
                 dir="ltr"
               />
@@ -155,38 +165,32 @@ function LoginFlow() {
           </label>
 
           <div className="mb-4 flex items-center justify-between text-xs">
-            <Link href="/forgot-password" className="text-sky-700 hover:underline">
+            <a href="/forgot-password" className="text-sky-700 hover:underline">
               نسيت كلمة المرور؟
-            </Link>
+            </a>
           </div>
 
           <button
             type="button"
-            onClick={() => handleCredentialsSubmit()}
+            onClick={doCredentialsLogin}
             disabled={submitting}
             className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-sky-700 text-sm font-semibold text-white hover:bg-sky-800 disabled:opacity-60"
           >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
             تسجيل الدخول
           </button>
-        </form>
+        </div>
       )}
 
-      {/* ─── Step 2: MFA / TOTP ──────────────────────────────────────── */}
+      {/* ─── Step 2: MFA ─────────────────────────────────────────────── */}
       {step === 'mfa' && (
-        <form
-          onSubmit={handleMfaSubmit}
-          action="javascript:void(0)"
-          method="post"
-          noValidate
-          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-        >
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="mb-4 rounded-lg bg-sky-50 border border-sky-200 px-4 py-3 flex items-start gap-3">
             <Shield className="h-5 w-5 text-sky-700 mt-0.5 shrink-0" />
             <div className="text-xs text-sky-900">
               <strong>التحقّق بخطوتين مفعّل لحسابك.</strong>
               <br />
-              افتح تطبيق Google Authenticator (أو Authy) وأدخل الرمز المكوّن من 6 أرقام.
+              افتح تطبيق Google Authenticator وأدخل الرمز المكوّن من 6 أرقام.
             </div>
           </div>
 
@@ -201,13 +205,14 @@ function LoginFlow() {
             <div className="relative">
               <KeyRound className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
-                ref={codeInputRef}
+                ref={codeRef}
                 type="text"
                 inputMode="numeric"
                 autoComplete="one-time-code"
                 placeholder="123456"
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
+                onKeyDown={handleEnter(doMfaVerify)}
                 maxLength={8}
                 className="h-12 w-full rounded-lg border border-slate-200 bg-white pr-10 pl-3 text-lg text-center font-mono tracking-widest outline-none focus:border-sky-500 num-latin"
                 dir="ltr"
@@ -220,7 +225,7 @@ function LoginFlow() {
 
           <button
             type="button"
-            onClick={() => handleMfaSubmit()}
+            onClick={doMfaVerify}
             disabled={submitting || (!/^\d{6}$/.test(code) && !/^[A-Z2-9]{8}$/i.test(code))}
             className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-sky-700 text-sm font-semibold text-white hover:bg-sky-800 disabled:opacity-60"
           >
@@ -235,7 +240,7 @@ function LoginFlow() {
           >
             ← الرجوع لتسجيل الدخول
           </button>
-        </form>
+        </div>
       )}
 
       <p className="mt-6 text-center text-xs text-slate-500">
