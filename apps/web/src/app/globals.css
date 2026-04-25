@@ -120,6 +120,30 @@
 }
 
 @layer utilities {
-  .num-latin { font-feature-settings: "lnum"; direction: ltr; unicode-bidi: isolate; }
+  /* ─── Numbers — force Latin digits + tabular spacing system-wide ──── */
+  .num-latin {
+    font-feature-settings: "lnum", "tnum";
+    font-variant-numeric: lining-nums tabular-nums;
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+  /* All numeric inputs render Latin digits regardless of browser locale */
+  input[type="number"],
+  input[inputmode="decimal"],
+  input[inputmode="numeric"] {
+    font-feature-settings: "lnum", "tnum";
+    font-variant-numeric: lining-nums tabular-nums;
+    direction: ltr;
+    text-align: end;
+  }
+
+  /* ─── Money direction (Iraqi accounting convention) ────────────────── */
+  /* مدين = AR, له علينا/owed to us, asset side → green */
+  .money-debit  { color: theme('colors.emerald.700'); }
+  /* دائن = AP, لنا عليه/we owe, liability side → red */
+  .money-credit { color: theme('colors.rose.700'); }
+  /* Neutral display */
+  .money-zero   { color: theme('colors.slate.400'); }
+
   .skeleton  { @apply animate-pulse-soft bg-surface-muted rounded-md; }
 }

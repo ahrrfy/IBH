@@ -1,17 +1,17 @@
 // Arabic-localized formatting helpers.
 
-const IQD_FORMATTER = new Intl.NumberFormat('ar-IQ', {
+const IQD_FORMATTER = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 0,
   minimumFractionDigits: 0,
 });
 
-const DATE_FORMATTER = new Intl.DateTimeFormat('ar-IQ', {
+const DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
 });
 
-const DATETIME_FORMATTER = new Intl.DateTimeFormat('ar-IQ', {
+const DATETIME_FORMATTER = new Intl.DateTimeFormat('en-CA', {
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
@@ -19,7 +19,7 @@ const DATETIME_FORMATTER = new Intl.DateTimeFormat('ar-IQ', {
   minute: '2-digit',
 });
 
-const PCT_FORMATTER = new Intl.NumberFormat('ar-IQ', {
+const PCT_FORMATTER = new Intl.NumberFormat('en-US', {
   style: 'percent',
   maximumFractionDigits: 1,
   minimumFractionDigits: 0,
