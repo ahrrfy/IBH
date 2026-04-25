@@ -27,7 +27,7 @@
 | I007 | زر "تسجيل الدخول" في /login لا يستجيب — تشخيص: فشل hydration على client (راجع §I007 أدناه) | 🔴 حرج | Wave 1 | Frontend | مفتوح — قيد التشخيص (2026-04-25) |
 | I008 | full seed.ts لم يُختبَر — Iraqi CoA + roles + policies لم تُسلَّم | 🟡 مهم | Wave 1 | Backend | مفتوح |
 | I009 | 2FA UI مكتمل لكن لم يُختبَر — يتطلب دخول ناجح من المتصفح أولاً | 🟡 مهم | Wave 1 | QA | مفتوح |
-| I010 | Build فشل (14 errors) — schema لا يطابق auth/totp service بعد commit cdd169c (راجع §I010) | 🔴 حرج | Wave 1 | Backend | مفتوح (2026-04-25) |
+| I010 | Build فشل (14 errors) — Prisma Client stale (schema حديث، Client قديم) | 🔴 حرج | Wave 1 | Backend | ✅ **مغلق** (2026-04-25, commit `a239255`) |
 
 ---
 
@@ -70,30 +70,19 @@
 
 ---
 
-## §I010 — Build regression بعد 2FA foundation (2026-04-25)
+## §I010 — ✅ مغلقة (2026-04-25, commit `a239255`)
 
-**Detected by:** `pnpm --filter api build` خلال session-end · 14 errors · Exit 1
+**الجذر الفعلي بعد التشخيص:** ليس schema mismatch — Prisma Client الـ generated في `node_modules` كان stale من schema قديم. كل الحقول (`username`, `isSystemOwner`, `requires2FA`, `totpSecret`, `totpEnabledAt`, `backupCodes`, `company`, `userRoles`) كانت موجودة في `schema.prisma` (lines 437-486)، لكن Prisma Client لم يُعَد توليده بعد آخر تحديث.
 
-**الجذر:** commit `cdd169c feat(auth): real authentication foundation + Google Authenticator 2FA` أضاف كود لـ:
-- `auth.service.ts` يستخدم `username`, `user.company`, `user.isSystemOwner`, `user.userRoles` — لا تزال غير موجودة في `User` model في `schema.prisma`
-- `totp.service.ts` يستخدم `username`, `totpEnabledAt`, `backupCodes`, `requires2FA` على `User` — غير موجودة في schema
-- `totp.service.ts` يستورد `otplib` و `qrcode` — غير مُثبَّتَين في `apps/api/package.json`
+**الإصلاح الفعلي (دقيقة واحدة):**
+```bash
+pnpm --filter api exec prisma generate
+```
+هذا فقط — `otplib`/`qrcode`/`@types/qrcode` كانوا أصلاً في package.json. الـ pnpm add فقط جدّد lockfile + bump صغير لـ @types/qrcode 1.5.5→1.5.6.
 
-**الأخطاء بالعدد (14):**
-- `auth.service.ts`: 4 errors (username, company, isSystemOwner, userRoles)
-- `totp.service.ts`: 10 errors (username × 3, totpEnabledAt × 2, backupCodes × 3, otplib import, qrcode import)
+**النتيجة:** `pnpm --filter api build` → Exit 0، `dist/main.js` مُنتَج ✅
 
-**الإصلاح المطلوب (سيكل قادم — slice واحد):**
-1. تحديث `User` model في `schema.prisma`: إضافة `username`, `isSystemOwner`, `totpSecret`, `totpEnabledAt`, `backupCodes`, `requires2FA`
-2. إضافة علاقة `company` و `userRoles` (UserRole join model) إذا غير موجودة
-3. `pnpm --filter api add otplib qrcode @types/qrcode`
-4. `pnpm --filter api exec prisma migrate dev --name auth_foundation_fields`
-5. إعادة `pnpm --filter api build` للتحقق
-
-**⚠️ تأثير:** حتى يُحَل I010 لا يمكن:
-- إنشاء dist (deployment معطل)
-- تشغيل أي e2e test (AppModule لن يُهيَّأ)
-- تشغيل runtime محلي
+**الدرس:** أي تحديث على `schema.prisma` يستوجب `prisma generate` فوراً — يجب إضافة postmerge git hook أو خطوة في CI.
 
 ---
 
