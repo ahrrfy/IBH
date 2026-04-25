@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { api } from '../api';
+import type { RootStackParamList } from '../../App';
+
+type Props = NativeStackScreenProps<RootStackParamList, 'Customers'>;
 
 interface Customer { id: string; nameAr: string; phone?: string; creditBalanceIqd?: number }
 
-export default function CustomersScreen() {
+export default function CustomersScreen({ navigation }: Props) {
   const [items, setItems] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -23,10 +27,10 @@ export default function CustomersScreen() {
       keyExtractor={(c) => c.id}
       ListEmptyComponent={<Text style={s.empty}>لا يوجد عملاء</Text>}
       renderItem={({ item }) => (
-        <View style={s.row}>
+        <Pressable style={s.row} onPress={() => navigation.navigate('CustomerDetail', { id: item.id })}>
           <Text style={s.name}>{item.nameAr}</Text>
           <Text style={s.phone}>{item.phone ?? '—'}</Text>
-        </View>
+        </Pressable>
       )}
     />
   );

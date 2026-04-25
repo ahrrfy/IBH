@@ -5,6 +5,7 @@ import HomeScreen from './src/screens/Home';
 import OrdersScreen from './src/screens/Orders';
 import OrderDetailScreen from './src/screens/OrderDetail';
 import CustomersScreen from './src/screens/Customers';
+import CustomerDetailScreen from './src/screens/CustomerDetail';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -12,6 +13,7 @@ export type RootStackParamList = {
   Orders: undefined;
   OrderDetail: { id: string };
   Customers: undefined;
+  CustomerDetail: { id: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -25,6 +27,7 @@ export default function App() {
         <Stack.Screen name="Orders"      component={OrdersScreen}      options={{ title: 'أوامر البيع' }} />
         <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ title: 'تفاصيل الأمر' }} />
         <Stack.Screen name="Customers" component={CustomersScreen} options={{ title: 'العملاء' }} />
+        <Stack.Screen name="CustomerDetail" component={CustomerDetailScreen} options={{ title: 'تفاصيل العميل' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
