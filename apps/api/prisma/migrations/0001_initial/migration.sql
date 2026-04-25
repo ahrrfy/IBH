@@ -98,8 +98,9 @@ END $$;
 -- Pattern: users can only see rows where company_id = current_setting('app.current_company')
 -- Super Admin bypass: set app.current_company = '*' to see all companies
 
-CREATE OR REPLACE FUNCTION current_company_id() RETURNS UUID AS $$
-  SELECT NULLIF(current_setting('app.current_company', true), '')::UUID;
+-- ULID-based: companyId is CHAR(26), so this function returns TEXT (not UUID)
+CREATE OR REPLACE FUNCTION current_company_id() RETURNS TEXT AS $$
+  SELECT NULLIF(current_setting('app.current_company', true), '');
 $$ LANGUAGE SQL STABLE;
 
 -- ─── 5. Append-Only Triggers ─────────────────────────────────────────────────
