@@ -288,7 +288,7 @@ export default function PreviewPage() {
           <div className="h-1.5 w-1.5 rounded-full bg-emerald-300 animate-pulse" />
           <span>متصل</span>
         </div>
-        <span className="opacity-80">المستخدم: <span className="font-medium">admin@al-ruya.iq</span></span>
+        <span className="opacity-80">المستخدم: <span className="font-medium">user@company.iq</span></span>
         <span className="opacity-80">الفرع: <span className="font-medium">بغداد الرئيسي</span></span>
         <span className="opacity-80">الفترة: <span className="font-medium num-latin">2026-04</span></span>
         <div className="flex-1" />

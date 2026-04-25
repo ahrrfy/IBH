@@ -2,7 +2,7 @@
  * Bootstrap seed — minimal but production-grade:
  *   1. Default company + branch
  *   2. The PERMANENT system owner (singleton, isSystemOwner=true)
- *   3. A regular admin@al-ruya.iq for testing
+ *   3. (Optional) Test admin user — only if ADMIN_EMAIL+ADMIN_PASSWORD env set
  *
  * The system owner is a singleton (only one user has isSystemOwner=true).
  * Idempotent — re-running this seed updates the password if it changed
@@ -19,8 +19,10 @@ const OWNER_USERNAME = process.env.OWNER_USERNAME;
 const OWNER_PASSWORD = process.env.OWNER_PASSWORD;
 const OWNER_EMAIL    = process.env.OWNER_EMAIL ?? `${OWNER_USERNAME}@al-ruya.iq`;
 
-const ADMIN_EMAIL    = process.env.ADMIN_EMAIL    ?? 'admin@al-ruya.iq';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'admin123';
+// Test admin is OPTIONAL — only created if both env vars are set explicitly.
+// Never use default credentials.
+const ADMIN_EMAIL    = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 if (!OWNER_USERNAME || !OWNER_PASSWORD) {
   console.error(
@@ -118,27 +120,33 @@ async function main() {
     console.log(`  ✓ Owner created: ${owner.username}`);
   }
 
-  // ─── Test admin (no system owner privilege) ───────────────────────────
-  const adminHash = await argon2.hash(ADMIN_PASSWORD);
-  const admin = await prisma.user.upsert({
-    where: { companyId_email: { companyId: company.id, email: ADMIN_EMAIL } },
-    update: { passwordHash: adminHash },
-    create: {
-      companyId:    company.id,
-      branchId:     branch.id,
-      email:        ADMIN_EMAIL,
-      passwordHash: adminHash,
-      nameAr:       'المدير العام',
-      nameEn:       'System Admin',
-      status:       'active',
-      createdBy:    'seed',
-      updatedBy:    'seed',
-    },
-  });
+  // ─── Test admin (only if both env vars set — no default credentials) ──
+  if (ADMIN_EMAIL && ADMIN_PASSWORD) {
+    const adminHash = await argon2.hash(ADMIN_PASSWORD, {
+      type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 4,
+    });
+    await prisma.user.upsert({
+      where: { companyId_email: { companyId: company.id, email: ADMIN_EMAIL } },
+      update: { passwordHash: adminHash },
+      create: {
+        companyId:    company.id,
+        branchId:     branch.id,
+        email:        ADMIN_EMAIL,
+        passwordHash: adminHash,
+        nameAr:       'المدير العام',
+        nameEn:       'System Admin',
+        status:       'active',
+        createdBy:    'seed',
+        updatedBy:    'seed',
+      },
+    });
+    console.log(`  ✓ Admin: ${ADMIN_EMAIL}`);
+  } else {
+    console.log('  ℹ Skipping admin user (ADMIN_EMAIL/ADMIN_PASSWORD not set)');
+  }
 
   console.log('\n✅ Bootstrap seed complete');
-  console.log('   • Owner account configured (credentials only in OWNER_USERNAME/OWNER_PASSWORD env vars)');
-  console.log('   • Admin account: ' + ADMIN_EMAIL);
+  console.log('   • Owner account configured (credentials in env only — never logged)');
   console.log('   • Login at: https://ibherp.cloud/login');
 }
 
