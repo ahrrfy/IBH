@@ -14,7 +14,7 @@ COPY apps/web/package.json ./apps/web/
 COPY packages/shared-types/package.json ./packages/shared-types/
 COPY packages/validation-schemas/package.json ./packages/validation-schemas/
 
-RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN pnpm install --no-frozen-lockfile --ignore-scripts
 
 # ── Stage 2: build ──────────────────────────────────────────────────────────
 FROM node:${NODE_VERSION}-alpine AS builder
