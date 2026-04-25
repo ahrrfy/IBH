@@ -263,14 +263,13 @@ export class AuthService {
     branchId: string | null,
     roles: string[],
   ): string {
-    const payload: JwtPayload = {
+    // Don't set iat/exp manually — JwtModule's signOptions.expiresIn handles it
+    const payload = {
       sub:   userId,
       cid:   companyId,
       bid:   branchId,
       roles,
       jti:   ulid(),
-      iat:   Math.floor(Date.now() / 1000),
-      exp:   Math.floor(Date.now() / 1000) + 15 * 60, // 15 min
     };
     return this.jwtService.sign(payload);
   }
