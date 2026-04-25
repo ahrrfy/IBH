@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { api } from '../api';
+import type { RootStackParamList } from '../../App';
 
 interface Order { id: string; number: string; customer?: { nameAr?: string }; totalIqd: number; status: string }
 
-export default function OrdersScreen() {
+type Props = NativeStackScreenProps<RootStackParamList, 'Orders'>;
+
+export default function OrdersScreen({ navigation }: Props) {
   const [items, setItems] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -23,11 +27,11 @@ export default function OrdersScreen() {
       keyExtractor={(o) => o.id}
       ListEmptyComponent={<Text style={s.empty}>لا توجد أوامر</Text>}
       renderItem={({ item }) => (
-        <View style={s.row}>
+        <Pressable style={s.row} onPress={() => navigation.navigate('OrderDetail', { id: item.id })}>
           <Text style={s.num}>{item.number}</Text>
           <Text style={s.cust}>{item.customer?.nameAr ?? '—'}</Text>
           <Text style={s.total}>{Math.round(item.totalIqd).toLocaleString()} د.ع</Text>
-        </View>
+        </Pressable>
       )}
     />
   );
