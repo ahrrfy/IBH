@@ -24,10 +24,35 @@ export function getToken(): string | null {
   return window.localStorage.getItem(TOKEN_KEY);
 }
 
+/**
+ * Persist the auth token in BOTH localStorage AND a cookie.
+ *
+ * The cookie is required because Next.js middleware (apps/web/src/middleware.ts)
+ * runs on the server before any client JS, so it cannot read localStorage.
+ * Without the cookie, every navigation to /dashboard (or any protected route)
+ * would 307-redirect back to /login even after a successful API login.
+ *
+ * Cookie attributes:
+ *   - path=/         visible to every route under the domain
+ *   - max-age=900    matches JWT access-token expiry (15 min); browser auto-clears
+ *   - SameSite=Lax   sent on top-level navigations (needed for the redirect flow)
+ *   - Secure         only on HTTPS — skipped in dev (localhost over plain HTTP)
+ *
+ * NOT HttpOnly: api.ts also reads it client-side via getToken() to attach
+ * the Authorization header, so the cookie must be JS-readable. The same JS
+ * surface area is already exposed via localStorage.
+ */
 export function setToken(token: string | null): void {
   if (typeof window === 'undefined') return;
-  if (token) window.localStorage.setItem(TOKEN_KEY, token);
-  else window.localStorage.removeItem(TOKEN_KEY);
+  const isSecure = window.location.protocol === 'https:';
+  const secureAttr = isSecure ? '; Secure' : '';
+  if (token) {
+    window.localStorage.setItem(TOKEN_KEY, token);
+    document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; path=/; max-age=900; SameSite=Lax${secureAttr}`;
+  } else {
+    window.localStorage.removeItem(TOKEN_KEY);
+    document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax${secureAttr}`;
+  }
 }
 
 export interface ApiRequestInit extends Omit<RequestInit, 'body'> {
