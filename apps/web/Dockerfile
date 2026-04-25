@@ -28,6 +28,10 @@ COPY apps/web ./apps/web
 COPY packages/shared-types ./packages/shared-types
 COPY packages/validation-schemas ./packages/validation-schemas
 
+# Build workspace packages first
+RUN pnpm --filter '@erp/shared-types' build \
+ && pnpm --filter '@erp/validation-schemas' build
+
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter web build
 
