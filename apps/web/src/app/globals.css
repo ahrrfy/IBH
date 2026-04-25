@@ -1,11 +1,125 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme {
-  --color-primary: #0369a1;
-  --color-accent:  #f59e0b;
-  --font-sans:     'Tajawal', 'IBM Plex Arabic', system-ui, sans-serif;
+/* ─────────────────────────────────────────────────────────────────────────
+   Al-Ruya ERP — Global styles
+   Arabic-first, RTL-aware, accessible enterprise theme.
+   ───────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  :root {
+    --font-arabic: 'Cairo', 'IBM Plex Sans Arabic', system-ui, sans-serif;
+    --sidebar-w:   16rem;
+    --topbar-h:    4rem;
+  }
+
+  * { box-sizing: border-box; border-color: theme('colors.line.DEFAULT'); }
+  html, body { padding: 0; margin: 0; }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: theme('colors.surface.subtle');
+    color: theme('colors.ink.DEFAULT');
+    font-family: var(--font-arabic);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  body[dir="rtl"] {
+    font-feature-settings: "ss01", "kern", "calt";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: theme('colors.ink.strong');
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  h1 { font-size: 1.875rem; line-height: 1.2; }
+  h2 { font-size: 1.5rem;   line-height: 1.3; }
+  h3 { font-size: 1.25rem;  line-height: 1.35; }
+  h4 { font-size: 1.125rem; line-height: 1.4; }
+
+  input, select, textarea, button { font-family: inherit; font-size: inherit; }
+
+  ::selection {
+    background-color: theme('colors.brand.100');
+    color: theme('colors.brand.900');
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: theme('colors.line.strong');
+    border-radius: 999px;
+    border: 2px solid theme('colors.surface.subtle');
+  }
+  ::-webkit-scrollbar-thumb:hover { background: theme('colors.ink.subtle'); }
+
+  :focus-visible {
+    outline: 2px solid theme('colors.brand.500');
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
 }
 
-* { box-sizing: border-box; }
-html, body { padding: 0; margin: 0; }
-body { font-family: var(--font-sans); }
+@layer components {
+  .card { @apply rounded-xl bg-surface shadow-card border border-line; }
+  .card-padded { @apply card p-5; }
+  .card-section { @apply card p-5 space-y-4; }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg
+           px-4 h-10 text-sm font-medium transition-all duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed
+           focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2;
+  }
+  .btn-primary   { @apply btn bg-brand-700 text-white hover:bg-brand-800 active:bg-brand-900 shadow-soft; }
+  .btn-secondary { @apply btn bg-surface text-ink border border-line hover:bg-surface-muted; }
+  .btn-ghost     { @apply btn text-ink hover:bg-surface-muted; }
+  .btn-danger    { @apply btn bg-danger-600 text-white hover:bg-danger-700 shadow-soft; }
+  .btn-sm        { @apply h-8 px-3 text-xs; }
+  .btn-lg        { @apply h-12 px-6 text-base; }
+
+  .input {
+    @apply h-10 w-full rounded-lg border border-line bg-surface px-3 text-sm
+           placeholder:text-ink-subtle
+           focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500
+           disabled:bg-surface-muted disabled:cursor-not-allowed transition-colors;
+  }
+  .label { @apply block text-xs font-medium text-ink-muted mb-1.5; }
+
+  .badge { @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium; }
+  .badge-success { @apply badge bg-success-50  text-success-700; }
+  .badge-warning { @apply badge bg-warning-50  text-warning-700; }
+  .badge-danger  { @apply badge bg-danger-50   text-danger-700; }
+  .badge-info    { @apply badge bg-info-50     text-info-700; }
+  .badge-neutral { @apply badge bg-surface-muted text-ink-muted; }
+  .badge-brand   { @apply badge bg-brand-50    text-brand-700; }
+
+  .table-wrap { @apply rounded-xl border border-line bg-surface overflow-hidden; }
+  .data-table { @apply w-full text-sm; }
+  .data-table thead { @apply bg-surface-muted text-ink-muted; }
+  .data-table th { @apply px-4 py-3 text-start font-medium text-xs uppercase tracking-wide; }
+  .data-table tbody tr { @apply border-t border-line hover:bg-surface-subtle transition-colors; }
+  .data-table td { @apply px-4 py-3; }
+
+  .stat-card { @apply card-padded relative overflow-hidden; }
+  .stat-label { @apply text-xs font-medium text-ink-muted; }
+  .stat-value { @apply mt-2 text-display-sm text-ink-strong; }
+  .stat-hint  { @apply mt-2 text-xs text-ink-subtle; }
+
+  .section-header { @apply flex items-center justify-between mb-5; }
+  .section-title { @apply text-2xl font-bold text-ink-strong; }
+  .section-subtitle { @apply text-sm text-ink-muted mt-1; }
+}
+
+@layer utilities {
+  .num-latin { font-feature-settings: "lnum"; direction: ltr; unicode-bidi: isolate; }
+  .skeleton  { @apply animate-pulse-soft bg-surface-muted rounded-md; }
+}
