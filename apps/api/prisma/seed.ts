@@ -41,6 +41,7 @@ async function main() {
       plan:       'enterprise',
       isActive:   true,
       createdBy:  'seed',
+      updatedBy:  'seed',
     },
   });
 
