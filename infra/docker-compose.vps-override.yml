@@ -1,0 +1,33 @@
+version: '3.9'
+
+# ─────────────────────────────────────────────────────────────────────────────
+# VPS-specific override: reuse the existing minio-minio-1 container
+# instead of starting a new one. Run with:
+#   docker compose -f docker-compose.bootstrap.yml \
+#                  -f docker-compose.vps-override.yml \
+#                  --env-file .env up -d
+# ─────────────────────────────────────────────────────────────────────────────
+
+networks:
+  erp-internal:
+  minio_default:
+    external: true   # reuse existing host-level minio network
+
+services:
+
+  # Disable our own MinIO services (already running on host)
+  minio:
+    profiles: [disabled]
+
+  minio-init:
+    profiles: [disabled]
+
+  # API connects to BOTH erp-internal AND minio_default
+  api:
+    networks:
+      - erp-internal
+      - minio_default
+    environment:
+      MINIO_ENDPOINT: minio-minio-1   # hostname inside minio_default network
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: 'false'
