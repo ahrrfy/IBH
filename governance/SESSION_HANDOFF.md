@@ -33,7 +33,9 @@
 | W6 | AI (forecasting) + Licensing | 2 | 0 |
 | **TOTAL** | | **44 clean** | **0 remaining** ✅ |
 
-### الإنجاز الكلي من الخطة: **~58%** (Iraqi CoA codes wired)
+### الإنجاز الكلي من الخطة: **~70%** (Iraqi CoA wired + 9 detail pages
++ POS Tauri commands real + AI Brain + WhatsApp Bridge + License Server
++ Mobile scaffold + 7 e2e specs)
 
 ---
 
@@ -88,13 +90,17 @@ payment-receipts, reconciliation, assets.
 - لم يُشغَّل API + curl /health
 
 ### 5. التطبيقات الأخرى
-- `apps/web` (admin): scaffolded ✅ — صفحات List موجودة، لا detail/edit forms
+- `apps/web` (admin): list pages + detail pages لـ sales (invoices/orders/customers),
+  purchases (orders/invoices), HR (employees), CRM (leads) ✅
 - `apps/storefront`: scaffolded ✅
-- `apps/pos` (Tauri): scaffolded ✅ — Rust commands stubs
-- `apps/mobile`: 🔴 لم يُبدأ
-- `apps/ai-brain` (Python FastAPI): 🔴 لم يُبدأ
-- `apps/whatsapp-bridge`: 🔴 لم يُبدأ
-- `apps/license-server` (standalone): 🔴 لم يُبدأ
+- `apps/pos` (Tauri): real ESC/POS + hardware fingerprint + license heartbeat ✅
+- `apps/mobile`: scaffolded ✅ — Expo + React Navigation + JWT auth
+  + Login/Home/Orders/Customers
+- `apps/ai-brain` (Python FastAPI): scaffolded ✅
+  — /anomaly (PyOD) + /forecast (Prophet) + fallbacks
+- `apps/whatsapp-bridge`: scaffolded ✅ — Fastify + Cloud API webhook + /send
+- `apps/license-server` (standalone): scaffolded ✅
+  — RSA-2048 sign/verify + heartbeat + revoke + CLI issuer
 
 ---
 
