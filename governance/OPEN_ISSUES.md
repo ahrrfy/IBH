@@ -24,7 +24,7 @@
 | I004 | VPS: تثبيت Docker + Nginx + SSL (يحتاج SSH access) | 🔴 حرج | Wave 1 | DevOps | مفتوح |
 | I005 | اختيار TOTP library للـ 2FA (otplib vs speakeasy) | 🟢 تحسين | Wave 1 | Tech Lead | مفتوح |
 | I006 | تحديد Gitea URL و Woodpecker CI configuration | 🟡 مهم | Wave 1 | DevOps | مفتوح |
-| I007 | زر "تسجيل الدخول" في /login لا يستجيب — تشخيص: فشل hydration على client (راجع §I007 أدناه) | 🔴 حرج | Wave 1 | Frontend | مفتوح — قيد التشخيص (2026-04-25) |
+| I007 | زر "تسجيل الدخول" — الجذر الفعلي: token في localStorage فقط، middleware يبحث في cookie | 🔴 حرج | Wave 1 | Frontend | ✅ **مغلق** (2026-04-25, commit `d2073a5`) — يحتاج VPS rebuild |
 | I008 | full seed.ts لم يُختبَر — Iraqi CoA + roles + policies لم تُسلَّم | 🟡 مهم | Wave 1 | Backend | مفتوح |
 | I009 | 2FA UI مكتمل لكن لم يُختبَر — يتطلب دخول ناجح من المتصفح أولاً | 🟡 مهم | Wave 1 | QA | مفتوح |
 | I010 | Build فشل (14 errors) — Prisma Client stale (schema حديث، Client قديم) | 🔴 حرج | Wave 1 | Backend | ✅ **مغلق** (2026-04-25, commit `a239255`) |
@@ -86,43 +86,38 @@ pnpm --filter api exec prisma generate
 
 ---
 
-## §I007 — تفاصيل تشخيص login button (2026-04-25)
+## §I007 — ✅ مغلقة (2026-04-25, commit `d2073a5`)
 
-**Static analysis report (Claude agent, confidence: medium):**
+**الجذر الفعلي بعد تشخيص runtime على VPS:**
 
-### السبب الأرجح: H1 — فشل hydration على العميل
-- `apps/web/src/lib/auth.ts:26-45` ينشئ Zustand store بـ `persist` middleware عند تحميل الموديول
-- `apps/web/src/app/login/page.tsx:18` يستدعي `useAuth()` بدون شرط
-- لو فشل تهيئة الـ store (أو اختلف server vs client state)، React 19 يتخلى عن hydration بصمت
-- النتيجة: HTML يُرسم من server لكن **لا event handlers تُربط** — لا الزر ولا الحقول تستجيب
+عدم تطابق بين تخزين token وقراءته:
+- `apps/web/src/lib/api.ts:20` — كان يخزن token في **localStorage فقط** (`al-ruya.token`)
+- `apps/web/src/middleware.ts:18` — يبحث عن token في **cookie** (نفس الاسم)
 
-### لماذا فشلت الإصلاحات الـ 5 السابقة
-كلها عالجت الزر نفسه (form/onClick/Suspense). لم يلمس أي منها `useAuth` أو `auth.ts`. **العمى نفسه في كل مرة.**
+**التسلسل الذي رصدناه في DevTools:**
+1. POST `/api/v1/auth/login` → 200 OK (مع tokens صحيحة، curl من VPS أكدها)
+2. `apiLogin()` يحفظ في localStorage ✅
+3. `router.replace('/dashboard')` يطلق navigation
+4. Next.js middleware (edge) يقرأ cookie → فارغ → 307 إلى `/login?next=/dashboard`
+5. المستخدم يعود للـ login → يفترض "الزر ما اشتغل"
 
-### الفرضيات المرفوضة
-- ❌ **H2 (CSP):** الـ CSP في `apps/api/src/main.ts:39-54` لا يطبَّق على web (nginx لا يحقن CSP لمسارات web)
-- ❌ **H4 (Next.js client component):** `page.tsx:1` معلَّم `"use client"` صحيحاً
-- ⚠️ **H5 (stale bundle):** يحتاج تحقق runtime — قارن hash البندل المنشور مع build محلي
+**شواهد تأكيد من Network tab:**
+- request 1: `login` → 200 ✅
+- request 2: `dashboard?_rsc=...` → **307** ❌ (middleware redirect)
+- request 3: `login?next=%2Fdashboard` → 200 (المستخدم على /login مرة أخرى)
 
-### الاختبار التشخيصي الحاسم (1 دقيقة، بدون deploy)
-> **افتح `/login` وحاول الكتابة في حقل البريد. إذا لم يظهر النص → hydration معطل (H1 مؤكد).**
-> إذا ظهر النص لكن الزر لا يستجيب → السبب في مكان آخر.
+**لماذا فشلت 5 إصلاحات سابقة:** كلها عالجت **الزر** (form/onClick/Suspense/hydration). الزر شغّال منذ البداية. الـ console error "بيانات الدخول غير صحيحة" كان من محاولة سابقة بكلمة مرور خطأ — صارف انتباه.
 
-### التغيير المقترح للجلسة القادمة (إذا H1 تأكد)
-استبدل `useAuth()` بـ direct API calls في `page.tsx`:
-```tsx
-// أزل: import { useAuth } from '@/lib/auth';
-// أضف: import { login as apiLogin, setToken } from '@/lib/api';
-// في doCredentialsLogin: const res = await apiLogin(...);
-//   if ('requires2FA' in res) {...} else { setToken(res.accessToken); router.replace(...); }
-```
-يعزل ما إذا كان Zustand persist هو السبب.
+**الإصلاح:** `setToken()` الآن يكتب token في **localStorage + cookie** معاً:
+- `path=/` كل routes محمية تراه
+- `max-age=900` يطابق JWT 15min expiry — auto-cleanup
+- `SameSite=Lax` يُرسل في top-level navigations (مطلوب للـ flow)
+- `Secure` على HTTPS فقط (skip في dev)
+- ليس HttpOnly لأن api.ts يقرأه client-side للـ Authorization header
 
-### ملفات مذكورة بالأرقام
-- `apps/web/src/app/login/page.tsx:1, 18, 175`
-- `apps/web/src/lib/auth.ts:26-45, 50-70`
-- `apps/web/src/lib/api.ts:39-62`
-- `apps/web/next.config.js:3` (reactStrictMode)
+**يحتاج VPS rebuild** لنشر التغيير.
+
+### Diff الإصلاح: `apps/web/src/lib/api.ts:27-58`
 
 ---
 
