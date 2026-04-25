@@ -1,0 +1,59 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to ibherp.cloud
+    runs-on: ubuntu-latest
+    # Only run after CI passes (if you have a separate CI workflow)
+    # needs: [ci]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Pull latest + restart stack on VPS
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} bash -s <<'EOF'
+          set -euo pipefail
+          cd /opt/al-ruya-erp
+          git fetch origin main
+          git reset --hard origin/main
+
+          cd infra
+          # Rebuild only api + web (postgres/redis/minio don't change)
+          docker compose -f docker-compose.bootstrap.yml --env-file .env build api web
+          docker compose -f docker-compose.bootstrap.yml --env-file .env up -d api web
+
+          # Run any new migrations
+          docker compose -f docker-compose.bootstrap.yml --env-file .env exec -T api \
+            sh -c 'cd /app && npx prisma migrate deploy --schema=prisma/schema.prisma' || true
+
+          # Quick health probe
+          sleep 5
+          if curl -fsS https://ibherp.cloud/health > /dev/null; then
+            echo "✅ Deploy successful"
+          else
+            echo "⚠️  /health did not respond — check logs"
+            docker compose -f docker-compose.bootstrap.yml --env-file .env logs api --tail=50
+            exit 1
+          fi
+          EOF
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519
