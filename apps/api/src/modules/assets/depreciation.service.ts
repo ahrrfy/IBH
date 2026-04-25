@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: refactor to use side-based JournalEntryLine schema (amountIqd + side='debit'|'credit') instead of debitIqd/creditIqd, and journalEntry relation instead of 'entry'
 import {
   Injectable,
   NotFoundException,
@@ -34,14 +33,20 @@ export class DepreciationService {
   ) {
     const assets = await this.prisma.fixedAsset.findMany({
       where: { companyId, status: 'active' as any },
-      include: {
-        depreciationExpenseAccount: true,
-        accumDepAccount: true,
-      },
     });
 
-    const periodDate = new Date(year, month, 0); // last day of month
+    const accountIds = Array.from(
+      new Set(
+        assets.flatMap((a) => [a.depreciationExpenseAccountId, a.accumDepAccountId]),
+      ),
+    );
+    const accounts = await this.prisma.chartOfAccount.findMany({
+      where: { id: { in: accountIds } },
+      select: { id: true, code: true },
+    });
+    const accCode = new Map(accounts.map((a) => [a.id, a.code]));
 
+    const periodDate = new Date(year, month, 0); // last day of month
     const results: Array<{ assetId: string; depreciation: string }> = [];
 
     for (const asset of assets) {
@@ -53,7 +58,6 @@ export class DepreciationService {
       const dep = this.computeDepreciation(asset);
       if (dep.lte(0)) continue;
 
-      // Don't depreciate below salvage
       const potentialAccum = asset.accumulatedDepIqd.plus(dep);
       const maxAccum = asset.purchaseCostIqd.minus(asset.salvageValueIqd);
       const actualDep = potentialAccum.gt(maxAccum)
@@ -64,28 +68,30 @@ export class DepreciationService {
       const newAccum = asset.accumulatedDepIqd.plus(actualDep);
       const newBook = asset.purchaseCostIqd.minus(newAccum);
 
+      const expCode = accCode.get(asset.depreciationExpenseAccountId);
+      const accumCodeStr = accCode.get(asset.accumDepAccountId);
+      if (!expCode || !accumCodeStr) {
+        throw new BadRequestException({
+          code: 'ASSET_COA_MISSING',
+          messageAr: `حسابات الإهلاك غير مكتملة للأصل ${asset.number}`,
+        });
+      }
+
       await this.prisma.$transaction(async (tx) => {
         const je = await this.posting.postJournalEntry(
           {
             companyId,
+            branchId: asset.branchId,
             entryDate: periodDate,
             refType: 'AssetDepreciation',
             refId: `${asset.id}-${year}-${month}`,
             description: `Depreciation ${year}-${String(month).padStart(2, '0')} ${asset.number}`,
             lines: [
-              {
-                accountCode: asset.depreciationExpenseAccount.code,
-                debit: actualDep.toString(),
-                description: asset.nameAr,
-              },
-              {
-                accountCode: asset.accumDepAccount.code,
-                credit: actualDep.toString(),
-                description: asset.nameAr,
-              },
+              { accountCode: expCode, debit: actualDep.toNumber(), description: asset.nameAr },
+              { accountCode: accumCodeStr, credit: actualDep.toNumber(), description: asset.nameAr },
             ],
           },
-          session,
+          { userId: session.userId },
           tx,
         );
 
@@ -154,7 +160,6 @@ export class DepreciationService {
     }
     const asset = await this.prisma.fixedAsset.findUnique({
       where: { id: assetId },
-      include: { accumDepAccount: true, depreciationExpenseAccount: true },
     });
     if (!asset) {
       throw new NotFoundException({
@@ -163,27 +168,32 @@ export class DepreciationService {
       });
     }
 
+    const [accumCoa, expCoa] = await Promise.all([
+      this.prisma.chartOfAccount.findUnique({ where: { id: asset.accumDepAccountId } }),
+      this.prisma.chartOfAccount.findUnique({ where: { id: asset.depreciationExpenseAccountId } }),
+    ]);
+    if (!accumCoa || !expCoa) {
+      throw new BadRequestException({
+        code: 'ASSET_COA_MISSING',
+        messageAr: 'حسابات الإهلاك غير مكتملة',
+      });
+    }
+
     await this.prisma.$transaction(async (tx) => {
-      // Reverse JE: Dr Accum / Cr Expense
       await this.posting.postJournalEntry(
         {
           companyId: session.companyId,
+          branchId: asset.branchId,
           entryDate: new Date(),
           refType: 'AssetDepreciationReversal',
           refId: `${assetId}-${year}-${month}`,
           description: `Reversal of depreciation ${year}-${month} for ${asset.number}: ${reason}`,
           lines: [
-            {
-              accountCode: asset.accumDepAccount.code,
-              debit: dep.depreciationIqd.toString(),
-            },
-            {
-              accountCode: asset.depreciationExpenseAccount.code,
-              credit: dep.depreciationIqd.toString(),
-            },
+            { accountCode: accumCoa.code, debit: dep.depreciationIqd.toNumber() },
+            { accountCode: expCoa.code, credit: dep.depreciationIqd.toNumber() },
           ],
         },
-        session,
+        { userId: session.userId },
         tx,
       );
 
@@ -217,7 +227,7 @@ export class DepreciationService {
     const asset = await this.prisma.fixedAsset.findFirst({
       where: { id: assetId, companyId },
       include: {
-        depreciations: {
+        depreciationEntries: {
           orderBy: [{ periodYear: 'asc' }, { periodMonth: 'asc' }],
         },
       },
@@ -229,7 +239,7 @@ export class DepreciationService {
       });
     }
 
-    const past = asset.depreciations.map((d) => ({
+    const past = asset.depreciationEntries.map((d) => ({
       year: d.periodYear,
       month: d.periodMonth,
       depreciationIqd: d.depreciationIqd,
@@ -238,14 +248,20 @@ export class DepreciationService {
       posted: true,
     }));
 
-    // Project future
-    const future: Array<any> = [];
+    const future: Array<{
+      year: number;
+      month: number;
+      depreciationIqd: Prisma.Decimal;
+      accumulatedIqd: Prisma.Decimal;
+      bookValueIqd: Prisma.Decimal;
+      posted: boolean;
+    }> = [];
     let accum = asset.accumulatedDepIqd;
     let book = asset.bookValueIqd;
     const maxAccum = asset.purchaseCostIqd.minus(asset.salvageValueIqd);
     const startDate = new Date(asset.acquisitionDate);
-    const lastPosted = asset.depreciations.length
-      ? asset.depreciations[asset.depreciations.length - 1]
+    const lastPosted = asset.depreciationEntries.length
+      ? asset.depreciationEntries[asset.depreciationEntries.length - 1]
       : null;
     const startYear = lastPosted
       ? lastPosted.periodMonth === 12
@@ -324,7 +340,6 @@ export class DepreciationService {
   ): Prisma.Decimal {
     switch (asset.depreciationMethod) {
       case 'declining_balance': {
-        // Double-declining: rate = 2 / usefulLifeMonths
         const rate = new Prisma.Decimal(2).div(asset.usefulLifeMonths);
         const dep = book.mul(rate);
         const min = asset.salvageValueIqd;
@@ -332,7 +347,6 @@ export class DepreciationService {
         return dep;
       }
       case 'units_of_production':
-        // Without usage data, fall back to straight-line.
         return asset.monthlyDepIqd;
       case 'straight_line':
       default:

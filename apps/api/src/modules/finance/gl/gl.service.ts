@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: refactor to use side-based JournalEntryLine schema (amountIqd + side='debit'|'credit') instead of debitIqd/creditIqd, and journalEntry relation instead of 'entry'
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
@@ -41,59 +40,75 @@ export class GLService {
     const lines = await this.prisma.journalEntryLine.findMany({
       where: {
         accountId,
-        entry: whereEntry,
+        journalEntry: whereEntry,
       },
       include: {
-        entry: {
+        journalEntry: {
           select: {
             id: true,
             entryNumber: true,
             entryDate: true,
             description: true,
-            refType: true,
-            refId: true,
+            referenceType: true,
+            referenceId: true,
           },
         },
       },
       orderBy: [
-        { entry: { entryDate: 'asc' } },
-        { entry: { entryNumber: 'asc' } },
-        { sortOrder: 'asc' },
+        { journalEntry: { entryDate: 'asc' } },
+        { journalEntry: { entryNumber: 'asc' } },
+        { lineNumber: 'asc' },
       ],
     });
 
-    // Opening balance: sum of lines BEFORE `from`.
     let openingBalance = new Prisma.Decimal(0);
     if (params.from) {
-      const prior = await this.prisma.journalEntryLine.aggregate({
-        where: {
-          accountId,
-          entry: {
-            companyId,
-            status: 'posted',
-            entryDate: { lt: params.from },
+      const [pd, pc] = await Promise.all([
+        this.prisma.journalEntryLine.aggregate({
+          where: {
+            accountId,
+            side: 'debit',
+            journalEntry: {
+              companyId,
+              status: 'posted',
+              entryDate: { lt: params.from },
+            },
           },
-        },
-        _sum: { debitIqd: true, creditIqd: true },
-      });
-      const d = prior._sum.debitIqd ?? new Prisma.Decimal(0);
-      const c = prior._sum.creditIqd ?? new Prisma.Decimal(0);
-      openingBalance = this.signedBalance(account.type, d, c);
+          _sum: { amountIqd: true },
+        }),
+        this.prisma.journalEntryLine.aggregate({
+          where: {
+            accountId,
+            side: 'credit',
+            journalEntry: {
+              companyId,
+              status: 'posted',
+              entryDate: { lt: params.from },
+            },
+          },
+          _sum: { amountIqd: true },
+        }),
+      ]);
+      const d = pd._sum.amountIqd ?? new Prisma.Decimal(0);
+      const c = pc._sum.amountIqd ?? new Prisma.Decimal(0);
+      openingBalance = this.signedBalance(account.category, d, c);
     }
 
     let running = openingBalance;
     const rows = lines.map((l) => {
-      const signed = this.signedBalance(account.type, l.debitIqd, l.creditIqd);
+      const debit = l.side === 'debit' ? l.amountIqd : new Prisma.Decimal(0);
+      const credit = l.side === 'credit' ? l.amountIqd : new Prisma.Decimal(0);
+      const signed = this.signedBalance(account.category, debit, credit);
       running = running.plus(signed);
       return {
-        entryId: l.entry.id,
-        entryNumber: l.entry.entryNumber,
-        entryDate: l.entry.entryDate,
-        description: l.description ?? l.entry.description,
-        refType: l.entry.refType,
-        refId: l.entry.refId,
-        debitIqd: l.debitIqd,
-        creditIqd: l.creditIqd,
+        entryId: l.journalEntry.id,
+        entryNumber: l.journalEntry.entryNumber,
+        entryDate: l.journalEntry.entryDate,
+        description: l.description ?? l.journalEntry.description,
+        referenceType: l.journalEntry.referenceType,
+        referenceId: l.journalEntry.referenceId,
+        debitIqd: debit,
+        creditIqd: credit,
         balance: running,
       };
     });
@@ -104,7 +119,7 @@ export class GLService {
         code: account.code,
         nameAr: account.nameAr,
         nameEn: account.nameEn,
-        type: account.type,
+        category: account.category,
       },
       from: params.from,
       to: params.to,
@@ -124,26 +139,28 @@ export class GLService {
     });
 
     const sums = await this.prisma.journalEntryLine.groupBy({
-      by: ['accountId'],
+      by: ['accountId', 'side'],
       where: {
-        entry: {
+        journalEntry: {
           companyId,
           status: 'posted',
           entryDate: { lte: asOf },
         },
       },
-      _sum: { debitIqd: true, creditIqd: true },
+      _sum: { amountIqd: true },
     });
 
-    const sumMap = new Map(
-      sums.map((s) => [
-        s.accountId,
-        {
-          debit: s._sum.debitIqd ?? new Prisma.Decimal(0),
-          credit: s._sum.creditIqd ?? new Prisma.Decimal(0),
-        },
-      ]),
-    );
+    const sumMap = new Map<string, { debit: Prisma.Decimal; credit: Prisma.Decimal }>();
+    for (const s of sums) {
+      const cur = sumMap.get(s.accountId) ?? {
+        debit: new Prisma.Decimal(0),
+        credit: new Prisma.Decimal(0),
+      };
+      const amt = s._sum.amountIqd ?? new Prisma.Decimal(0);
+      if (s.side === 'debit') cur.debit = cur.debit.plus(amt);
+      else cur.credit = cur.credit.plus(amt);
+      sumMap.set(s.accountId, cur);
+    }
 
     let totalDebit = new Prisma.Decimal(0);
     let totalCredit = new Prisma.Decimal(0);
@@ -155,14 +172,13 @@ export class GLService {
       };
       totalDebit = totalDebit.plus(s.debit);
       totalCredit = totalCredit.plus(s.credit);
-      const balance = this.signedBalance(a.type, s.debit, s.credit);
+      const balance = this.signedBalance(a.category, s.debit, s.credit);
       return {
         accountId: a.id,
         code: a.code,
         nameAr: a.nameAr,
         nameEn: a.nameEn,
-        type: a.type,
-        level: a.level,
+        category: a.category,
         debitIqd: s.debit,
         creditIqd: s.credit,
         balance,
@@ -187,7 +203,7 @@ export class GLService {
   ) {
     const lines = await this.prisma.journalEntryLine.findMany({
       where: {
-        entry: {
+        journalEntry: {
           companyId,
           status: 'posted',
           entryDate: { gte: params.from, lte: params.to },
@@ -195,28 +211,47 @@ export class GLService {
         ...(params.costCenterId ? { costCenterId: params.costCenterId } : {}),
       },
       include: {
-        entry: {
+        journalEntry: {
           select: { id: true, entryNumber: true, entryDate: true, description: true },
         },
-        account: { select: { id: true, code: true, nameAr: true, type: true } },
       },
       orderBy: [
-        { account: { code: 'asc' } },
-        { entry: { entryDate: 'asc' } },
+        { accountCode: 'asc' },
+        { journalEntry: { entryDate: 'asc' } },
       ],
     });
 
-    const grouped = new Map<string, { account: any; lines: any[] }>();
+    const grouped = new Map<
+      string,
+      {
+        account: { id: string; code: string; nameAr: string };
+        lines: Array<{
+          entryId: string;
+          entryNumber: string;
+          entryDate: Date;
+          description: string | null;
+          debitIqd: Prisma.Decimal;
+          creditIqd: Prisma.Decimal;
+        }>;
+      }
+    >();
     for (const l of lines) {
-      const key = l.account.id;
-      if (!grouped.has(key)) grouped.set(key, { account: l.account, lines: [] });
+      const key = l.accountId;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          account: { id: l.accountId, code: l.accountCode, nameAr: l.accountNameAr },
+          lines: [],
+        });
+      }
+      const debit = l.side === 'debit' ? l.amountIqd : new Prisma.Decimal(0);
+      const credit = l.side === 'credit' ? l.amountIqd : new Prisma.Decimal(0);
       grouped.get(key)!.lines.push({
-        entryId: l.entry.id,
-        entryNumber: l.entry.entryNumber,
-        entryDate: l.entry.entryDate,
-        description: l.description ?? l.entry.description,
-        debitIqd: l.debitIqd,
-        creditIqd: l.creditIqd,
+        entryId: l.journalEntry.id,
+        entryNumber: l.journalEntry.entryNumber,
+        entryDate: l.journalEntry.entryDate,
+        description: l.description ?? l.journalEntry.description,
+        debitIqd: debit,
+        creditIqd: credit,
       });
     }
 
@@ -241,21 +276,32 @@ export class GLService {
         messageAr: 'الحساب غير موجود',
       });
     }
-    const sum = await this.prisma.journalEntryLine.aggregate({
-      where: {
-        accountId,
-        entry: { status: 'posted', entryDate: { lte: asOf } },
-      },
-      _sum: { debitIqd: true, creditIqd: true },
-    });
-    const d = sum._sum.debitIqd ?? new Prisma.Decimal(0);
-    const c = sum._sum.creditIqd ?? new Prisma.Decimal(0);
+    const [debitAgg, creditAgg] = await Promise.all([
+      this.prisma.journalEntryLine.aggregate({
+        where: {
+          accountId,
+          side: 'debit',
+          journalEntry: { status: 'posted', entryDate: { lte: asOf } },
+        },
+        _sum: { amountIqd: true },
+      }),
+      this.prisma.journalEntryLine.aggregate({
+        where: {
+          accountId,
+          side: 'credit',
+          journalEntry: { status: 'posted', entryDate: { lte: asOf } },
+        },
+        _sum: { amountIqd: true },
+      }),
+    ]);
+    const d = debitAgg._sum.amountIqd ?? new Prisma.Decimal(0);
+    const c = creditAgg._sum.amountIqd ?? new Prisma.Decimal(0);
     return {
       accountId,
       asOf,
       debitIqd: d,
       creditIqd: c,
-      balance: this.signedBalance(account.type, d, c),
+      balance: this.signedBalance(account.category, d, c),
     };
   }
 
@@ -267,11 +313,7 @@ export class GLService {
       where: { id: jeId },
       include: {
         lines: {
-          include: {
-            account: { select: { code: true, nameAr: true, nameEn: true } },
-            costCenter: { select: { code: true, nameAr: true } },
-          },
-          orderBy: { sortOrder: 'asc' },
+          orderBy: { lineNumber: 'asc' },
         },
       },
     });
@@ -281,42 +323,68 @@ export class GLService {
         messageAr: 'القيد غير موجود',
       });
     }
+
+    const costCenterIds = Array.from(
+      new Set(je.lines.map((l) => l.costCenterId).filter((x): x is string => !!x)),
+    );
+    const costCenters = costCenterIds.length
+      ? await this.prisma.costCenter.findMany({
+          where: { id: { in: costCenterIds } },
+          select: { id: true, code: true, nameAr: true },
+        })
+      : [];
+    const ccMap = new Map(costCenters.map((c) => [c.id, c]));
+
+    const accountIds = Array.from(new Set(je.lines.map((l) => l.accountId)));
+    const accounts = await this.prisma.chartOfAccount.findMany({
+      where: { id: { in: accountIds } },
+      select: { id: true, nameEn: true },
+    });
+    const accMap = new Map(accounts.map((a) => [a.id, a]));
+
     return {
       id: je.id,
       entryNumber: je.entryNumber,
       entryDate: je.entryDate,
       description: je.description,
-      refType: je.refType,
-      refId: je.refId,
+      referenceType: je.referenceType,
+      referenceId: je.referenceId,
       status: je.status,
       totalDebitIqd: je.totalDebitIqd,
       totalCreditIqd: je.totalCreditIqd,
       postedBy: je.postedBy,
       postedAt: je.postedAt,
       lines: je.lines.map((l) => ({
-        accountCode: l.account.code,
-        accountNameAr: l.account.nameAr,
-        accountNameEn: l.account.nameEn,
-        costCenter: l.costCenter
-          ? { code: l.costCenter.code, nameAr: l.costCenter.nameAr }
+        accountCode: l.accountCode,
+        accountNameAr: l.accountNameAr,
+        accountNameEn: accMap.get(l.accountId)?.nameEn ?? null,
+        costCenter: l.costCenterId
+          ? ccMap.get(l.costCenterId)
+            ? {
+                code: ccMap.get(l.costCenterId)!.code,
+                nameAr: ccMap.get(l.costCenterId)!.nameAr,
+              }
+            : null
           : null,
         description: l.description,
-        debitIqd: l.debitIqd,
-        creditIqd: l.creditIqd,
+        debitIqd: l.side === 'debit' ? l.amountIqd : new Prisma.Decimal(0),
+        creditIqd: l.side === 'credit' ? l.amountIqd : new Prisma.Decimal(0),
       })),
     };
   }
 
   /**
-   * Normal-balance-aware signing: assets/expenses = debit-positive; liabilities/equity/revenue = credit-positive.
+   * Normal-balance-aware signing by AccountCategory:
+   *   debit-natured (assets, expenses) = debit - credit
+   *   credit-natured (liabilities, equity, revenue) = credit - debit
    */
   private signedBalance(
-    type: string,
+    category: string,
     debit: Prisma.Decimal,
     credit: Prisma.Decimal,
   ): Prisma.Decimal {
-    const debitNatured = ['asset', 'expense'];
-    if (debitNatured.includes(type)) return debit.minus(credit);
+    const debitNatured = ['fixed_assets', 'current_assets', 'expense'];
+    if (debitNatured.includes(category)) return debit.minus(credit);
     return credit.minus(debit);
   }
 }

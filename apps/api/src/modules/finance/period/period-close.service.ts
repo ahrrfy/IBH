@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: refactor to use side-based JournalEntryLine schema (amountIqd + side='debit'|'credit') instead of debitIqd/creditIqd, and journalEntry relation instead of 'entry'
 import {
   Injectable,
   NotFoundException,
@@ -38,14 +37,18 @@ export class PeriodCloseService {
     session: UserSession,
   ): Promise<PeriodStatus> {
     let period = await this.prisma.accountingPeriod.findFirst({
-      where: { companyId, periodYear: year, periodMonth: month },
+      where: { companyId, year, month },
     });
     if (!period) {
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0);
       period = await this.prisma.accountingPeriod.create({
         data: {
           companyId,
-          periodYear: year,
-          periodMonth: month,
+          year,
+          month,
+          startDate,
+          endDate,
           status: 'open',
         },
       });
@@ -73,8 +76,8 @@ export class PeriodCloseService {
       });
     }
 
-    const from = new Date(period.periodYear, period.periodMonth - 1, 1);
-    const to = new Date(period.periodYear, period.periodMonth, 0, 23, 59, 59);
+    const from = new Date(period.year, period.month - 1, 1);
+    const to = new Date(period.year, period.month, 0, 23, 59, 59);
 
     switch (step) {
       case 1: {
@@ -187,7 +190,7 @@ export class PeriodCloseService {
       action: `step_${step}`,
     });
 
-    return this.status(session.companyId, period.periodYear, period.periodMonth);
+    return this.status(session.companyId, period.year, period.month);
   }
 
   /**
@@ -251,7 +254,7 @@ export class PeriodCloseService {
     month: number,
   ): Promise<PeriodStatus> {
     const period = await this.prisma.accountingPeriod.findFirst({
-      where: { companyId, periodYear: year, periodMonth: month },
+      where: { companyId, year, month },
     });
     const from = new Date(year, month - 1, 1);
     const to = new Date(year, month, 0, 23, 59, 59);

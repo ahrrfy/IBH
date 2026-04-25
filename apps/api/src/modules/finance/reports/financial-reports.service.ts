@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: refactor to use side-based JournalEntryLine schema (amountIqd + side='debit'|'credit') instead of debitIqd/creditIqd, and journalEntry relation instead of 'entry'
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
@@ -8,11 +7,14 @@ interface ReportLine {
   accountCode: string;
   nameAr: string;
   nameEn: string | null;
-  level: number;
   category: string;
   amountIqd: Prisma.Decimal;
   amountUsd?: Prisma.Decimal;
 }
+
+const ASSET_CATEGORIES = ['fixed_assets', 'current_assets'] as const;
+const BS_CATEGORIES = ['fixed_assets', 'current_assets', 'liabilities', 'equity'] as const;
+const PL_CATEGORIES = ['revenue', 'expense'] as const;
 
 @Injectable()
 export class FinancialReportsService {
@@ -25,7 +27,7 @@ export class FinancialReportsService {
     const accounts = await this.prisma.chartOfAccount.findMany({
       where: {
         companyId,
-        type: { in: ['asset', 'liability', 'equity'] },
+        category: { in: [...BS_CATEGORIES] },
         isActive: true,
       },
       orderBy: { code: 'asc' },
@@ -43,20 +45,19 @@ export class FinancialReportsService {
         debit: new Prisma.Decimal(0),
         credit: new Prisma.Decimal(0),
       };
-      const balance =
-        a.type === 'asset' ? debit.minus(credit) : credit.minus(debit);
+      const isAsset = (ASSET_CATEGORIES as readonly string[]).includes(a.category);
+      const balance = isAsset ? debit.minus(credit) : credit.minus(debit);
       const line: ReportLine = {
         accountId: a.id,
         accountCode: a.code,
         nameAr: a.nameAr,
         nameEn: a.nameEn,
-        level: a.level,
         category: a.category,
         amountIqd: balance,
         amountUsd: rate ? balance.div(rate) : undefined,
       };
-      if (a.type === 'asset') assets.push(line);
-      else if (a.type === 'liability') liabilities.push(line);
+      if (isAsset) assets.push(line);
+      else if (a.category === 'liabilities') liabilities.push(line);
       else equity.push(line);
     }
 
@@ -64,7 +65,6 @@ export class FinancialReportsService {
     const totalLiabilities = this.sum(liabilities);
     const totalEquity = this.sum(equity);
 
-    // Retained earnings = net income YTD (revenue - expenses)
     const ytdStart = new Date(asOf.getFullYear(), 0, 1);
     const income = await this.incomeStatement(companyId, { from: ytdStart, to: asOf });
 
@@ -89,6 +89,7 @@ export class FinancialReportsService {
 
   /**
    * Income Statement: Revenue - COGS - Expenses = Net Income
+   * COGS is identified by account code prefix '5' (Iraqi CoA convention) within expenses.
    */
   async incomeStatement(
     companyId: string,
@@ -97,7 +98,7 @@ export class FinancialReportsService {
     const accounts = await this.prisma.chartOfAccount.findMany({
       where: {
         companyId,
-        type: { in: ['revenue', 'expense'] },
+        category: { in: [...PL_CATEGORIES] },
         isActive: true,
       },
       orderBy: { code: 'asc' },
@@ -119,20 +120,18 @@ export class FinancialReportsService {
         debit: new Prisma.Decimal(0),
         credit: new Prisma.Decimal(0),
       };
-      const balance =
-        a.type === 'revenue' ? credit.minus(debit) : debit.minus(credit);
+      const balance = a.category === 'revenue' ? credit.minus(debit) : debit.minus(credit);
       const line: ReportLine = {
         accountId: a.id,
         accountCode: a.code,
         nameAr: a.nameAr,
         nameEn: a.nameEn,
-        level: a.level,
         category: a.category,
         amountIqd: balance,
         amountUsd: rate ? balance.div(rate) : undefined,
       };
-      if (a.type === 'revenue') revenue.push(line);
-      else if (a.category === 'cogs') cogs.push(line);
+      if (a.category === 'revenue') revenue.push(line);
+      else if (a.code.startsWith('5')) cogs.push(line);
       else expenses.push(line);
     }
 
@@ -141,7 +140,7 @@ export class FinancialReportsService {
     const totalExpenses = this.sum(expenses);
     const grossProfit = totalRevenue.minus(totalCogs);
     const operatingIncome = grossProfit.minus(totalExpenses);
-    const netIncome = operatingIncome; // simplified: no separate non-operating
+    const netIncome = operatingIncome;
 
     const grossMargin = totalRevenue.gt(0) ? grossProfit.div(totalRevenue) : new Prisma.Decimal(0);
     const operatingMargin = totalRevenue.gt(0) ? operatingIncome.div(totalRevenue) : new Prisma.Decimal(0);
@@ -168,18 +167,25 @@ export class FinancialReportsService {
 
   /**
    * Cash Flow Statement (indirect method — simplified).
+   * Depreciation accounts identified by Arabic name match (إهلاك).
    */
   async cashFlow(companyId: string, params: { from: Date; to: Date }) {
     const income = await this.incomeStatement(companyId, params);
 
-    // Operating: net income + non-cash items (depreciation) + changes in WC (stubbed to categories)
     const operating: ReportLine[] = [];
     const investing: ReportLine[] = [];
     const financing: ReportLine[] = [];
 
-    // Depreciation for period
     const depAccounts = await this.prisma.chartOfAccount.findMany({
-      where: { companyId, category: 'depreciation_expense', isActive: true },
+      where: {
+        companyId,
+        category: 'expense',
+        isActive: true,
+        OR: [
+          { nameAr: { contains: 'إهلاك' } },
+          { nameEn: { contains: 'epreciation' } },
+        ],
+      },
     });
     const depBal = await this.accountBalances(
       companyId,
@@ -198,7 +204,6 @@ export class FinancialReportsService {
       accountCode: 'NI',
       nameAr: 'صافي الدخل',
       nameEn: 'Net Income',
-      level: 0,
       category: 'operating',
       amountIqd: income.totals.netIncome,
     });
@@ -207,7 +212,6 @@ export class FinancialReportsService {
       accountCode: 'DEP',
       nameAr: 'الإهلاك',
       nameEn: 'Depreciation',
-      level: 0,
       category: 'operating',
       amountIqd: depreciation,
     });
@@ -238,7 +242,7 @@ export class FinancialReportsService {
     params: { from: Date; to: Date },
   ) {
     const equityAccounts = await this.prisma.chartOfAccount.findMany({
-      where: { companyId, type: 'equity', isActive: true },
+      where: { companyId, category: 'equity', isActive: true },
       orderBy: { code: 'asc' },
     });
 
@@ -298,13 +302,13 @@ export class FinancialReportsService {
     accountIds: string[],
     from?: Date,
     to?: Date,
-  ) {
-    if (accountIds.length === 0) return new Map<string, { debit: Prisma.Decimal; credit: Prisma.Decimal }>();
+  ): Promise<Map<string, { debit: Prisma.Decimal; credit: Prisma.Decimal }>> {
+    if (accountIds.length === 0) return new Map();
     const sums = await this.prisma.journalEntryLine.groupBy({
-      by: ['accountId'],
+      by: ['accountId', 'side'],
       where: {
         accountId: { in: accountIds },
-        entry: {
+        journalEntry: {
           companyId,
           status: 'posted',
           ...(from || to
@@ -317,17 +321,20 @@ export class FinancialReportsService {
             : {}),
         },
       },
-      _sum: { debitIqd: true, creditIqd: true },
+      _sum: { amountIqd: true },
     });
-    return new Map(
-      sums.map((s) => [
-        s.accountId,
-        {
-          debit: s._sum.debitIqd ?? new Prisma.Decimal(0),
-          credit: s._sum.creditIqd ?? new Prisma.Decimal(0),
-        },
-      ]),
-    );
+    const map = new Map<string, { debit: Prisma.Decimal; credit: Prisma.Decimal }>();
+    for (const s of sums) {
+      const cur = map.get(s.accountId) ?? {
+        debit: new Prisma.Decimal(0),
+        credit: new Prisma.Decimal(0),
+      };
+      const amt = s._sum.amountIqd ?? new Prisma.Decimal(0);
+      if (s.side === 'debit') cur.debit = cur.debit.plus(amt);
+      else cur.credit = cur.credit.plus(amt);
+      map.set(s.accountId, cur);
+    }
+    return map;
   }
 
   private async usdRate(companyId: string, asOf: Date): Promise<Prisma.Decimal | null> {
