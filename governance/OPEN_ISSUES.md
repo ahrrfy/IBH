@@ -24,7 +24,7 @@
 | I004 | VPS: تثبيت Docker + Nginx + SSL (يحتاج SSH access) | 🔴 حرج | Wave 1 | DevOps | مفتوح |
 | I005 | اختيار TOTP library للـ 2FA (otplib vs speakeasy) | 🟢 تحسين | Wave 1 | Tech Lead | مفتوح |
 | I006 | تحديد Gitea URL و Woodpecker CI configuration | 🟡 مهم | Wave 1 | DevOps | مفتوح |
-| I007 | زر "تسجيل الدخول" في /login لا يستجيب رغم API يعمل — جذر غير معروف | 🔴 حرج | Wave 1 | Frontend | مفتوح (2026-04-25) |
+| I007 | زر "تسجيل الدخول" في /login لا يستجيب — تشخيص: فشل hydration على client (راجع §I007 أدناه) | 🔴 حرج | Wave 1 | Frontend | مفتوح — قيد التشخيص (2026-04-25) |
 | I008 | full seed.ts لم يُختبَر — Iraqi CoA + roles + policies لم تُسلَّم | 🟡 مهم | Wave 1 | Backend | مفتوح |
 | I009 | 2FA UI مكتمل لكن لم يُختبَر — يتطلب دخول ناجح من المتصفح أولاً | 🟡 مهم | Wave 1 | QA | مفتوح |
 
@@ -66,6 +66,46 @@
 | # | المشكلة | القرار | التاريخ |
 |---|---|---|---|
 | — | — | — | — |
+
+---
+
+## §I007 — تفاصيل تشخيص login button (2026-04-25)
+
+**Static analysis report (Claude agent, confidence: medium):**
+
+### السبب الأرجح: H1 — فشل hydration على العميل
+- `apps/web/src/lib/auth.ts:26-45` ينشئ Zustand store بـ `persist` middleware عند تحميل الموديول
+- `apps/web/src/app/login/page.tsx:18` يستدعي `useAuth()` بدون شرط
+- لو فشل تهيئة الـ store (أو اختلف server vs client state)، React 19 يتخلى عن hydration بصمت
+- النتيجة: HTML يُرسم من server لكن **لا event handlers تُربط** — لا الزر ولا الحقول تستجيب
+
+### لماذا فشلت الإصلاحات الـ 5 السابقة
+كلها عالجت الزر نفسه (form/onClick/Suspense). لم يلمس أي منها `useAuth` أو `auth.ts`. **العمى نفسه في كل مرة.**
+
+### الفرضيات المرفوضة
+- ❌ **H2 (CSP):** الـ CSP في `apps/api/src/main.ts:39-54` لا يطبَّق على web (nginx لا يحقن CSP لمسارات web)
+- ❌ **H4 (Next.js client component):** `page.tsx:1` معلَّم `"use client"` صحيحاً
+- ⚠️ **H5 (stale bundle):** يحتاج تحقق runtime — قارن hash البندل المنشور مع build محلي
+
+### الاختبار التشخيصي الحاسم (1 دقيقة، بدون deploy)
+> **افتح `/login` وحاول الكتابة في حقل البريد. إذا لم يظهر النص → hydration معطل (H1 مؤكد).**
+> إذا ظهر النص لكن الزر لا يستجيب → السبب في مكان آخر.
+
+### التغيير المقترح للجلسة القادمة (إذا H1 تأكد)
+استبدل `useAuth()` بـ direct API calls في `page.tsx`:
+```tsx
+// أزل: import { useAuth } from '@/lib/auth';
+// أضف: import { login as apiLogin, setToken } from '@/lib/api';
+// في doCredentialsLogin: const res = await apiLogin(...);
+//   if ('requires2FA' in res) {...} else { setToken(res.accessToken); router.replace(...); }
+```
+يعزل ما إذا كان Zustand persist هو السبب.
+
+### ملفات مذكورة بالأرقام
+- `apps/web/src/app/login/page.tsx:1, 18, 175`
+- `apps/web/src/lib/auth.ts:26-45, 50-70`
+- `apps/web/src/lib/api.ts:39-62`
+- `apps/web/next.config.js:3` (reactStrictMode)
 
 ---
 
