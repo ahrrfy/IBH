@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: refactor to use side-based JournalEntryLine schema (amountIqd + side='debit'|'credit') instead of debitIqd/creditIqd, and journalEntry relation instead of 'entry'
 import {
   Injectable,
   NotFoundException,
@@ -28,8 +27,8 @@ export interface CreateAssetDto {
   location?: string;
   assignedTo?: string;
   fundingSource?: 'cash' | 'ap';
-  cashAccountId?: string; // when fundingSource = cash
-  apAccountId?: string; // when fundingSource = ap (defaults to CoA code 'AP')
+  cashAccountCode?: string; // when fundingSource = cash, defaults to 'CASH'
+  apAccountCode?: string;   // when fundingSource = ap, defaults to 'AP'
 }
 
 export interface RecordMaintenanceDto {
@@ -62,6 +61,14 @@ export class AssetsService {
   ) {}
 
   async create(dto: CreateAssetDto, session: UserSession) {
+    if (!session.branchId) {
+      throw new BadRequestException({
+        code: 'BRANCH_REQUIRED',
+        messageAr: 'الفرع مطلوب لإنشاء الأصل',
+      });
+    }
+    const branchId = session.branchId;
+
     const cost = new Prisma.Decimal(dto.purchaseCostIqd);
     const salvage = new Prisma.Decimal(dto.salvageValueIqd ?? 0);
     if (dto.usefulLifeMonths <= 0) {
@@ -83,44 +90,33 @@ export class AssetsService {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const number = await this.sequence.next(
-        { companyId: session.companyId, entity: 'FixedAsset', prefix: 'FA' },
-        tx,
-      );
+      const number = await this.sequence.next(session.companyId, 'FA', branchId);
 
       const funding = dto.fundingSource ?? 'cash';
       const offsetCode =
-        funding === 'cash' ? dto.cashAccountCode ?? 'CASH' : dto.apAccountId ?? 'AP';
+        funding === 'cash' ? dto.cashAccountCode ?? 'CASH' : dto.apAccountCode ?? 'AP';
 
-      // Acquisition JE
       const je = await this.posting.postJournalEntry(
         {
           companyId: session.companyId,
+          branchId,
           entryDate: new Date(dto.acquisitionDate),
           refType: 'FixedAssetAcquisition',
           refId: number,
           description: `Acquisition of ${dto.nameAr} (${number})`,
           lines: [
-            {
-              accountCode: category.code,
-              debit: cost.toString(),
-              description: dto.nameAr,
-            },
-            {
-              accountCode: offsetCode,
-              credit: cost.toString(),
-              description: dto.nameAr,
-            },
+            { accountCode: category.code, debit: cost.toNumber(), description: dto.nameAr },
+            { accountCode: offsetCode, credit: cost.toNumber(), description: dto.nameAr },
           ],
         },
-        session,
+        { userId: session.userId },
         tx,
       );
 
       const asset = await tx.fixedAsset.create({
         data: {
           companyId: session.companyId,
-          branchId: session.branchId ?? null,
+          branchId,
           number,
           nameAr: dto.nameAr,
           categoryAccountId: dto.categoryAccountId,
@@ -141,6 +137,7 @@ export class AssetsService {
           location: dto.location,
           assignedTo: dto.assignedTo,
           status: 'active' as any,
+          createdBy: session.userId,
         },
       });
 
@@ -168,10 +165,7 @@ export class AssetsService {
     if (dto.assignedTo !== undefined) data.assignedTo = dto.assignedTo;
     if (dto.warrantyUntil !== undefined)
       data.warrantyUntil = new Date(dto.warrantyUntil);
-    if (dto.costCenterId !== undefined)
-      data.costCenter = dto.costCenterId
-        ? { connect: { id: dto.costCenterId } }
-        : { disconnect: true };
+    if (dto.costCenterId !== undefined) data.costCenterId = dto.costCenterId;
 
     const updated = await this.prisma.fixedAsset.update({ where: { id }, data });
     await this.audit.log({
@@ -204,11 +198,10 @@ export class AssetsService {
     const a = await this.prisma.fixedAsset.findFirst({
       where: { id, companyId },
       include: {
-        depreciations: { orderBy: [{ periodYear: 'desc' }, { periodMonth: 'desc' }] },
-        maintenance: { orderBy: { date: 'desc' } },
-        categoryAccount: true,
-        accumDepAccount: true,
-        depreciationExpenseAccount: true,
+        depreciationEntries: {
+          orderBy: [{ periodYear: 'desc' }, { periodMonth: 'desc' }],
+        },
+        maintenanceRecords: { orderBy: { date: 'desc' } },
       },
     });
     if (!a) {
@@ -224,6 +217,14 @@ export class AssetsService {
    * Records maintenance. If isCapital: capitalizes cost, recomputes monthly depreciation.
    */
   async recordMaintenance(dto: RecordMaintenanceDto, session: UserSession) {
+    if (!session.branchId) {
+      throw new BadRequestException({
+        code: 'BRANCH_REQUIRED',
+        messageAr: 'الفرع مطلوب',
+      });
+    }
+    const branchId = session.branchId;
+
     const cost = new Prisma.Decimal(dto.costIqd);
     const asset = await this.findOne(dto.assetId, session.companyId);
 
@@ -236,6 +237,7 @@ export class AssetsService {
           description: dto.description,
           costIqd: cost,
           isCapital: dto.isCapital,
+          createdBy: session.userId,
         },
       });
 
@@ -263,51 +265,46 @@ export class AssetsService {
           },
         });
 
-        // Dr Asset (category) / Cr Cash
+        const categoryCoa = await tx.chartOfAccount.findUnique({
+          where: { id: asset.categoryAccountId },
+        });
+        if (!categoryCoa) {
+          throw new BadRequestException({
+            code: 'CATEGORY_COA_NOT_FOUND',
+            messageAr: 'حساب فئة الأصل غير موجود',
+          });
+        }
         await this.posting.postJournalEntry(
           {
             companyId: session.companyId,
+            branchId,
             entryDate: new Date(dto.date),
             refType: 'AssetMaintenanceCapital',
             refId: maintenance.id,
             description: `Capital maintenance on ${asset.number}: ${dto.description}`,
             lines: [
-              {
-                accountCode: (await tx.chartOfAccount.findUnique({
-                  where: { id: asset.categoryAccountId },
-                }))!.code,
-                debit: cost.toString(),
-              },
-              {
-                accountCode: dto.cashAccountCode ?? 'CASH',
-                credit: cost.toString(),
-              },
+              { accountCode: categoryCoa.code, debit: cost.toNumber() },
+              { accountCode: dto.cashAccountCode ?? 'CASH', credit: cost.toNumber() },
             ],
           },
-          session,
+          { userId: session.userId },
           tx,
         );
       } else {
-        // Dr Maintenance Expense / Cr Cash
         await this.posting.postJournalEntry(
           {
             companyId: session.companyId,
+            branchId,
             entryDate: new Date(dto.date),
             refType: 'AssetMaintenance',
             refId: maintenance.id,
             description: `Maintenance on ${asset.number}: ${dto.description}`,
             lines: [
-              {
-                accountCode: dto.maintenanceExpenseAccountCode ?? 'MAINT-EXP',
-                debit: cost.toString(),
-              },
-              {
-                accountCode: dto.cashAccountCode ?? 'CASH',
-                credit: cost.toString(),
-              },
+              { accountCode: dto.maintenanceExpenseAccountCode ?? 'MAINT-EXP', debit: cost.toNumber() },
+              { accountCode: dto.cashAccountCode ?? 'CASH', credit: cost.toNumber() },
             ],
           },
-          session,
+          { userId: session.userId },
           tx,
         );
       }
@@ -329,6 +326,14 @@ export class AssetsService {
    * Disposes an asset. Computes gain/loss. Posts disposal JE.
    */
   async dispose(dto: DisposeAssetDto, session: UserSession) {
+    if (!session.branchId) {
+      throw new BadRequestException({
+        code: 'BRANCH_REQUIRED',
+        messageAr: 'الفرع مطلوب',
+      });
+    }
+    const branchId = session.branchId;
+
     const asset = await this.findOne(dto.assetId, session.companyId);
     if (asset.status === 'disposed') {
       throw new BadRequestException({
@@ -348,54 +353,48 @@ export class AssetsService {
       const accumCoa = await tx.chartOfAccount.findUnique({
         where: { id: asset.accumDepAccountId },
       });
+      if (!categoryCoa || !accumCoa) {
+        throw new BadRequestException({
+          code: 'ASSET_COA_MISSING',
+          messageAr: 'حسابات الأصل غير مكتملة',
+        });
+      }
 
       const lines: Array<{
         accountCode: string;
-        debit?: string;
-        credit?: string;
+        debit?: number;
+        credit?: number;
         description?: string;
       }> = [];
 
-      // Dr Accumulated depreciation (clear it)
-      lines.push({
-        accountCode: accumCoa!.code,
-        debit: asset.accumulatedDepIqd.toString(),
-      });
-      // Dr Cash (if sold)
+      lines.push({ accountCode: accumCoa.code, debit: asset.accumulatedDepIqd.toNumber() });
       if (dto.method === 'sold' && sale.gt(0)) {
-        lines.push({
-          accountCode: dto.cashAccountCode ?? 'CASH',
-          debit: sale.toString(),
-        });
+        lines.push({ accountCode: dto.cashAccountCode ?? 'CASH', debit: sale.toNumber() });
       }
-      // Cr Asset (at original cost)
-      lines.push({
-        accountCode: categoryCoa!.code,
-        credit: asset.purchaseCostIqd.toString(),
-      });
-      // Gain or loss
+      lines.push({ accountCode: categoryCoa.code, credit: asset.purchaseCostIqd.toNumber() });
       if (gainLoss.gt(0)) {
         lines.push({
           accountCode: dto.gainAccountCode ?? 'GAIN-DISPOSAL',
-          credit: gainLoss.toString(),
+          credit: gainLoss.toNumber(),
         });
       } else if (gainLoss.lt(0)) {
         lines.push({
           accountCode: dto.lossAccountCode ?? 'LOSS-DISPOSAL',
-          debit: gainLoss.abs().toString(),
+          debit: gainLoss.abs().toNumber(),
         });
       }
 
       await this.posting.postJournalEntry(
         {
           companyId: session.companyId,
+          branchId,
           entryDate: new Date(),
           refType: 'FixedAssetDisposal',
           refId: asset.id,
           description: `Disposal of asset ${asset.number} (${dto.method})`,
           lines,
         },
-        session,
+        { userId: session.userId },
         tx,
       );
 

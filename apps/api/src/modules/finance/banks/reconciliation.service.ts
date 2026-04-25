@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: refactor to use side-based JournalEntryLine schema (amountIqd + side='debit'|'credit') instead of debitIqd/creditIqd, and journalEntry relation instead of 'entry'
 import {
   Injectable,
   NotFoundException,
@@ -49,19 +48,28 @@ export class ReconciliationService {
     const statementDate = new Date(dto.statementDate);
     const statementBalance = new Prisma.Decimal(dto.statementBalance);
 
-    // Book balance from GL as of statement date.
-    const agg = await this.prisma.journalEntryLine.aggregate({
-      where: {
-        accountId: bank.accountId,
-        entry: { status: 'posted', entryDate: { lte: statementDate } },
-      },
-      _sum: { debitIqd: true, creditIqd: true },
-    });
-    const d = agg._sum.debitIqd ?? new Prisma.Decimal(0);
-    const c = agg._sum.creditIqd ?? new Prisma.Decimal(0);
+    const [debitAgg, creditAgg] = await Promise.all([
+      this.prisma.journalEntryLine.aggregate({
+        where: {
+          accountId: bank.accountId,
+          side: 'debit',
+          journalEntry: { status: 'posted', entryDate: { lte: statementDate } },
+        },
+        _sum: { amountIqd: true },
+      }),
+      this.prisma.journalEntryLine.aggregate({
+        where: {
+          accountId: bank.accountId,
+          side: 'credit',
+          journalEntry: { status: 'posted', entryDate: { lte: statementDate } },
+        },
+        _sum: { amountIqd: true },
+      }),
+    ]);
+    const d = debitAgg._sum.amountIqd ?? new Prisma.Decimal(0);
+    const c = creditAgg._sum.amountIqd ?? new Prisma.Decimal(0);
     const bookBalance = bank.openingBalance.plus(d).minus(c);
 
-    // Find unreconciled JE lines (not previously matched in any completed reco).
     const matchedIds = await this.prisma.bankReconciliationItem.findMany({
       where: {
         journalEntryLineId: { not: null },
@@ -78,9 +86,11 @@ export class ReconciliationService {
       where: {
         accountId: bank.accountId,
         id: { notIn: excludeIds },
-        entry: { status: 'posted', entryDate: { lte: statementDate } },
+        journalEntry: { status: 'posted', entryDate: { lte: statementDate } },
       },
-      include: { entry: { select: { entryNumber: true, description: true } } },
+      include: {
+        journalEntry: { select: { entryNumber: true, description: true } },
+      },
     });
 
     const reco = await this.prisma.$transaction(async (tx) => {
@@ -94,6 +104,7 @@ export class ReconciliationService {
           adjustedBalance: bookBalance,
           status: 'in_progress' as any,
           statementFileUrl: dto.statementFileUrl,
+          createdBy: session.userId,
         },
       });
       if (lines.length) {
@@ -101,9 +112,10 @@ export class ReconciliationService {
           data: lines.map((l) => ({
             reconciliationId: r.id,
             journalEntryLineId: l.id,
-            description: l.description ?? l.entry.description ?? l.entry.entryNumber,
-            amountIqd: l.debitIqd.greaterThan(0) ? l.debitIqd : l.creditIqd,
-            direction: l.debitIqd.greaterThan(0) ? 'debit' : 'credit',
+            description:
+              l.description ?? l.journalEntry.description ?? l.journalEntry.entryNumber,
+            amountIqd: l.amountIqd,
+            direction: l.side,
             matched: false,
           })),
         });
@@ -123,7 +135,7 @@ export class ReconciliationService {
     return reco;
   }
 
-  async matchItem(itemId: string, journalEntryLineId: string | null, session: UserSession) {
+  async matchItem(itemId: string, journalEntryLineId: string | null, _session: UserSession) {
     const item = await this.prisma.bankReconciliationItem.findUnique({
       where: { id: itemId },
     });
@@ -189,7 +201,7 @@ export class ReconciliationService {
       where: { id: reconciliationId, companyId: session.companyId },
       include: {
         items: true,
-        bankAccount: { include: { account: true } },
+        bankAccount: true,
       },
     });
     if (!reco) {
@@ -205,46 +217,36 @@ export class ReconciliationService {
       });
     }
 
-    // Statement-only items = added adjustments without a journalEntryLineId.
+    const bankCoa = await this.prisma.chartOfAccount.findUnique({
+      where: { id: reco.bankAccount.accountId },
+    });
+    if (!bankCoa) {
+      throw new BadRequestException({
+        code: 'BANK_COA_NOT_FOUND',
+        messageAr: 'حساب البنك في الدليل غير موجود',
+      });
+    }
+
     const adjustments = reco.items.filter(
       (i) => !i.journalEntryLineId && !i.matched,
     );
 
     await this.prisma.$transaction(async (tx) => {
       if (adjustments.length) {
-        // Post one JE per reco with all adjustments.
         const lines: Array<{
           accountCode: string;
-          debit?: string;
-          credit?: string;
+          debit?: number;
+          credit?: number;
           description?: string;
         }> = [];
         for (const a of adjustments) {
+          const amt = a.amountIqd.toNumber();
           if (a.direction === 'debit') {
-            // Money into bank (e.g. interest earned)
-            lines.push({
-              accountCode: reco.bankAccount.account.code,
-              debit: a.amountIqd.toString(),
-              description: a.description,
-            });
-            // Offset: revenue/misc (caller provides properly — here we use a suspense account by code convention 'MISC-INCOME')
-            lines.push({
-              accountCode: 'MISC-INCOME',
-              credit: a.amountIqd.toString(),
-              description: a.description,
-            });
+            lines.push({ accountCode: bankCoa.code, debit: amt, description: a.description });
+            lines.push({ accountCode: 'MISC-INCOME', credit: amt, description: a.description });
           } else {
-            // Money out (bank fees)
-            lines.push({
-              accountCode: 'BANK-FEES',
-              debit: a.amountIqd.toString(),
-              description: a.description,
-            });
-            lines.push({
-              accountCode: reco.bankAccount.account.code,
-              credit: a.amountIqd.toString(),
-              description: a.description,
-            });
+            lines.push({ accountCode: 'BANK-FEES', debit: amt, description: a.description });
+            lines.push({ accountCode: bankCoa.code, credit: amt, description: a.description });
           }
         }
         await this.posting.postJournalEntry(
@@ -256,7 +258,7 @@ export class ReconciliationService {
             description: `Bank reconciliation adjustments ${reco.id}`,
             lines,
           },
-          session,
+          { userId: session.userId },
           tx,
         );
       }

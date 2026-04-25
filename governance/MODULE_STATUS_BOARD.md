@@ -62,12 +62,12 @@
 
 | الوحدة | الحالة | ملاحظات |
 |---|---|---|
-| M07 GL (Trial Balance, Ledger, Voucher) | 🟢 | |
-| M07 Bank Accounts + Reconciliation | 🟢 | Auto-match + adjustments JE |
-| M07 Payment Receipts (AR) | 🟢 | |
-| M07 Period Close (7-step) | 🟢 | Soft + hard close, reopen guards |
-| M07 Financial Reports | 🟢 | BS, IS, CF, Equity |
-| M17 Fixed Assets + Depreciation | 🟢 | SL + DB methods, disposal gain/loss |
+| M07 GL (Trial Balance, Ledger, Voucher) | 🟢 | TypeScript clean (side-based) |
+| M07 Bank Accounts + Reconciliation | 🟢 | Auto-match + adjustments JE · TypeScript clean |
+| M07 Payment Receipts (AR) | 🟢 | TypeScript clean |
+| M07 Period Close (7-step) | 🟢 | Soft + hard close, reopen guards · TypeScript clean |
+| M07 Financial Reports | 🟢 | BS, IS, CF, Equity · TypeScript clean |
+| M17 Fixed Assets + Depreciation | 🟢 | SL + DB methods, disposal gain/loss · TypeScript clean |
 
 ## ✅ Wave 5 — HR + Jobs + Marketing
 

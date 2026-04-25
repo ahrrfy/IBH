@@ -1,4 +1,3 @@
-// @ts-nocheck -- TODO: refactor to use side-based JournalEntryLine schema (amountIqd + side='debit'|'credit') instead of debitIqd/creditIqd, and journalEntry relation instead of 'entry'
 import {
   Injectable,
   NotFoundException,
@@ -15,7 +14,7 @@ export interface CreatePaymentReceiptDto {
   customerId: string;
   amountIqd: string | number;
   method: 'cash' | 'bank_transfer' | 'cheque' | 'card' | 'other';
-  cashAccountId: string; // CoA id for the receiving cash/bank account
+  cashAccountId: string; // ChartOfAccount id of the receiving cash/bank account
   reference?: string;
   appliedInvoices: Array<{ invoiceId: string; amount: string | number }>;
   notes?: string;
@@ -32,6 +31,14 @@ export class PaymentReceiptsService {
   ) {}
 
   async create(dto: CreatePaymentReceiptDto, session: UserSession) {
+    if (!session.branchId) {
+      throw new BadRequestException({
+        code: 'BRANCH_REQUIRED',
+        messageAr: 'الفرع مطلوب لإنشاء إيصال قبض',
+      });
+    }
+    const branchId = session.branchId;
+
     const amount = new Prisma.Decimal(dto.amountIqd);
     if (amount.lte(0)) {
       throw new BadRequestException({
@@ -70,46 +77,36 @@ export class PaymentReceiptsService {
       });
     }
 
-    // Assumption: AR control account is resolvable via customer's AR account or CoA code 'AR'.
+    // AR control account placeholder. TODO: map to Iraqi CoA code (e.g. '221').
     const arCode = 'AR';
 
     const unapplied = amount.minus(appliedTotal);
+    const amountNum = amount.toNumber();
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const number = await this.sequence.next(
-        { companyId: session.companyId, entity: 'PaymentReceipt', prefix: 'PR' },
-        tx,
-      );
+      const number = await this.sequence.next(session.companyId, 'PR', branchId);
 
-      // Post JE: Dr Cash / Cr AR
       const je = await this.posting.postJournalEntry(
         {
           companyId: session.companyId,
+          branchId,
           entryDate: dto.receiptDate ? new Date(dto.receiptDate) : new Date(),
           refType: 'PaymentReceipt',
           refId: number,
           description: `Payment receipt ${number} from ${customer.nameAr ?? customer.nameEn ?? customer.id}`,
           lines: [
-            {
-              accountCode: cashCoA.code,
-              debit: amount.toString(),
-              description: `Receipt ${number}`,
-            },
-            {
-              accountCode: arCode,
-              credit: amount.toString(),
-              description: `Receipt ${number}`,
-            },
+            { accountCode: cashCoA.code, debit: amountNum, description: `Receipt ${number}` },
+            { accountCode: arCode, credit: amountNum, description: `Receipt ${number}` },
           ],
         },
-        session,
+        { userId: session.userId },
         tx,
       );
 
       const receipt = await tx.paymentReceipt.create({
         data: {
           companyId: session.companyId,
-          branchId: session.branchId ?? null,
+          branchId,
           number,
           customerId: dto.customerId,
           receiptDate: dto.receiptDate ? new Date(dto.receiptDate) : new Date(),
@@ -120,10 +117,10 @@ export class PaymentReceiptsService {
           appliedInvoices: dto.appliedInvoices as unknown as Prisma.JsonArray,
           unappliedAmount: unapplied,
           journalEntryId: je.id,
+          createdBy: session.userId,
         },
       });
 
-      // Apply to invoices
       for (const a of dto.appliedInvoices) {
         const amt = new Prisma.Decimal(a.amount);
         const inv = await tx.salesInvoice.findFirst({
@@ -144,7 +141,6 @@ export class PaymentReceiptsService {
         });
       }
 
-      // Decrement customer credit balance
       await tx.customer.update({
         where: { id: customer.id },
         data: {
@@ -205,7 +201,7 @@ export class PaymentReceiptsService {
           balanceIqd: inv.balanceIqd.minus(amt),
         },
       });
-      const applied = (r.appliedInvoices as unknown as Array<any>) ?? [];
+      const applied = (r.appliedInvoices as unknown as Array<{ invoiceId: string; amount: string }>) ?? [];
       applied.push({ invoiceId: body.invoiceId, amount: amt.toString() });
       return tx.paymentReceipt.update({
         where: { id: receiptId },
@@ -218,7 +214,7 @@ export class PaymentReceiptsService {
   }
 
   /**
-   * Refunds overpayment: reverses a portion of the receipt JE.
+   * Refunds overpayment by posting a reverse JE: Dr AR / Cr Cash.
    */
   async refundOverpayment(
     receiptId: string,
@@ -226,43 +222,49 @@ export class PaymentReceiptsService {
     session: UserSession,
   ) {
     const amt = new Prisma.Decimal(amount);
-    return this.prisma.$transaction(async (tx) => {
-      const r = await tx.paymentReceipt.findFirst({
-        where: { id: receiptId, companyId: session.companyId },
-        include: { cashAccount: true },
+    const r = await this.prisma.paymentReceipt.findFirst({
+      where: { id: receiptId, companyId: session.companyId },
+    });
+    if (!r) {
+      throw new NotFoundException({
+        code: 'RECEIPT_NOT_FOUND',
+        messageAr: 'الإيصال غير موجود',
       });
-      if (!r) {
-        throw new NotFoundException({
-          code: 'RECEIPT_NOT_FOUND',
-          messageAr: 'الإيصال غير موجود',
-        });
-      }
-      if (amt.gt(r.unappliedAmount)) {
-        throw new BadRequestException({
-          code: 'EXCEEDS_UNAPPLIED',
-          messageAr: 'المبلغ يتجاوز الرصيد غير المطبق',
-        });
-      }
-      // Reverse: Dr AR / Cr Cash
-      await this.posting.postJournalEntry(
-        {
-          companyId: session.companyId,
-          entryDate: new Date(),
-          refType: 'PaymentReceiptRefund',
-          refId: r.id,
-          description: `Refund overpayment for ${r.number}`,
-          lines: [
-            { accountCode: 'AR', debit: amt.toString() },
-            { accountCode: r.cashAccount.code, credit: amt.toString() },
-          ],
-        },
-        session,
-        tx,
-      );
-      return tx.paymentReceipt.update({
-        where: { id: receiptId },
-        data: { unappliedAmount: r.unappliedAmount.minus(amt) },
+    }
+    if (amt.gt(r.unappliedAmount)) {
+      throw new BadRequestException({
+        code: 'EXCEEDS_UNAPPLIED',
+        messageAr: 'المبلغ يتجاوز الرصيد غير المطبق',
       });
+    }
+    const cashCoA = await this.prisma.chartOfAccount.findFirst({
+      where: { id: r.cashAccountId, companyId: session.companyId },
+    });
+    if (!cashCoA) {
+      throw new BadRequestException({
+        code: 'CASH_ACCOUNT_NOT_FOUND',
+        messageAr: 'حساب النقد غير موجود',
+      });
+    }
+    const amtNum = amt.toNumber();
+    await this.posting.postJournalEntry(
+      {
+        companyId: session.companyId,
+        branchId: r.branchId,
+        entryDate: new Date(),
+        refType: 'PaymentReceiptRefund',
+        refId: r.id,
+        description: `Refund overpayment for ${r.number}`,
+        lines: [
+          { accountCode: 'AR', debit: amtNum },
+          { accountCode: cashCoA.code, credit: amtNum },
+        ],
+      },
+      { userId: session.userId },
+    );
+    return this.prisma.paymentReceipt.update({
+      where: { id: receiptId },
+      data: { unappliedAmount: r.unappliedAmount.minus(amt) },
     });
   }
 
@@ -276,7 +278,6 @@ export class PaymentReceiptsService {
   async findOne(id: string, companyId: string) {
     const r = await this.prisma.paymentReceipt.findFirst({
       where: { id, companyId },
-      include: { customer: true, cashAccount: true },
     });
     if (!r) {
       throw new NotFoundException({
@@ -284,7 +285,11 @@ export class PaymentReceiptsService {
         messageAr: 'الإيصال غير موجود',
       });
     }
-    return r;
+    const [customer, cashAccount] = await Promise.all([
+      this.prisma.customer.findUnique({ where: { id: r.customerId } }),
+      this.prisma.chartOfAccount.findUnique({ where: { id: r.cashAccountId } }),
+    ]);
+    return { ...r, customer, cashAccount };
   }
 
   async printReceipt(id: string, companyId: string) {
