@@ -18,7 +18,8 @@
 | Prisma Models | ~75 |
 | TypeScript files | ~95+ |
 | Lines of code | ~16,000+ |
-| Acceptance tests | 0 (pending) |
+| Acceptance tests (written) | 17 (7 كامل + 3 جزئي من 17 متطلب W1-W6) |
+| Acceptance tests (executed) | 0 (Docker غير متاح) |
 | Production deployment | Not yet |
 
 ---
@@ -116,7 +117,8 @@
 | G1 تعريف مكتوب | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | G2 مسار العمل | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | G3 DB واضحة | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| G4 Acceptance Tests | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
+| G4 Acceptance Tests (مكتوبة) | 🟡 4/5 | 🟡 2/3 | 🟡 1/3 | 🟡 1/3 | 🟡 0.5/2 | ⬜ 0/2 |
+| G4 Acceptance Tests (مُشغَّلة) | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | G5 دليل إثبات | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 | G6 تشغيل واقعي | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ | ⬜ |
 
@@ -144,4 +146,4 @@
 
 ---
 
-*آخر تحديث: 2026-04-24 — Waves 1-6 كود كامل مرفوع على GitHub*
+*آخر تحديث: 2026-04-25 — governance sync · e2e coverage audit (17 tests, 41% W1-W6 requirements covered)*

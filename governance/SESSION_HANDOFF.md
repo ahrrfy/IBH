@@ -121,11 +121,41 @@ payment-receipts, reconciliation, assets.
 - `FixedAsset.branchId` إلزامي — أضفنا guards.
 - `BankReconciliation.createdBy` و `PaymentReceipt.createdBy` إلزامية.
 
-### 3. Acceptance Tests (G4)
-- مكتوبة: 7 e2e specs (auth, health, double-entry, inventory-mwa,
-  sequence-uniqueness, pos-idempotency, period-lock) — **لم تُشغَّل** (DB غير متوفرة)
-- المطلوب: 85+ test (5 لكل module على الأقل) — يحتاج Docker/Postgres
-- موقع: `apps/api/test/*.e2e-spec.ts`
+### 3. Acceptance Tests (G4) — تحديث 2026-04-25 بعد تدقيق
+**الواقع:** 17 ملف e2e موجود في `apps/api/test/` — **لم يُشغَّل أيٌّ منها** (Docker غير متاح في بيئة Claude)
+
+**تغطية متطلبات W1-W6 الـ 17 المعلَنة في الـ Starter Prompt (5 per Wave):**
+
+| Wave | Requirement | الحالة | الملف |
+|---|---|---|---|
+| W1 | auth login | ✅ كامل | `auth.e2e-spec.ts` |
+| W1 | RBAC deny | ✅ كامل | `rbac-deny.e2e-spec.ts` |
+| W1 | MWA | ⚠️ جزئي (test مهم بـ `.skip`) | `inventory-mwa.e2e-spec.ts` |
+| W1 | double-entry CHECK | ✅ كامل | `double-entry.e2e-spec.ts` |
+| W1 | period lock | ✅ كامل | `period-lock.e2e-spec.ts` |
+| W2 | shift open/close | ❌ مفقود | — |
+| W2 | receipt + clientUlid idempotency | ✅ كامل | `pos-idempotency.e2e-spec.ts` |
+| W2 | invoice posting | ✅ كامل | `sales-invoice-flow.e2e-spec.ts` |
+| W3 | 3-way match | ⚠️ جزئي (validation فقط، لا integration flow) | `3-way-match.e2e-spec.ts` |
+| W3 | GRN→inventory | ❌ مفقود | — |
+| W3 | vendor invoice posting | ❌ مفقود | — |
+| W4 | trial balance balanced | ✅ كامل | `trial-balance.e2e-spec.ts` |
+| W4 | depreciation monthly | ❌ مفقود | — |
+| W4 | period close 7-step | ❌ مفقود | — |
+| W5 | Iraqi tax brackets | ❌ مفقود | — |
+| W5 | attendance+payroll | ⚠️ جزئي (math فقط، لا attendance link) | `payroll-balanced.e2e-spec.ts` |
+| W6 | lead→customer | ❌ مفقود | — |
+| W6 | license heartbeat | ❌ مفقود | — |
+
+**خلاصة التغطية:** 7 كامل / 3 جزئي / 8 مفقود = **~41% بعد احتساب الجزئي**
+
+**اختبارات إضافية مكتوبة (خارج المتطلبات الـ 17):**
+- `health.e2e-spec.ts` — smoke
+- `sequence-uniqueness.e2e-spec.ts` — Sequence engine
+- `rls-isolation.e2e-spec.ts` — multi-tenant RLS
+- `audit-append-only.e2e-spec.ts` — append-only triggers
+- `inventory-no-negative.e2e-spec.ts` — balance ≥ 0 guard
+- `stock-ledger-balance.e2e-spec.ts` — ledger reconciliation
 
 ### 4. Runtime لم يُختَبر
 - لم يُشغَّل `prisma migrate dev` على DB حقيقية (Docker غير متوفر في هذه البيئة)
@@ -202,11 +232,12 @@ payment-receipts, reconciliation, assets.
 | Schema + migrations | 100% |
 | Services (code written) | 95% |
 | Type safety (real Prisma types) | **100% (44/44)** ✅ |
-| Acceptance tests | 5% |
+| Acceptance tests (written) | 41% (7 كامل + 3 جزئي من 17 متطلب) |
+| Acceptance tests (executed) | 0% (Docker غير متاح) |
 | Runtime verified | 0% |
 | Production deployed | 0% |
 | **الإنجاز الكلي من الخطة** | **~75%** |
 
 ---
 
-*آخر تحديث: نهاية جلسة Wave 4 cleanup · 0 ملفات مع @ts-nocheck · جاهز لجلسة جديدة*
+*آخر تحديث: 2026-04-25 — governance sync (e2e coverage audit + commit reconciliation)*
