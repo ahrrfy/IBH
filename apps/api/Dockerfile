@@ -40,6 +40,11 @@ COPY packages/shared-types ./packages/shared-types
 COPY packages/validation-schemas ./packages/validation-schemas
 COPY packages/domain-events ./packages/domain-events
 
+# Build workspace packages first (api depends on their compiled output)
+RUN pnpm --filter '@erp/shared-types' build \
+ && pnpm --filter '@erp/validation-schemas' build \
+ && pnpm --filter '@erp/domain-events' build
+
 # Generate Prisma client
 RUN pnpm --filter api exec prisma generate
 
