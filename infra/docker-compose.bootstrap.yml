@@ -30,9 +30,9 @@ volumes:
 
 services:
 
-  # ── 1. PostgreSQL 16 ─────────────────────────────────────────────────────
+  # ── 1. PostgreSQL 16 + pgvector ──────────────────────────────────────────
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg16
     <<: *restart-policy
     logging: *default-logging
     environment:
