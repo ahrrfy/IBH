@@ -77,8 +77,9 @@ payment-receipts, reconciliation, assets.
 - `BankReconciliation.createdBy` و `PaymentReceipt.createdBy` إلزامية.
 
 ### 3. Acceptance Tests (G4)
-- مكتوبة فقط: 4 smoke specs scaffolds (لم تُشغَّل)
-- المطلوب: 85+ test (5 لكل module على الأقل)
+- مكتوبة: 7 e2e specs (auth, health, double-entry, inventory-mwa,
+  sequence-uniqueness, pos-idempotency, period-lock) — **لم تُشغَّل** (DB غير متوفرة)
+- المطلوب: 85+ test (5 لكل module على الأقل) — يحتاج Docker/Postgres
 - موقع: `apps/api/test/*.e2e-spec.ts`
 
 ### 4. Runtime لم يُختَبر
