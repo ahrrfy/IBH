@@ -104,18 +104,37 @@ export async function api<T = unknown>(path: string, opts: ApiRequestInit = {}):
   const payload = isJson ? await response.json().catch(() => null) : await response.text().catch(() => null);
 
   if (!response.ok) {
-    const errPayload = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
+    const root = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
+    // API errors are wrapped: { success: false, error: { code, messageAr, errors }, meta }
+    // Some legacy paths return flat: { code, messageAr, message }
+    const errObj = (root.error && typeof root.error === 'object' ? root.error : root) as Record<string, unknown>;
+
+    // Build a useful Arabic message — include validation field details when present
+    let msg =
+      (errObj.messageAr as string) ||
+      (errObj.message as string) ||
+      `خطأ ${response.status}`;
+
+    if (errObj.errors && typeof errObj.errors === 'object') {
+      const fieldErrors = Object.entries(errObj.errors as Record<string, unknown>)
+        .map(([f, m]) => `${f}: ${Array.isArray(m) ? m.join(', ') : m}`)
+        .join(' · ');
+      if (fieldErrors) msg = `${msg} (${fieldErrors})`;
+    }
+
     throw new ApiError({
-      code: (errPayload.code as string) || `HTTP_${response.status}`,
-      messageAr:
-        (errPayload.messageAr as string) ||
-        (errPayload.message as string) ||
-        'حدث خطأ أثناء معالجة الطلب',
+      code: (errObj.code as string) || `HTTP_${response.status}`,
+      messageAr: msg,
       status: response.status,
-      details: errPayload,
+      details: errObj,
     });
   }
 
+  // Some legacy endpoints wrap success too: { success: true, data: {...} }
+  // Unwrap if we see that shape, otherwise return as-is.
+  if (payload && typeof payload === 'object' && (payload as any).success === true && 'data' in (payload as any)) {
+    return (payload as any).data as T;
+  }
   return payload as T;
 }
 
