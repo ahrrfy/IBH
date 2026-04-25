@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { Suspense, useState, type FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
@@ -8,12 +8,20 @@ import { Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { ApiError } from '@/lib/api';
 
-interface LoginForm {
+interface LoginFields {
   email: string;
   password: string;
 }
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="text-slate-500">جارٍ التحميل…</div>}>
+      <LoginFieldsInner />
+    </Suspense>
+  );
+}
+
+function LoginFieldsInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login } = useAuth();
@@ -25,11 +33,11 @@ export default function LoginPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LoginForm>({
+  } = useForm<LoginFields>({
     defaultValues: { email: '', password: '' },
   });
 
-  async function onSubmit(values: LoginForm) {
+  async function onSubmit(values: LoginFields) {
     setError(null);
     setSubmitting(true);
     try {
