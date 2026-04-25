@@ -40,6 +40,169 @@
 - قابل للبيع تجارياً
 
 # ┌─────────────────────────────────────────────────────────────┐
+# │  ⚙️  PERMANENT EXECUTION PROTOCOL  (default behavior)       │
+# │  Applies to this session and ALL future sessions in repo.   │
+# └─────────────────────────────────────────────────────────────┘
+
+## Mission
+Build and maintain this production system with maximum correctness,
+minimum token waste, and zero fake progress.
+
+## Mandatory Work Cycle
+Always execute in this order — never skip a step:
+
+```
+INSPECT → PLAN → IMPLEMENT → VERIFY → COMMIT → REPORT → STOP
+```
+
+## Session Start Rules
+At the start of every session:
+
+1. Run:
+   - `git status`
+   - `git log --oneline -5`
+2. Detect:
+   - current branch
+   - latest commit
+   - unfinished work
+   - risky uncommitted changes
+   - smallest next safe task
+3. Inspect only targeted files first.
+   Do not scan the entire repository unless required.
+
+> This complements the Arabic session-start protocol above — both must run.
+
+## Budget / Token Rules (permanent limits)
+- Maximum **2–3 files** changed per cycle
+- Maximum **1 feature/fix slice** per cycle
+- No open-ended coding · No endless continuing
+- No broad rewrites · No unrelated cleanup
+- No cosmetic-only edits · No speculative architecture
+- No duplicate implementations · Prefer editing existing files
+- Use `grep` / `ripgrep` before opening large files
+- Summarize findings briefly
+- If context **> 60%** → prepare handoff soon
+- If context **> 70%** → stop and write handoff summary
+
+## Planning Rules
+Before coding, always state:
+- Goal
+- Files to inspect
+- Files to change
+- Risk level
+- Verification method
+- Expected commit type
+
+Then start implementation.
+
+## Implementation Rules
+- Make the **smallest correct change**
+- Preserve existing architecture and patterns
+- Keep compatibility unless explicitly changing behavior
+- Do not break: routes, schema, auth, accounting, inventory,
+  settlements, branch logic
+- Do not add `TODO` instead of fixing
+- Do not hide errors blindly
+- Do not patch symptoms only — fix root cause when safe
+
+## ERP / POS / Accounting Operational Guards
+Because this is a real business system, every change must protect:
+
+- Transaction integrity
+- Idempotent invoice flows
+- Correct stock updates
+- Warehouse balances
+- Cost layers (if used)
+- Settlement / shift totals
+- Payment-method separation (cash / card / mobile)
+- Branch isolation
+- Permission enforcement
+- Traceable journal entries
+- Correct reverse flows for void / return / cancel
+
+> **Never fix frontend only when backend logic is wrong.**
+> Reinforces F1 / F2 / F3 — does not replace them.
+
+## Verification Rules
+After each change run the smallest relevant verification:
+- `npm run check`
+- `npm run typecheck`
+- `npm test`
+- targeted tests / targeted build / targeted lint
+- `grep` evidence
+
+If failure is unrelated, report separately and continue safely.
+**Never claim "fixed" without evidence.**
+
+## Commit Rules
+Before commit run:
+- `git diff --check`
+- `git status`
+- `git diff --stat`
+
+Commit only related files. Format:
+
+```
+FIX-###: description
+HOTFIX-###: description
+FEATURE-###: description
+```
+
+## Required Cycle Report Format
+After every cycle output **only**:
+
+```
+### Cycle Report
+- Goal:
+- Files changed:
+- Why:
+- Verification:
+- Commit:
+- Risk:
+- Next safest step:
+```
+
+Then **STOP**. Never auto-continue after report.
+
+## Handoff Rules
+When stopping due to context or end of session, write:
+
+```
+### HANDOFF SUMMARY
+- Branch:
+- Latest commit:
+- Completed:
+- Remaining:
+- Risks:
+- Files touched:
+- Verification done:
+- Next safest command:
+```
+
+Then stop. *(This is the minimum English handoff — the full Arabic
+session-end protocol below is still required at end of session.)*
+
+## Anti-Fake Progress Rules
+Never say "done" unless **all** are true:
+- code changed
+- verification ran
+- evidence exists
+- commit exists
+
+No fake confidence. No vague claims. No hallucinated completion.
+
+## Priority Rule
+```
+Correctness  >  Speed
+Safety       >  Quantity
+Verified progress  >  Large progress
+Small finished slices  >  Big unfinished work
+```
+
+> **Default Behavior — Effective Immediately:** these rules apply
+> starting now and in every future session in this repository.
+
+# ┌─────────────────────────────────────────────────────────────┐
 # │  🔒 الفلسفات الست — دستور المشروع (لا تُخالفها أبداً)    │
 # └─────────────────────────────────────────────────────────────┘
 
@@ -314,6 +477,8 @@ Wave 6: CRM + AI Tiered + Licensing + E-commerce + Advanced Reports
 # └─────────────────────────────────────────────────────────────┘
 
 قبل ما تنهي أي جلسة، نفّذ `/session-end` أو يدوياً:
+> ℹ️ بالإضافة لهذي الخطوات، اطبع **HANDOFF SUMMARY** (الصيغة الإنجليزية في PERMANENT EXECUTION PROTOCOL أعلاه) كحدّ أدنى.
+
 
 1. ✅ حدّث `governance/SESSION_HANDOFF.md` بالكامل
 2. ✅ حدّث `governance/MODULE_STATUS_BOARD.md` (غيّر حالة الوحدات اللي اشتغلنا عليها)
