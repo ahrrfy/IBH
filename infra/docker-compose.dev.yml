@@ -77,6 +77,40 @@ services:
     networks:
       - erp-dev
 
+  ai-brain:
+    build:
+      context: ../apps/ai-brain
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports: ['8001:8001']
+    networks: [erp-dev]
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:8001/health']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  whatsapp-bridge:
+    build:
+      context: ../apps/whatsapp-bridge
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports: ['8002:8002']
+    environment:
+      ERP_API_URL: http://host.docker.internal:3000
+      WHATSAPP_VERIFY_TOKEN: dev-verify
+    networks: [erp-dev]
+
+  license-server:
+    build:
+      context: ../apps/license-server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports: ['8003:8003']
+    environment:
+      LICENSE_ADMIN_TOKEN: dev-admin-token
+    networks: [erp-dev]
+
   # Run once to create dev buckets
   minio-init:
     image: minio/mc:latest
