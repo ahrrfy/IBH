@@ -409,21 +409,21 @@ export class VendorInvoicesService {
 
       if (new Prisma.Decimal(invoice.taxIqd as any).gt(0)) {
         jeLines.push({
-          accountCode: '1320',
+          accountCode: '341',
           debit: new Prisma.Decimal(invoice.taxIqd as any).toNumber(),
           description: 'ضريبة مدخلات',
         });
       }
       if (new Prisma.Decimal(invoice.shippingIqd as any).gt(0)) {
         jeLines.push({
-          accountCode: '6200',
+          accountCode: '643',
           debit: new Prisma.Decimal(invoice.shippingIqd as any).toNumber(),
           description: 'شحن',
         });
       }
       if (new Prisma.Decimal(invoice.discountIqd as any).gt(0)) {
         jeLines.push({
-          accountCode: '4900',
+          accountCode: '593',
           credit: new Prisma.Decimal(invoice.discountIqd as any).toNumber(),
           description: 'خصم مكتسب',
         });
@@ -431,7 +431,7 @@ export class VendorInvoicesService {
 
       // supplier AP credit
       jeLines.push({
-        accountCode: '2100',
+        accountCode: '321',
         credit: new Prisma.Decimal(invoice.totalIqd as any).toNumber(),
         description: `ذمم ${invoice.supplier?.nameAr ?? ''}`,
       });
@@ -560,7 +560,7 @@ export class VendorInvoicesService {
           description: `دفعة لفاتورة ${invoice.number}`,
           lines: [
             {
-              accountCode: '2100',
+              accountCode: '321',
               debit: amount.toNumber(),
               description: 'سداد ذمم مورّد',
             },

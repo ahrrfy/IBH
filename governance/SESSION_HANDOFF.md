@@ -33,24 +33,38 @@
 | W6 | AI (forecasting) + Licensing | 2 | 0 |
 | **TOTAL** | | **44 clean** | **0 remaining** ✅ |
 
-### الإنجاز الكلي من الخطة: **~55%**
+### الإنجاز الكلي من الخطة: **~58%** (Iraqi CoA codes wired)
 
 ---
 
 ## 🔴 ما لم يُنجَز (الحقائق بصراحة)
 
-### 1. Account Code Placeholders (الأولوية #1 الآن)
-agents استخدموا في الـ Posting calls أكواد مثل:
-- `'AR'` → يجب `'221'` (العملاء)
-- `'CASH'` → يجب `'2411'` (صندوق الفرع)
-- `'BANK-FEES'` → يجب `'662'` (عمولات بنكية)
-- `'MISC-INCOME'` → يجب `'593'` (إيرادات متنوعة)
-- `'MAINT-EXP'` → يجب `'636'` (صيانة)
-- `'GAIN-DISPOSAL'` → يجب `'593'` (إيرادات متنوعة)
-- `'LOSS-DISPOSAL'` → يجب `'69'` (مصروفات متنوعة)
+### 1. ~~Account Code Placeholders~~ ✅ منجَز
+كل placeholders (`AR`/`CASH`/`BANK-FEES`/...) استُبدلت بأكواد الدليل العراقي
+المُسرَّع في `prisma/seed.ts`:
 
-موجودة في: sales-invoices, sales-returns, vendor-invoices, assets, payroll, payment-receipts, reconciliation.
-Iraqi CoA seeded في `prisma/seed.ts` بالأكواد الصحيحة.
+| كان | أصبح | المعنى |
+|---|---|---|
+| AR / 1200 | 221 | الذمم المدينة (العملاء) |
+| AP / 2100 | 321 | الموردون |
+| CASH / 1100 / 1010 | 2411 | صندوق الفرع الرئيسي |
+| BANK-FEES | 662 | عمولات بنكية |
+| MISC-INCOME / GAIN-DISPOSAL / 4900 | 593 | إيرادات متنوعة |
+| MAINT-EXP | 636 | صيانة عامة |
+| LOSS-DISPOSAL | 69 | مصروفات متنوعة |
+| 4100 | 511 / 512 | مبيعات نقدية / آجلة (شرطي) |
+| 5100 | 611 | تكلفة البضاعة المباعة |
+| 1300 / 1320 | 212 | بضاعة جاهزة |
+| 2150 | 331 | GR/IR (مصروفات مستحقة) |
+| 6200 | 643 | نقل ومواصلات |
+| 6210 | 621 | رواتب موظفين |
+| 3410 | 341 / 342 | ضرائب الدخل / مستقطعة |
+| 3320 | 331 | ضمان اجتماعي مستحق |
+
+تطبيق على: sales-invoices, sales-returns, vendor-invoices, grn, payroll,
+payment-receipts, reconciliation, assets.
+
+الباقي (NI/DEP في cash-flow) رموز اصطناعية لتقرير فقط — ليست postings.
 
 ### 2. ملاحظات تقنية من جلسة Wave 4 cleanup
 - `ChartOfAccount` schema يستخدم `category` (AccountCategory enum) و `accountType` (debit_normal/credit_normal) — **ليس** `type` ولا `level`.
@@ -96,10 +110,7 @@ Iraqi CoA seeded في `prisma/seed.ts` بالأكواد الصحيحة.
 
 الأولويات:
 
-1. استبدل placeholder account codes (AR/CASH/BANK-FEES/MISC-INCOME/...) بأكواد الدليل العراقي
-   في: sales-invoices, sales-returns, vendor-invoices, payment-receipts, reconciliation,
-       assets, payroll.
-   AR=221, CASH=2411, BANK-FEES=662, MISC-INCOME=593, MAINT-EXP=636, ...
+1. ✅ ~~استبدل placeholder account codes~~ — منجَز (انظر القسم 1)
 
 2. شغّل runtime:
    docker compose -f infra/docker-compose.dev.yml up -d

@@ -243,9 +243,9 @@ export class ReconciliationService {
           const amt = a.amountIqd.toNumber();
           if (a.direction === 'debit') {
             lines.push({ accountCode: bankCoa.code, debit: amt, description: a.description });
-            lines.push({ accountCode: 'MISC-INCOME', credit: amt, description: a.description });
+            lines.push({ accountCode: '593', credit: amt, description: a.description });
           } else {
-            lines.push({ accountCode: 'BANK-FEES', debit: amt, description: a.description });
+            lines.push({ accountCode: '662', debit: amt, description: a.description });
             lines.push({ accountCode: bankCoa.code, credit: amt, description: a.description });
           }
         }
