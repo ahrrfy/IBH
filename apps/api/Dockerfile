@@ -57,20 +57,21 @@ RUN addgroup --system --gid 1001 nodejs \
 
 WORKDIR /app
 
-# Copy only production artifacts
-COPY --from=builder --chown=nestjs:nodejs /app/apps/api/dist ./dist
-COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./prisma
+# Preserve the pnpm workspace layout — node_modules use symlinks back into
+# /app/node_modules/.pnpm, so we must keep both root and per-package trees.
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=builder --chown=nestjs:nodejs /app/apps/api/package.json ./package.json
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/dist ./apps/api/dist
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/package.json ./apps/api/package.json
+COPY --from=builder --chown=nestjs:nodejs /app/packages ./packages
 
 USER nestjs
+WORKDIR /app/apps/api
 
 EXPOSE 3000
-
 ENV NODE_ENV=production
 
-# Health check — used by Docker and Nginx upstream health
 HEALTHCHECK --interval=15s --timeout=5s --start-period=45s --retries=3 \
   CMD wget -qO- http://localhost:3000/health || exit 1
 
