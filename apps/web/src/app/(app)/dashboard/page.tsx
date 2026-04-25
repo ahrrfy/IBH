@@ -25,23 +25,26 @@ export default function DashboardPage() {
         <StatCard
           label="مبيعات اليوم"
           value={isLoading ? '—' : formatIqd(data?.todaySales ?? 0)}
-          icon={<ShoppingCart className="h-5 w-5 text-sky-600" />}
-          trend={data?.salesTrend ?? 0}
+          icon={ShoppingCart}
+          tone="primary"
         />
         <StatCard
           label="النقدية الكلية"
           value={isLoading ? '—' : formatIqd(data?.cashPosition ?? 0)}
-          icon={<Wallet className="h-5 w-5 text-emerald-600" />}
+          icon={Wallet}
+          tone="success"
         />
         <StatCard
           label="ذمم مدينة"
           value={isLoading ? '—' : formatIqd(data?.arTotal ?? 0)}
-          icon={<TrendingUp className="h-5 w-5 text-amber-600" />}
+          icon={TrendingUp}
+          tone="accent"
         />
         <StatCard
           label="مخزون تحت نقطة الطلب"
           value={isLoading ? '—' : String(data?.lowStockCount ?? 0)}
-          icon={<AlertTriangle className="h-5 w-5 text-rose-600" />}
+          icon={AlertTriangle}
+          tone="danger"
           hint="أصناف تحتاج إعادة طلب"
         />
       </div>
