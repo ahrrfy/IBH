@@ -32,7 +32,10 @@
   }
 
   body[dir="rtl"] {
-    font-feature-settings: "ss01", "kern", "calt";
+    /* keep kerning + ligatures for Arabic, but force Latin (lining) numerals
+       so digits never substitute to Arabic-Indic regardless of font choice */
+    font-feature-settings: "kern", "calt", "lnum";
+    font-variant-numeric: lining-nums;
   }
 
   h1, h2, h3, h4, h5, h6 {

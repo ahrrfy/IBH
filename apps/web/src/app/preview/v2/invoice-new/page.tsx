@@ -7,8 +7,39 @@ import {
   CreditCard, Package, ShoppingBag, Landmark, Building2,
   Users, Hammer, Handshake, Megaphone, BarChart3, User,
   Calendar, Hash, Calculator, Percent, FileCheck,
-  AlertCircle, Info,
+  AlertCircle, Info, PackagePlus, Filter, Check,
+  CheckSquare, Square, Tag, Boxes,
 } from 'lucide-react';
+
+// Mock product catalog for the bulk picker
+const CATALOG_CATEGORIES = [
+  { key: 'all',         label: 'الكل',          color: 'slate' },
+  { key: 'electronics', label: 'إلكترونيات',    color: 'sky' },
+  { key: 'office',      label: 'مستلزمات مكتب', color: 'amber' },
+  { key: 'furniture',   label: 'أثاث',           color: 'violet' },
+  { key: 'consumables', label: 'مستهلكات',       color: 'emerald' },
+];
+
+const CATALOG = [
+  { sku: 'LP-DELL-XPS13', name: 'لابتوب Dell XPS 13',         price: 1850000, cat: 'electronics', stock: 12 },
+  { sku: 'LP-HP-EB840',   name: 'لابتوب HP EliteBook 840',    price: 1650000, cat: 'electronics', stock: 8 },
+  { sku: 'MS-LOG-MX3',    name: 'ماوس لاسلكي Logitech MX3',   price: 95000,   cat: 'electronics', stock: 45 },
+  { sku: 'KB-MECH-RGB',   name: 'كيبورد ميكانيكي RGB',        price: 320000,  cat: 'electronics', stock: 22 },
+  { sku: 'MN-LG-27',      name: 'شاشة LG 27" 4K',             price: 850000,  cat: 'electronics', stock: 6 },
+  { sku: 'PR-EPSON-L3250',name: 'طابعة Epson L3250',          price: 380000,  cat: 'electronics', stock: 14 },
+  { sku: 'PA-A4',         name: 'ورق A4 (رزمة 500)',          price: 12000,   cat: 'office',      stock: 320 },
+  { sku: 'PA-A3',         name: 'ورق A3 (رزمة 500)',          price: 24000,   cat: 'office',      stock: 80 },
+  { sku: 'PEN-BIC-50',    name: 'أقلام Bic (علبة 50)',        price: 18000,   cat: 'office',      stock: 65 },
+  { sku: 'STP-STD',       name: 'كباسة مكتبية',                price: 8000,    cat: 'office',      stock: 40 },
+  { sku: 'FLD-200',       name: 'مجلدات أرشيف',                price: 5500,    cat: 'office',      stock: 150 },
+  { sku: 'CHR-EXEC',      name: 'كرسي مكتب تنفيذي',            price: 450000,  cat: 'furniture',   stock: 9 },
+  { sku: 'DSK-180',       name: 'مكتب 180 سم',                 price: 320000,  cat: 'furniture',   stock: 11 },
+  { sku: 'CAB-FILE-4',    name: 'خزانة ملفات 4 أدراج',        price: 280000,  cat: 'furniture',   stock: 7 },
+  { sku: 'INK-EPSON-664', name: 'حبر Epson 664',               price: 22000,   cat: 'consumables', stock: 95 },
+  { sku: 'TON-HP-105A',   name: 'تونر HP 105A',                price: 145000,  cat: 'consumables', stock: 18 },
+  { sku: 'CLN-SPRAY',     name: 'بخاخ تنظيف شاشات',           price: 6500,    cat: 'consumables', stock: 60 },
+  { sku: 'GLV-NTRL-100',  name: 'قفازات نتريل (100)',         price: 28000,   cat: 'consumables', stock: 35 },
+];
 
 const APPS = [
   { key: 'sales',     icon: ShoppingCart, color: 'sky',     active: true },
@@ -32,6 +63,25 @@ export default function InvoiceFormPreview() {
     { id: 2, product: 'ماوس لاسلكي Logitech',sku: 'MS-LOG-MX3',   qty: 5, price: 95000,   discount: 5 },
     { id: 3, product: 'كيبورد ميكانيكي',     sku: 'KB-MECH-RGB',   qty: 3, price: 320000,  discount: 0 },
   ]);
+  const [bulkOpen, setBulkOpen] = useState(false);
+
+  function bulkAdd(items: { sku: string; name: string; price: number; qty: number }[]) {
+    setLines((prev) => {
+      const next = [...prev];
+      for (const it of items) {
+        const existing = next.find((l) => l.sku === it.sku);
+        if (existing) {
+          existing.qty += it.qty;
+        } else {
+          next.push({
+            id: Date.now() + Math.random(),
+            product: it.name, sku: it.sku, qty: it.qty, price: it.price, discount: 0,
+          });
+        }
+      }
+      return next;
+    });
+  }
 
   const subtotal = lines.reduce((s, l) => s + l.qty * l.price, 0);
   const totalDiscount = lines.reduce((s, l) => s + (l.qty * l.price * l.discount / 100), 0);
@@ -196,6 +246,13 @@ export default function InvoiceFormPreview() {
                   <h2 className="text-sm font-semibold text-slate-700">البنود</h2>
                   <span className="badge-neutral text-[10px]">{lines.length} صنف</span>
                 </div>
+                <button
+                  onClick={() => setBulkOpen(true)}
+                  className="btn btn-sm bg-emerald-600 text-white hover:bg-emerald-700 shadow-soft"
+                >
+                  <PackagePlus className="h-3.5 w-3.5" />
+                  إضافة متعددة
+                </button>
                 <button onClick={addLine} className="btn btn-primary btn-sm">
                   <Plus className="h-3.5 w-3.5" />
                   بند جديد
@@ -326,6 +383,240 @@ export default function InvoiceFormPreview() {
             </div>
           </div>
         </main>
+      </div>
+
+      {/* ─── Bulk Add Modal ─────────────────────────────────────────────── */}
+      {bulkOpen && (
+        <BulkAddModal
+          onClose={() => setBulkOpen(false)}
+          onConfirm={(items) => { bulkAdd(items); setBulkOpen(false); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// BulkAddModal — multi-product picker with search, category filter, qty
+// ─────────────────────────────────────────────────────────────────────────
+function BulkAddModal({
+  onClose,
+  onConfirm,
+}: {
+  onClose: () => void;
+  onConfirm: (items: { sku: string; name: string; price: number; qty: number }[]) => void;
+}) {
+  const [search, setSearch] = useState('');
+  const [cat, setCat] = useState('all');
+  const [picks, setPicks] = useState<Record<string, number>>({}); // sku → qty (0 = unselected)
+
+  const visible = CATALOG.filter((p) =>
+    (cat === 'all' || p.cat === cat) &&
+    (!search || p.name.includes(search) || p.sku.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  const selectedCount = Object.values(picks).filter(q => q > 0).length;
+  const totalQty = Object.values(picks).reduce((s, q) => s + q, 0);
+  const totalAmount = Object.entries(picks).reduce((s, [sku, q]) => {
+    const p = CATALOG.find((x) => x.sku === sku);
+    return s + (p ? p.price * q : 0);
+  }, 0);
+
+  function togglePick(sku: string) {
+    setPicks((p) => ({ ...p, [sku]: p[sku] > 0 ? 0 : 1 }));
+  }
+  function setQty(sku: string, qty: number) {
+    setPicks((p) => ({ ...p, [sku]: Math.max(0, qty) }));
+  }
+  function selectAllVisible() {
+    const next = { ...picks };
+    visible.forEach((p) => { if (!next[p.sku]) next[p.sku] = 1; });
+    setPicks(next);
+  }
+  function clearAll() { setPicks({}); }
+
+  function confirm() {
+    const items = Object.entries(picks)
+      .filter(([, q]) => q > 0)
+      .map(([sku, qty]) => {
+        const p = CATALOG.find((x) => x.sku === sku)!;
+        return { sku, name: p.name, price: p.price, qty };
+      });
+    onConfirm(items);
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm grid place-items-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+        dir="rtl"
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-lg bg-emerald-100 text-emerald-700 grid place-items-center">
+            <Boxes className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <h2 className="text-lg font-bold text-slate-900">إضافة منتجات متعددة</h2>
+            <p className="text-xs text-slate-500">اختر منتجات متفرقة أو من قسم محدد، حدّد الكمية، ثم أضفها دفعة واحدة</p>
+          </div>
+          <button onClick={onClose} className="h-9 w-9 grid place-items-center rounded hover:bg-slate-200">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Search + categories */}
+        <div className="px-6 py-3 border-b border-slate-200 space-y-3">
+          <div className="relative">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ابحث بالاسم أو SKU..."
+              autoFocus
+              className="h-10 w-full rounded-lg bg-slate-100 border border-transparent pr-10 pl-3 text-sm focus:outline-none focus:bg-white focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+            />
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-slate-500 ml-1">القسم:</span>
+            {CATALOG_CATEGORIES.map((c) => {
+              const active = c.key === cat;
+              const itemCount = c.key === 'all'
+                ? CATALOG.length
+                : CATALOG.filter((p) => p.cat === c.key).length;
+              return (
+                <button
+                  key={c.key}
+                  onClick={() => setCat(c.key)}
+                  className={`h-8 px-3 rounded-full text-xs flex items-center gap-1.5 transition border
+                    ${active
+                      ? 'bg-sky-600 text-white border-sky-600 shadow-soft'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'}`}
+                >
+                  <Tag className="h-3 w-3" />
+                  {c.label}
+                  <span className={`text-[10px] num-latin font-mono ${active ? 'bg-sky-700' : 'bg-slate-100'} px-1.5 rounded`}>
+                    {itemCount}
+                  </span>
+                </button>
+              );
+            })}
+            <div className="flex-1" />
+            <button onClick={selectAllVisible} className="text-xs text-sky-700 hover:underline">
+              تحديد كل المعروض
+            </button>
+            <button onClick={clearAll} className="text-xs text-rose-600 hover:underline">
+              مسح التحديد
+            </button>
+          </div>
+        </div>
+
+        {/* Product table */}
+        <div className="flex-1 overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-100 text-slate-700 border-b-2 border-slate-200 sticky top-0 z-10">
+              <tr>
+                <th className="w-10 px-3 py-2.5 text-center text-[11px] font-bold">✓</th>
+                <th className="px-3 py-2.5 text-start text-[11px] font-bold">المنتج</th>
+                <th className="w-32 px-3 py-2.5 text-start text-[11px] font-bold">SKU</th>
+                <th className="w-24 px-3 py-2.5 text-end text-[11px] font-bold">السعر</th>
+                <th className="w-20 px-3 py-2.5 text-end text-[11px] font-bold">المخزون</th>
+                <th className="w-32 px-3 py-2.5 text-center text-[11px] font-bold">الكمية</th>
+                <th className="w-28 px-3 py-2.5 text-end text-[11px] font-bold">إجمالي السطر</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((p) => {
+                const qty = picks[p.sku] ?? 0;
+                const isPicked = qty > 0;
+                return (
+                  <tr
+                    key={p.sku}
+                    className={`border-b border-slate-100 transition cursor-pointer
+                      ${isPicked ? 'bg-emerald-50' : 'hover:bg-slate-50'}`}
+                    onClick={() => togglePick(p.sku)}
+                  >
+                    <td className="px-3 py-2 text-center">
+                      {isPicked
+                        ? <CheckSquare className="h-4 w-4 text-emerald-600 mx-auto" />
+                        : <Square className="h-4 w-4 text-slate-400 mx-auto" />}
+                    </td>
+                    <td className="px-3 py-2 font-semibold text-slate-900">{p.name}</td>
+                    <td className="px-3 py-2 font-mono text-xs text-slate-600 num-latin">{p.sku}</td>
+                    <td className="px-3 py-2 text-end font-mono num-latin text-sm">
+                      {p.price.toLocaleString('en-US')}
+                    </td>
+                    <td className="px-3 py-2 text-end font-mono num-latin text-xs text-slate-600">
+                      {p.stock}
+                    </td>
+                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                      {isPicked ? (
+                        <div className="flex items-center justify-center gap-1 bg-white rounded border border-slate-200">
+                          <button
+                            onClick={() => setQty(p.sku, qty - 1)}
+                            className="h-7 w-7 grid place-items-center hover:bg-slate-100 rounded-r"
+                          >−</button>
+                          <input
+                            type="text" inputMode="numeric" dir="ltr"
+                            value={qty}
+                            onChange={(e) => setQty(p.sku, Number(e.target.value) || 0)}
+                            className="h-7 w-12 bg-transparent text-center text-sm font-bold num-latin font-mono focus:outline-none"
+                          />
+                          <button
+                            onClick={() => setQty(p.sku, qty + 1)}
+                            className="h-7 w-7 grid place-items-center hover:bg-slate-100 rounded-l"
+                          >+</button>
+                        </div>
+                      ) : (
+                        <div className="text-center text-xs text-slate-400">—</div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-end font-bold num-latin font-mono text-sm text-slate-900">
+                      {qty > 0 ? (qty * p.price).toLocaleString('en-US') : '—'}
+                    </td>
+                  </tr>
+                );
+              })}
+              {visible.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="text-center py-12 text-slate-500">
+                    لا توجد منتجات تطابق البحث
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center gap-4">
+          <div className="text-sm">
+            <div className="text-slate-600">
+              <strong className="text-slate-900 num-latin font-mono">{selectedCount}</strong> منتج محدّد ·
+              إجمالي الكميات: <strong className="text-slate-900 num-latin font-mono">{totalQty}</strong>
+            </div>
+            <div className="text-emerald-700 font-semibold mt-0.5">
+              قيمة الإضافة: <span className="num-latin font-mono">{totalAmount.toLocaleString('en-US')}</span> د.ع
+            </div>
+          </div>
+          <div className="flex-1" />
+          <button onClick={onClose} className="btn btn-secondary btn-sm">
+            <X className="h-3.5 w-3.5" />
+            إلغاء
+          </button>
+          <button
+            onClick={confirm}
+            disabled={selectedCount === 0}
+            className="btn btn-sm bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 shadow-soft"
+          >
+            <Check className="h-3.5 w-3.5" />
+            إضافة المحدّد ({selectedCount})
+          </button>
+        </div>
       </div>
     </div>
   );

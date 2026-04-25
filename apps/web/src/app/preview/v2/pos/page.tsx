@@ -395,6 +395,13 @@ export default function PosPreview() {
               <Plus className="h-3.5 w-3.5" />
               بند يدوي
             </button>
+            <button
+              onClick={() => alert('سيُفتح مودال اختيار متعدد بالقسم — موجود في فاتورة جديدة الآن')}
+              className="btn btn-sm bg-emerald-600 text-white hover:bg-emerald-700 shadow-soft"
+            >
+              <Package className="h-3.5 w-3.5" />
+              إضافة متعددة
+            </button>
             <button className="btn btn-secondary btn-sm">
               <FileText className="h-3.5 w-3.5" />
               ملاحظة عامة
