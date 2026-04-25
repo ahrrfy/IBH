@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useRef, useEffect, type FormEvent } from 'react';
+import { Suspense, useState, useRef, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, User as UserIcon, Lock, Eye, EyeOff, Shield, KeyRound } from 'lucide-react';
@@ -38,8 +38,9 @@ function LoginFlow() {
     if (step === 'mfa') codeInputRef.current?.focus();
   }, [step]);
 
-  async function handleCredentialsSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function handleCredentialsSubmit(e?: { preventDefault?: () => void }) {
+    e?.preventDefault?.();
+    if (submitting) return;
     if (!emailOrUsername.trim() || !password) {
       setError('يرجى إدخال اسم المستخدم/البريد وكلمة المرور');
       return;
@@ -63,8 +64,9 @@ function LoginFlow() {
     }
   }
 
-  async function handleMfaSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function handleMfaSubmit(e?: { preventDefault?: () => void }) {
+    e?.preventDefault?.();
+    if (submitting) return;
     if (!/^\d{6}$/.test(code) && !/^[A-Z2-9]{8}$/i.test(code)) {
       setError('الرمز يجب أن يكون 6 أرقام (Authenticator) أو 8 أحرف (رمز احتياطي)');
       return;
@@ -99,7 +101,13 @@ function LoginFlow() {
 
       {/* ─── Step 1: credentials ─────────────────────────────────────── */}
       {step === 'credentials' && (
-        <form onSubmit={handleCredentialsSubmit} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <form
+          onSubmit={handleCredentialsSubmit}
+          action="javascript:void(0)"
+          method="post"
+          noValidate
+          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
           {error && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
               {error}
@@ -153,7 +161,8 @@ function LoginFlow() {
           </div>
 
           <button
-            type="submit"
+            type="button"
+            onClick={() => handleCredentialsSubmit()}
             disabled={submitting}
             className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-sky-700 text-sm font-semibold text-white hover:bg-sky-800 disabled:opacity-60"
           >
@@ -165,7 +174,13 @@ function LoginFlow() {
 
       {/* ─── Step 2: MFA / TOTP ──────────────────────────────────────── */}
       {step === 'mfa' && (
-        <form onSubmit={handleMfaSubmit} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <form
+          onSubmit={handleMfaSubmit}
+          action="javascript:void(0)"
+          method="post"
+          noValidate
+          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+        >
           <div className="mb-4 rounded-lg bg-sky-50 border border-sky-200 px-4 py-3 flex items-start gap-3">
             <Shield className="h-5 w-5 text-sky-700 mt-0.5 shrink-0" />
             <div className="text-xs text-sky-900">
@@ -204,7 +219,8 @@ function LoginFlow() {
           </label>
 
           <button
-            type="submit"
+            type="button"
+            onClick={() => handleMfaSubmit()}
             disabled={submitting || (!/^\d{6}$/.test(code) && !/^[A-Z2-9]{8}$/i.test(code))}
             className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-sky-700 text-sm font-semibold text-white hover:bg-sky-800 disabled:opacity-60"
           >
