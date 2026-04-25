@@ -113,7 +113,7 @@ function LoginFlow() {
               <input
                 type="text"
                 autoComplete="username"
-                placeholder="name@company.iq أو ahrrfy"
+                placeholder="name@company.iq"
                 value={emailOrUsername}
                 onChange={(e) => setEmailOrUsername(e.target.value)}
                 className="h-11 w-full rounded-lg border border-slate-200 bg-white pr-10 pl-3 text-sm outline-none focus:border-sky-500"

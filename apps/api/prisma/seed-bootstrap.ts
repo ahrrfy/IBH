@@ -1,7 +1,7 @@
 /**
  * Bootstrap seed — minimal but production-grade:
  *   1. Default company + branch
- *   2. The PERMANENT system owner: ahrrfy
+ *   2. The PERMANENT system owner (singleton, isSystemOwner=true)
  *   3. A regular admin@al-ruya.iq for testing
  *
  * The system owner is a singleton (only one user has isSystemOwner=true).
@@ -13,12 +13,22 @@ import * as argon2 from 'argon2';
 
 const prisma = new PrismaClient();
 
-const OWNER_USERNAME = 'ahrrfy';
-const OWNER_PASSWORD = 'ahrrfy6399137@';
-const OWNER_EMAIL    = 'ahrrfy@al-ruya.iq';
+// Owner credentials must come from environment — NEVER hardcoded.
+// Set these on the VPS in /opt/al-ruya-erp/infra/.env (chmod 600).
+const OWNER_USERNAME = process.env.OWNER_USERNAME;
+const OWNER_PASSWORD = process.env.OWNER_PASSWORD;
+const OWNER_EMAIL    = process.env.OWNER_EMAIL ?? `${OWNER_USERNAME}@al-ruya.iq`;
 
-const ADMIN_EMAIL    = 'admin@al-ruya.iq';
-const ADMIN_PASSWORD = 'admin123';
+const ADMIN_EMAIL    = process.env.ADMIN_EMAIL    ?? 'admin@al-ruya.iq';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? 'admin123';
+
+if (!OWNER_USERNAME || !OWNER_PASSWORD) {
+  console.error(
+    '❌ OWNER_USERNAME and OWNER_PASSWORD environment variables are required.\n' +
+    '   Set them in infra/.env (chmod 600) before running seed.'
+  );
+  process.exit(1);
+}
 
 async function main() {
   console.log('🌱 Bootstrap seed (idempotent)');
@@ -56,7 +66,7 @@ async function main() {
   });
   console.log(`  ✓ Branch: ${branch.code}`);
 
-  // ─── System Owner (ahrrfy) — PERMANENT ───────────────────────────────
+  // ─── System Owner — PERMANENT (singleton) ────────────────────────────
   // Find by username (globally unique). If exists, update password only.
   // If NOT exists, ensure no other user has isSystemOwner=true (singleton),
   // then create.
@@ -126,18 +136,10 @@ async function main() {
     },
   });
 
-  console.log('\n✅ Bootstrap seed complete\n');
-  console.log('═══════════════════════════════════════════════════════════');
-  console.log(' 🔐 OWNER (permanent — cannot be deleted)');
-  console.log(`    Username:  ${OWNER_USERNAME}`);
-  console.log(`    Password:  ${OWNER_PASSWORD}`);
-  console.log(`    2FA:       ENFORCED — set up Google Authenticator on first login`);
-  console.log('');
-  console.log(' 👤 ADMIN (regular)');
-  console.log(`    Email:     ${ADMIN_EMAIL}`);
-  console.log(`    Password:  ${ADMIN_PASSWORD}`);
-  console.log('═══════════════════════════════════════════════════════════');
-  console.log(' Login at: https://ibherp.cloud/login');
+  console.log('\n✅ Bootstrap seed complete');
+  console.log('   • Owner account configured (credentials only in OWNER_USERNAME/OWNER_PASSWORD env vars)');
+  console.log('   • Admin account: ' + ADMIN_EMAIL);
+  console.log('   • Login at: https://ibherp.cloud/login');
 }
 
 main()
