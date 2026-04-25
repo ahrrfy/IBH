@@ -268,32 +268,28 @@ export class SalesInvoicesService {
       );
 
       const isCash = inv.paymentTerms === 'cash' || inv.totalIqd.eq(0);
-      const lines = [
+      const lines: Array<{ accountCode: string; debit?: Prisma.Decimal; credit?: Prisma.Decimal; description: string }> = [
         {
-          accountCode: isCash ? '1100' : '1200',
-          debitIqd: inv.totalIqd,
-          creditIqd: new Prisma.Decimal(0),
+          accountCode: isCash ? '2411' : '221',
+          debit: inv.totalIqd,
           description: `Invoice ${inv.number}`,
         },
         {
-          accountCode: '4100',
-          debitIqd: new Prisma.Decimal(0),
-          creditIqd: inv.totalIqd,
+          accountCode: isCash ? '511' : '512',
+          credit: inv.totalIqd,
           description: `Revenue ${inv.number}`,
         },
       ];
       if (totalCogs.gt(0)) {
         lines.push(
           {
-            accountCode: '5100',
-            debitIqd: totalCogs,
-            creditIqd: new Prisma.Decimal(0),
+            accountCode: '611',
+            debit: totalCogs,
             description: `COGS ${inv.number}`,
           },
           {
-            accountCode: '1300',
-            debitIqd: new Prisma.Decimal(0),
-            creditIqd: totalCogs,
+            accountCode: '212',
+            credit: totalCogs,
             description: `Inventory out ${inv.number}`,
           },
         );
@@ -416,12 +412,12 @@ export class SalesInvoicesService {
           description: `Payment for ${inv.number}`,
           lines: [
             {
-              accountCode: '1100',
+              accountCode: '2411',
               debit: amount,
               description: `Cash receipt ${inv.number}`,
             },
             {
-              accountCode: '1200',
+              accountCode: '221',
               credit: amount,
               description: `AR settlement ${inv.number}`,
             },
@@ -482,12 +478,12 @@ export class SalesInvoicesService {
           refId: inv.id,
           description: `Reverse ${inv.number}: ${reason}`,
           lines: [
-            { accountCode: '4100', debit:  inv.totalIqd, description: 'Reverse revenue' },
-            { accountCode: '1200', credit: inv.totalIqd, description: 'Reverse AR' },
+            { accountCode: '512', debit:  inv.totalIqd, description: 'Reverse revenue' },
+            { accountCode: '221', credit: inv.totalIqd, description: 'Reverse AR' },
             ...(totalCogs.gt(0)
               ? [
-                  { accountCode: '1300', debit:  totalCogs, description: 'Reverse inventory' },
-                  { accountCode: '5100', credit: totalCogs, description: 'Reverse COGS' },
+                  { accountCode: '212', debit:  totalCogs, description: 'Reverse inventory' },
+                  { accountCode: '611', credit: totalCogs, description: 'Reverse COGS' },
                 ]
               : []),
           ],

@@ -78,7 +78,7 @@ export class PaymentReceiptsService {
     }
 
     // AR control account placeholder. TODO: map to Iraqi CoA code (e.g. '221').
-    const arCode = 'AR';
+    const arCode = '221';
 
     const unapplied = amount.minus(appliedTotal);
     const amountNum = amount.toNumber();
@@ -256,7 +256,7 @@ export class PaymentReceiptsService {
         refId: r.id,
         description: `Refund overpayment for ${r.number}`,
         lines: [
-          { accountCode: 'AR', debit: amtNum },
+          { accountCode: '221', debit: amtNum },
           { accountCode: cashCoA.code, credit: amtNum },
         ],
       },

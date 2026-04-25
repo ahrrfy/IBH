@@ -27,8 +27,8 @@ export interface CreateAssetDto {
   location?: string;
   assignedTo?: string;
   fundingSource?: 'cash' | 'ap';
-  cashAccountCode?: string; // when fundingSource = cash, defaults to 'CASH'
-  apAccountCode?: string;   // when fundingSource = ap, defaults to 'AP'
+  cashAccountCode?: string; // when fundingSource = cash, defaults to '2411' (Main Branch Cash)
+  apAccountCode?: string;   // when fundingSource = ap, defaults to '321' (Trade AP)
 }
 
 export interface RecordMaintenanceDto {
@@ -38,17 +38,17 @@ export interface RecordMaintenanceDto {
   description: string;
   costIqd: string | number;
   isCapital: boolean;
-  cashAccountCode?: string; // defaults to 'CASH'
-  maintenanceExpenseAccountCode?: string; // defaults to 'MAINT-EXP'
+  cashAccountCode?: string; // defaults to '2411'
+  maintenanceExpenseAccountCode?: string; // defaults to '636' (General Maintenance)
 }
 
 export interface DisposeAssetDto {
   assetId: string;
   method: 'sold' | 'written_off' | 'scrapped';
   saleValueIqd?: string | number;
-  cashAccountCode?: string; // default 'CASH'
-  gainAccountCode?: string; // default 'GAIN-DISPOSAL'
-  lossAccountCode?: string; // default 'LOSS-DISPOSAL'
+  cashAccountCode?: string; // default '2411'
+  gainAccountCode?: string; // default '593' (Misc Income)
+  lossAccountCode?: string; // default '69' (Misc Expense)
 }
 
 @Injectable()
@@ -94,7 +94,7 @@ export class AssetsService {
 
       const funding = dto.fundingSource ?? 'cash';
       const offsetCode =
-        funding === 'cash' ? dto.cashAccountCode ?? 'CASH' : dto.apAccountCode ?? 'AP';
+        funding === 'cash' ? dto.cashAccountCode ?? '2411' : dto.apAccountCode ?? '321';
 
       const je = await this.posting.postJournalEntry(
         {
@@ -284,7 +284,7 @@ export class AssetsService {
             description: `Capital maintenance on ${asset.number}: ${dto.description}`,
             lines: [
               { accountCode: categoryCoa.code, debit: cost.toNumber() },
-              { accountCode: dto.cashAccountCode ?? 'CASH', credit: cost.toNumber() },
+              { accountCode: dto.cashAccountCode ?? '2411', credit: cost.toNumber() },
             ],
           },
           { userId: session.userId },
@@ -300,8 +300,8 @@ export class AssetsService {
             refId: maintenance.id,
             description: `Maintenance on ${asset.number}: ${dto.description}`,
             lines: [
-              { accountCode: dto.maintenanceExpenseAccountCode ?? 'MAINT-EXP', debit: cost.toNumber() },
-              { accountCode: dto.cashAccountCode ?? 'CASH', credit: cost.toNumber() },
+              { accountCode: dto.maintenanceExpenseAccountCode ?? '636', debit: cost.toNumber() },
+              { accountCode: dto.cashAccountCode ?? '2411', credit: cost.toNumber() },
             ],
           },
           { userId: session.userId },
@@ -369,17 +369,17 @@ export class AssetsService {
 
       lines.push({ accountCode: accumCoa.code, debit: asset.accumulatedDepIqd.toNumber() });
       if (dto.method === 'sold' && sale.gt(0)) {
-        lines.push({ accountCode: dto.cashAccountCode ?? 'CASH', debit: sale.toNumber() });
+        lines.push({ accountCode: dto.cashAccountCode ?? '2411', debit: sale.toNumber() });
       }
       lines.push({ accountCode: categoryCoa.code, credit: asset.purchaseCostIqd.toNumber() });
       if (gainLoss.gt(0)) {
         lines.push({
-          accountCode: dto.gainAccountCode ?? 'GAIN-DISPOSAL',
+          accountCode: dto.gainAccountCode ?? '593',
           credit: gainLoss.toNumber(),
         });
       } else if (gainLoss.lt(0)) {
         lines.push({
-          accountCode: dto.lossAccountCode ?? 'LOSS-DISPOSAL',
+          accountCode: dto.lossAccountCode ?? '69',
           debit: gainLoss.abs().toNumber(),
         });
       }

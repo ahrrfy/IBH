@@ -261,12 +261,12 @@ export class GRNService {
             description: `إيصال استلام بضاعة ${number}`,
             lines: [
               {
-                accountCode: '1300',
+                accountCode: '212',
                 debit: totalValue.toNumber(),
                 description: 'مخزون',
               },
               {
-                accountCode: '2150',
+                accountCode: '331',
                 credit: totalValue.toNumber(),
                 description: 'GR/IR Clearing',
               },

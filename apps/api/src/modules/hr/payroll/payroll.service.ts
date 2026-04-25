@@ -261,10 +261,10 @@ export class PayrollService {
       const net = new Prisma.Decimal(run.totalNetIqd);
 
       const lines = [
-        { accountCode: '6210', debit: gross, credit: new Prisma.Decimal(0), description: 'Gross salary expense' },
-        { accountCode: '3410', debit: new Prisma.Decimal(0), credit: tax, description: 'Income tax withheld' },
-        { accountCode: '3320', debit: new Prisma.Decimal(0), credit: ss, description: 'Social security payable' },
-        { accountCode: '1010', debit: new Prisma.Decimal(0), credit: net, description: 'Net payable (bank/cash)' },
+        { accountCode: '621', debit: gross, credit: new Prisma.Decimal(0), description: 'Gross salary expense' },
+        { accountCode: '342', debit: new Prisma.Decimal(0), credit: tax, description: 'Income tax withheld' },
+        { accountCode: '331', debit: new Prisma.Decimal(0), credit: ss, description: 'Social security payable' },
+        { accountCode: '2411', debit: new Prisma.Decimal(0), credit: net, description: 'Net payable (bank/cash)' },
       ];
 
       const je = await this.posting.postJournalEntry(

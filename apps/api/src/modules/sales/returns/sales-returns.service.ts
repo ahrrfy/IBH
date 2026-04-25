@@ -188,13 +188,13 @@ export class SalesReturnsService {
     const approved = await this.prisma.$transaction(async (tx) => {
       const isCash = invoice.paymentTerms === 'cash';
       const jeLines: Array<{ accountCode: string; debit?: Prisma.Decimal; credit?: Prisma.Decimal; description: string }> = [
-        { accountCode: '4100',                   debit:  ret.totalIqd, description: `Return revenue ${ret.number}` },
-        { accountCode: isCash ? '1100' : '1200', credit: ret.totalIqd, description: `Return ${isCash ? 'cash' : 'AR'} ${ret.number}` },
+        { accountCode: '52',                    debit:  ret.totalIqd, description: `Return revenue ${ret.number}` },
+        { accountCode: isCash ? '2411' : '221', credit: ret.totalIqd, description: `Return ${isCash ? 'cash' : 'AR'} ${ret.number}` },
       ];
       if (totalCogs.gt(0)) {
         jeLines.push(
-          { accountCode: '1300', debit:  totalCogs, description: `Return inventory ${ret.number}` },
-          { accountCode: '5100', credit: totalCogs, description: `Return COGS ${ret.number}` },
+          { accountCode: '212', debit:  totalCogs, description: `Return inventory ${ret.number}` },
+          { accountCode: '611', credit: totalCogs, description: `Return COGS ${ret.number}` },
         );
       }
 
