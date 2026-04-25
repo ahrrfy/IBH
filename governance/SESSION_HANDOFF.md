@@ -1,8 +1,68 @@
 # SESSION_HANDOFF.md
-## Al-Ruya ERP — Auth Foundation + Design System (Session ended by user)
-### آخر commit: `e15bd4f` · main · GitHub ahrrfy/IBH
+
+# Session Handoff — 2026-04-25 (governance sync + acceptance test gap-fill)
+
+## ما تم إنجازه اليوم
+- تدقيق تغطية e2e عبر وكيل Explore: 17 ملف موجود، 7 كامل + 3 جزئي + 8 مفقود من متطلبات W1-W6 (ارتفعت بعد هذه الجلسة)
+- تحديث `governance/SESSION_HANDOFF.md` §3 بمصفوفة تغطية حقيقية (كان يقول 7 e2e، الواقع 17)
+- تحديث `governance/MODULE_STATUS_BOARD.md` — G4 صار صفّين (مكتوبة vs مُشغَّلة)، تم احتساب التقدم لكل Wave
+- تشخيص I007 (login button) عبر وكيل static-analysis — السبب الأرجح: فشل hydration بسبب Zustand `persist` في `apps/web/src/lib/auth.ts:26-45`
+- تحديث `governance/OPEN_ISSUES.md` بقسم §I007 يحتوي اختباراً تشخيصياً وتغييراً مقترحاً للجلسة القادمة
+- إضافة test W2: `apps/api/test/shift-open-close.e2e-spec.ts` — يتحقق من partial unique index `shifts_one_open_per_device`
+- إضافة test W4: `apps/api/test/depreciation-idempotency.e2e-spec.ts` — يتحقق من `@@unique([assetId, periodYear, periodMonth])`
+
+## ما لم يكتمل
+- اختبار I007 التشخيصي على المتصفح — يتطلب runtime متصفح فعلي (غير متاح في بيئة Claude)
+- تشغيل أيٍّ من 19 e2e test (17 سابقة + 2 جديدة) — Docker غير متاح، لا DB
+- W3 GRN→inventory test — أُجِّل، يحتاج integration runtime ليكون ذا قيمة (الإشارات polymorphic، invariant DB-only ضعيف)
+- 7 من متطلبات W1-W6 لا تزال مفقودة: W2 shift open/close ✅ تم · W3 GRN→inv + vendor-invoice posting · W4 period close 7-step · W5 Iraqi tax brackets + attendance link · W6 lead→customer + license heartbeat
+
+## القرارات الجديدة
+- لا قرارات معمارية جديدة هذه الجلسة (لا تحديث لـ DECISIONS_LOG)
+
+## الملفات المتأثرة
+- `governance/SESSION_HANDOFF.md` — مصفوفة تغطية + قسم session log جديد
+- `governance/MODULE_STATUS_BOARD.md` — G4 split + progress per Wave
+- `governance/OPEN_ISSUES.md` — §I007 diagnosis section
+- `apps/api/test/shift-open-close.e2e-spec.ts` — جديد (W2)
+- `apps/api/test/depreciation-idempotency.e2e-spec.ts` — جديد (W4)
+
+## الاختبارات المنفذة
+- ❌ لم يُشغَّل أي e2e test (Docker غير متاح في بيئة Claude — لا Postgres)
+- ❌ **`pnpm --filter api build` → فشل بـ 14 خطأ** — pre-existing من commit `cdd169c` (2FA foundation): `User` model في schema لا يحوي `username/isSystemOwner/totpSecret/totpEnabledAt/backupCodes/requires2FA`، و `otplib/qrcode` غير مُثبَّتَين. **سُجِّل كـ I010 (🔴 حرج).** ليس regression من هذه الجلسة.
+- ✅ بناء حزم workspace (`shared-types`, `validation-schemas`, `domain-events`) نجح — هي عملت قبل I010 لكن I010 يحجب build api نهائياً
+- ✅ ملفات الـ test الجديدة بنية مطابقة 1:1 لـ `pos-idempotency.e2e-spec.ts` العامل
+- ✅ `git diff --check` نظيف على كل commit
+
+## المخاطر المفتوحة
+- 🔴 I007 لا يزال يحجب أول دخول ناجح للمتصفح → 2FA UI لم يُختبر → UAT متوقف
+- 🟡 19 e2e test لم يُشغَّل أيٌّ منها — لا ضمان أن أيّ invariant يعمل فعلياً عند migration
+- 🟡 110 TypeScript error في `apps/api/src/` عند تشغيل tsc مباشرة — يحتاج build لحزم workspace أولاً (يجب توثيق الإجراء الصحيح)
+- 🟢 environment بدون `.env` فعلي — فقط `.env.example`، runtime يحتاج إعداد محلياً
+
+## ممنوع تغييره في الجلسة القادمة
+- مصفوفة تغطية e2e (في §3) — مُحدَّثة من تدقيق فعلي 2026-04-25
+- تشخيص §I007 — هو فرضية H1 hydration بثقة متوسطة، لا تُحذف بل تُحدَّث بنتيجة الاختبار التشخيصي
+- بنية commits اليوم: `c7e0d97`, `db62dea`, `355c94c`, `b3f7e6b` — كلها مدفوعة على origin/main
+
+## الخطوة التالية بالضبط
+1. **🔴 أولوية أولى — أصلِح I010 (build regression):**
+   - حدِّث `User` model في `apps/api/prisma/schema.prisma`: `username`, `isSystemOwner`, `totpSecret`, `totpEnabledAt`, `backupCodes`, `requires2FA` + علاقات `company` و `userRoles`
+   - `pnpm --filter api add otplib qrcode @types/qrcode`
+   - `pnpm --filter api exec prisma migrate dev --name auth_foundation_fields`
+   - `pnpm --filter api build` ← يجب أن ينجح قبل أي شيء آخر
+2. **اختبار I007 على المتصفح** (دقيقة واحدة): افتح `/login` واكتب في حقل البريد:
+   - ظهر النص → I007 ليس hydration، حقق في مكان آخر
+   - لم يظهر → H1 مؤكد، طبّق التغيير المقترح في §I007
+3. بعد إصلاح I007، سيناريو دخول كامل: login → 2FA → /dashboard (يُغلِق I009)
+4. (موازٍ) أنشئ `.env` محلي + Docker → migrate → `pnpm --filter api test:e2e` لتشغيل 19 e2e test
+5. ابدأ سيكل لكتابة test مفقود واحد (مثلاً W6 license heartbeat — الأبسط)
 
 ---
+
+## 📚 السجل التاريخي (الجلسات السابقة)
+
+
 
 ## 🛑 الحالة عند الإغلاق
 
