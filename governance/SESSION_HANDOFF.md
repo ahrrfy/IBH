@@ -1,6 +1,38 @@
 # SESSION_HANDOFF.md
-## Al-Ruya ERP — Type Safety Pass Complete (Wave 4 Done)
-### آخر commit: قادم بعد هذه الجلسة · main · GitHub ahrrfy/IBH
+## Al-Ruya ERP — Auth Foundation + Design System (Session ended by user)
+### آخر commit: `e15bd4f` · main · GitHub ahrrfy/IBH
+
+---
+
+## 🛑 الحالة عند الإغلاق
+
+**أوقف المستخدم الجلسة** بسبب: زر "تسجيل الدخول" لا يستجيب في المتصفح
+رغم أن API يعمل بشكل صحيح من curl.
+
+### ما يعمل (متحقَّق منه فعلياً على VPS)
+- ✅ API `/api/v1/auth/login` يُرجع JWT صحيحاً (algo=HS256, iss/aud صحيحان)
+- ✅ User `ahrrfy` موجود في DB، `isSystemOwner=true`, `mfaEnforced=true`
+- ✅ Refresh tokens تُحفظ في `refresh_tokens` table
+- ✅ Audit logs مع hash chain (SHA-256 + previousHash) لكل دخول
+- ✅ Helmet headers صارمة (CSP, HSTS, X-Frame DENY)
+- ✅ Owner credentials فقط في `/opt/al-ruya-erp/infra/.env` (chmod 600)
+- ✅ كل الكود نظيف من credentials، .gitignore يغطي كل الأنواع الحساسة
+
+### المشكلة المفتوحة (لم تُحلّ)
+- 🔴 **زر "تسجيل الدخول" في المتصفح لا يستجيب** بعد 5 محاولات إصلاح متتالية:
+  - حاولت `<form onSubmit>` → 503 (native submit)
+  - حاولت `type="button" onClick` → لا يستجيب
+  - حاولت إزالة Suspense + useSearchParams → لا يستجيب
+  - حاولت إزالة `<form>` نهائياً → لا يستجيب
+- آخر bundle منشور: `page-ec7eae910f7a5e78.js`
+- DevTools Console نظيف (لا exceptions)
+- DevTools Issues panel: تحذير عن "form field needs id/name" (حتى بعد إزالة form)
+- لم نصل لجذر المشكلة — قد يكون: hydration issue أعمق، CSP يحجب inline JS،
+  أو شيء في useAuth/QueryProvider يفشل صامتاً
+
+### الحدّ المنخفض
+- لم يدخل المستخدم لـ /dashboard ولا مرة من المتصفح
+- 2FA UI مكتوب لكن لم يُختبَر فعلياً (يحتاج دخول ناجح أولاً)
 
 ---
 
