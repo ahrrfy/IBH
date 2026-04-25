@@ -135,25 +135,101 @@ export const del  = <T = unknown>(path: string) =>
 export interface AuthUser {
   id: string;
   email: string;
-  name: string;
-  role: string;
-  branchId?: string;
-  avatarUrl?: string;
+  name?: string;
+  nameAr?: string;
+  nameEn?: string;
+  roles?: string[];
+  role?: string;
+  companyId?: string;
+  branchId?: string | null;
+  branchNameAr?: string | null;
+  avatarUrl?: string | null;
+  requires2FA?: boolean;
+  isSystemOwner?: boolean;
 }
 
-export interface LoginResponse {
-  token: string;
+export interface LoginSuccessResponse {
+  accessToken: string;
+  refreshToken?: string;
+  token?: string;            // legacy alias
   user: AuthUser;
 }
 
-export async function login(email: string, password: string): Promise<LoginResponse> {
+export interface MfaChallengeResponse {
+  requires2FA: true;
+  mfaToken: string;
+  userId: string;
+  hint: string;
+}
+
+export type LoginResponse = LoginSuccessResponse | MfaChallengeResponse;
+
+// ── Persistent device ID (UUID v4 stored in localStorage) ─────────────────
+const DEVICE_KEY = 'al-ruya.deviceId';
+
+export function getDeviceId(): string {
+  if (typeof window === 'undefined') return '00000000-0000-4000-8000-000000000000';
+  let id = window.localStorage.getItem(DEVICE_KEY);
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
+    id = (window.crypto?.randomUUID?.() ?? generateUuidV4());
+    window.localStorage.setItem(DEVICE_KEY, id);
+  }
+  return id;
+}
+
+function generateUuidV4(): string {
+  // Fallback for older browsers
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
+ * Step 1 of login. Returns either a full session OR an MFA challenge.
+ * Caller checks `'requires2FA' in res` to branch.
+ */
+export async function login(emailOrUsername: string, password: string): Promise<LoginResponse> {
   const res = await api<LoginResponse>('/auth/login', {
     method: 'POST',
-    body: { email, password },
+    body: {
+      emailOrUsername: emailOrUsername.trim(),
+      password,
+      deviceId: getDeviceId(),
+    },
     skipAuth: true,
   });
-  if (res.token) setToken(res.token);
+  if ('accessToken' in res && res.accessToken) setToken(res.accessToken);
+  else if ('token' in res && (res as any).token) setToken((res as any).token);
   return res;
+}
+
+/**
+ * Step 2 of login (only when MFA required).
+ * Exchange mfaToken + 6-digit TOTP code for full session.
+ */
+export async function verifyMfaLogin(mfaToken: string, code: string): Promise<LoginSuccessResponse> {
+  const res = await api<LoginSuccessResponse>('/auth/2fa/verify-login', {
+    method: 'POST',
+    body: { mfaToken, code },
+    skipAuth: true,
+  });
+  if (res.accessToken) setToken(res.accessToken);
+  return res;
+}
+
+// ── 2FA management (authenticated) ────────────────────────────────────────
+export async function setupTotp(): Promise<{ secret: string; otpauthUrl: string; qrDataUrl: string }> {
+  return api('/auth/2fa/setup', { method: 'POST' });
+}
+
+export async function confirmTotp(code: string): Promise<{ backupCodes: string[] }> {
+  return api('/auth/2fa/confirm', { method: 'POST', body: { code } });
+}
+
+export async function disableTotp(password: string, code?: string): Promise<void> {
+  return api('/auth/2fa/disable', { method: 'POST', body: { password, code } });
 }
 
 export async function me(): Promise<AuthUser> {

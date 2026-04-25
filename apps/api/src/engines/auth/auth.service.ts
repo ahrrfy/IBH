@@ -7,15 +7,28 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import * as argon2 from 'argon2';
 import { ulid } from 'ulid';
 import { PrismaService } from '../../platform/prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { TotpService } from './totp.service';
 import { REDIS_CLIENT, REDIS_KEYS } from '../../platform/redis/redis.constants';
 import { Inject } from '@nestjs/common';
 import type Redis from 'ioredis';
 import type { LoginRequest, LoginResponse, AuthenticatedUser, JwtPayload } from '@erp/shared-types';
+
+// Result of step 1 (password verified) — second step requires TOTP code
+export interface MfaChallenge {
+  requires2FA: true;
+  mfaToken: string;          // short-lived token, exchanged for full JWT
+  userId: string;
+  hint: string;              // 'authenticator' | 'backup_code'
+}
+
+export type LoginResult = LoginResponse | MfaChallenge;
+
+const MFA_TOKEN_TTL_SECONDS = 5 * 60; // 5 minutes
 
 // ─── Auth Service ─────────────────────────────────────────────────────────────
 // Implements: login, refresh, logout, 2FA, password management
@@ -35,35 +48,53 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
     private readonly audit: AuditService,
+    private readonly totp: TotpService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
   // ─── Login ────────────────────────────────────────────────────────────────
+  // Two-step:
+  //   Step 1: emailOrUsername + password → either full LoginResponse, or
+  //           MfaChallenge { requires2FA, mfaToken } if user has TOTP enabled.
+  //   Step 2: verifyMfaAndLogin(mfaToken, code) → full LoginResponse.
 
-  async login(req: LoginRequest & { ipAddress: string; userAgent: string }): Promise<LoginResponse> {
-    // Rate check: block if too many failures
-    await this.checkLoginRateLimit(req.email, req.ipAddress);
+  async login(req: {
+    emailOrUsername?: string;
+    email?: string;             // legacy
+    password: string;
+    deviceId?: string;
+    ipAddress: string;
+    userAgent: string;
+  }): Promise<LoginResult> {
+    const identifier = (req.emailOrUsername ?? req.email ?? '').trim().toLowerCase();
+    if (!identifier) {
+      throw new UnauthorizedException({ code: 'UNAUTHORIZED', messageAr: 'البريد أو اسم المستخدم مطلوب' });
+    }
 
-    // Find user (email unique per company)
+    // Rate check by identifier + IP
+    await this.checkLoginRateLimit(identifier, req.ipAddress);
+
+    // Find user — by username (global unique) OR by email (company-scoped, take first)
     const user = await this.prisma.user.findFirst({
       where: {
-        email: req.email.toLowerCase(),
         deletedAt: null,
+        OR: [
+          { username: identifier },
+          { email: identifier },
+        ],
       },
       include: {
         company: { select: { id: true, code: true, nameAr: true, plan: true, isActive: true } },
-        userRoles: {
-          include: { role: { select: { name: true, permissions: true } } },
-        },
+        userRoles: { include: { role: { select: { name: true, permissions: true } } } },
       },
     });
 
     if (!user) {
-      await this.recordFailedLogin(req.email, req.ipAddress);
-      throw new UnauthorizedException({ code: 'UNAUTHORIZED', messageAr: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
+      await this.recordFailedLogin(identifier, req.ipAddress);
+      throw new UnauthorizedException({ code: 'UNAUTHORIZED', messageAr: 'بيانات الدخول غير صحيحة' });
     }
 
-    if (!user.company.isActive) {
+    if (!user.company.isActive && !user.isSystemOwner) {
       throw new ForbiddenException({ code: 'FORBIDDEN', messageAr: 'الشركة غير نشطة' });
     }
 
@@ -81,36 +112,128 @@ export class AuthService {
     // Verify password
     const passwordValid = await argon2.verify(user.passwordHash, req.password);
     if (!passwordValid) {
-      await this.recordFailedLogin(req.email, req.ipAddress);
+      await this.recordFailedLogin(identifier, req.ipAddress);
       await this.incrementFailedAttempts(user.id);
-      throw new UnauthorizedException({ code: 'UNAUTHORIZED', messageAr: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
+      throw new UnauthorizedException({ code: 'UNAUTHORIZED', messageAr: 'بيانات الدخول غير صحيحة' });
     }
 
-    // Reset failed attempts on success
+    const roles = user.userRoles.map((ur) => ur.role.name);
+
+    // ─── 2FA branch ────────────────────────────────────────────────────
+    // If user has 2FA enabled OR policy mandates it but they haven't set up,
+    // we issue an MFA challenge instead of a full session.
+    if (user.requires2FA) {
+      // Issue short-lived MFA token, store in Redis
+      const mfaToken = randomUUID();
+      const payload = {
+        userId: user.id,
+        deviceId: req.deviceId ?? randomUUID(),
+        ipAddress: req.ipAddress,
+        userAgent: req.userAgent,
+        roles,
+        ts: Date.now(),
+      };
+      await this.redis.setex(
+        REDIS_KEYS.loginAttempts(`mfa:${mfaToken}`),
+        MFA_TOKEN_TTL_SECONDS,
+        JSON.stringify(payload),
+      );
+      return {
+        requires2FA: true,
+        mfaToken,
+        userId: user.id,
+        hint: 'authenticator',
+      };
+    }
+
+    // ─── Direct login (no 2FA) ─────────────────────────────────────────
+    return this.completeLogin({
+      user,
+      roles,
+      deviceId: req.deviceId ?? randomUUID(),
+      ipAddress: req.ipAddress,
+      userAgent: req.userAgent,
+    });
+  }
+
+  /**
+   * Step 2 of login: exchange MFA token + TOTP code for full session.
+   */
+  async verifyMfaAndLogin(
+    mfaToken: string,
+    code: string,
+    ipAddress: string,
+    userAgent: string,
+  ): Promise<LoginResponse> {
+    const key = REDIS_KEYS.loginAttempts(`mfa:${mfaToken}`);
+    const raw = await this.redis.get(key);
+    if (!raw) {
+      throw new UnauthorizedException({ code: 'MFA_TOKEN_EXPIRED', messageAr: 'انتهت صلاحية رمز المصادقة، حاول مجدداً' });
+    }
+    const payload = JSON.parse(raw) as { userId: string; deviceId: string; ipAddress: string; roles: string[] };
+
+    const ok = await this.totp.verifyCode(payload.userId, code);
+    if (!ok) {
+      throw new UnauthorizedException({ code: 'TOTP_INVALID_CODE', messageAr: 'الرمز غير صحيح' });
+    }
+
+    // Single-use: delete the MFA token
+    await this.redis.del(key);
+
+    // Re-fetch user (for completeLogin)
+    const user = await this.prisma.user.findUnique({
+      where: { id: payload.userId },
+      include: {
+        company: { select: { id: true, code: true, nameAr: true, plan: true, isActive: true } },
+        userRoles: { include: { role: { select: { name: true, permissions: true } } } },
+      },
+    });
+    if (!user) throw new UnauthorizedException({ code: 'UNAUTHORIZED', messageAr: 'المستخدم غير موجود' });
+
+    return this.completeLogin({
+      user,
+      roles: payload.roles,
+      deviceId: payload.deviceId,
+      ipAddress,
+      userAgent,
+    });
+  }
+
+  /** Internal — both direct + post-MFA paths converge here */
+  private async completeLogin(params: {
+    user: any;
+    roles: string[];
+    deviceId: string;
+    ipAddress: string;
+    userAgent: string;
+  }): Promise<LoginResponse> {
+    const { user, roles, deviceId, ipAddress, userAgent } = params;
+
     await this.prisma.user.update({
       where: { id: user.id },
-      data: { failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date(), lastLoginIp: req.ipAddress },
+      data: {
+        failedLoginCount: 0,
+        lockedUntil: null,
+        lastLoginAt: new Date(),
+        lastLoginIp: ipAddress,
+      },
     });
 
-    await this.clearLoginRateLimit(req.email);
+    await this.clearLoginRateLimit(user.email);
+    if (user.username) await this.clearLoginRateLimit(user.username);
 
-    // Extract roles
-    const roles = user.userRoles.map(ur => ur.role.name);
+    const accessToken  = this.generateAccessToken(user.id, user.companyId, user.branchId, roles);
+    const refreshToken = await this.generateRefreshToken(user.id, deviceId, ipAddress);
 
-    // Generate tokens
-    const accessToken  = this.generateAccessToken(user.id, user.company.id, null, roles);
-    const refreshToken = await this.generateRefreshToken(user.id, req.deviceId, req.ipAddress);
-
-    // Audit
     await this.audit.log({
-      companyId:  user.company.id,
+      companyId:  user.companyId,
       userId:     user.id,
       userEmail:  user.email,
       action:     'login',
       entityType: 'User',
       entityId:   user.id,
-      ipAddress:  req.ipAddress,
-      userAgent:  req.userAgent,
+      ipAddress,
+      userAgent,
     });
 
     const authUser: AuthenticatedUser = {
@@ -118,15 +241,15 @@ export class AuthService {
       email:           user.email,
       nameAr:          user.nameAr,
       nameEn:          user.nameEn ?? undefined,
-      companyId:       user.company.id,
-      companyNameAr:   user.company.nameAr,
+      companyId:       user.companyId,
+      companyNameAr:   user.company?.nameAr ?? '',
       branchId:        user.branchId,
-      branchNameAr:    null, // populated from branch relation if needed
+      branchNameAr:    null,
       roles:           roles as never[],
       avatarUrl:       user.avatarUrl,
-      locale:          user.locale as 'ar' | 'en' | 'ku',
+      locale:          (user.locale ?? 'ar') as 'ar' | 'en' | 'ku',
       requires2FA:     user.requires2FA,
-      twoFactorVerified: false,
+      twoFactorVerified: user.requires2FA,
     };
 
     return { accessToken, refreshToken, user: authUser };

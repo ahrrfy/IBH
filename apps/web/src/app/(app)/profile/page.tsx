@@ -58,18 +58,23 @@ export default function ProfilePage() {
 
       {/* Security */}
       <Card title="الأمان">
-        <button className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-50 rounded text-sm">
+        <a href="/profile/change-password" className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-50 rounded text-sm">
           <span className="text-slate-700">تغيير كلمة المرور</span>
           <span className="text-xs text-sky-700">تعديل ←</span>
-        </button>
-        <button className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-50 rounded text-sm">
-          <span className="text-slate-700">المصادقة الثنائية (2FA)</span>
-          <span className="text-xs text-rose-600">غير مفعّل</span>
-        </button>
-        <button className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-50 rounded text-sm">
+        </a>
+        <a href="/profile/security" className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-50 rounded text-sm">
+          <span className="text-slate-700 flex items-center gap-1.5">
+            المصادقة الثنائية (2FA)
+            <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 rounded">Google Authenticator</span>
+          </span>
+          <span className={`text-xs ${(user as any)?.requires2FA ? 'text-emerald-700' : 'text-rose-600'}`}>
+            {(user as any)?.requires2FA ? 'مفعّل ✓' : 'غير مفعّل'}
+          </span>
+        </a>
+        <a href="/profile/sessions" className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-50 rounded text-sm">
           <span className="text-slate-700">الجلسات النشطة</span>
           <span className="text-xs text-sky-700">عرض ←</span>
-        </button>
+        </a>
       </Card>
     </div>
   );
