@@ -1,5 +1,6 @@
 -- Wave 6 — CRM + Licensing
 CREATE TYPE "LeadStatus" AS ENUM ('new','contacted','qualified','proposal','negotiation','won','lost');
+CREATE TYPE "LicensePlan" AS ENUM ('trial','starter','business','enterprise');
 
 -- ── LEADS ──
 CREATE TABLE "leads" (
