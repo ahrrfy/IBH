@@ -21,8 +21,7 @@ FROM node:${NODE_VERSION}-alpine AS builder
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY --from=deps /app ./
 
 COPY tsconfig.base.json ./
 COPY apps/web ./apps/web

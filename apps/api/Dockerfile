@@ -30,10 +30,10 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
+# Copy ALL node_modules (root + per-package — pnpm workspace layout)
+COPY --from=deps /app ./
 
-# Copy source code
+# Copy source over the placeholder package.json files
 COPY tsconfig.base.json ./
 COPY apps/api ./apps/api
 COPY packages/shared-types ./packages/shared-types
