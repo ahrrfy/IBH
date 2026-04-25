@@ -13,6 +13,7 @@ import {
   Building2,
   Users,
   Handshake,
+  Megaphone,
   BarChart3,
   Settings,
   LogOut,
@@ -30,6 +31,7 @@ const NAV = [
   { href: '/assets',                 label: 'الأصول الثابتة', icon: Building2 },
   { href: '/hr/employees',           label: 'الموارد البشرية', icon: Users },
   { href: '/crm/leads',              label: 'العملاء',     icon: Handshake },
+  { href: '/marketing/promotions',   label: 'التسويق',      icon: Megaphone },
   { href: '/reports',                label: 'التقارير',    icon: BarChart3 },
   { href: '/settings',               label: 'الإعدادات',   icon: Settings },
 ];
