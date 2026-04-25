@@ -157,7 +157,7 @@ export default function InvoiceFormPreview() {
                   <select className="input">
                     <option>آجل — 30 يوم</option>
                     <option>نقدي</option>
-                    <option>شبكة</option>
+                    <option>بطاقة (ماستر/فيزا)</option>
                   </select>
                 </div>
                 <div>
@@ -235,7 +235,7 @@ export default function InvoiceFormPreview() {
                       </td>
                       <td className="p-1">
                         <input
-                          type="number"
+                          type="text" inputMode="decimal" dir="ltr"
                           value={l.qty}
                           onChange={(e) => updateLine(l.id, { qty: Number(e.target.value) })}
                           className="h-8 w-full rounded border border-transparent hover:border-slate-300 focus:border-sky-400 focus:bg-white px-2 text-sm text-end num-latin font-mono"
@@ -243,7 +243,7 @@ export default function InvoiceFormPreview() {
                       </td>
                       <td className="p-1">
                         <input
-                          type="number"
+                          type="text" inputMode="decimal" dir="ltr"
                           value={l.price}
                           onChange={(e) => updateLine(l.id, { price: Number(e.target.value) })}
                           className="h-8 w-full rounded border border-transparent hover:border-slate-300 focus:border-sky-400 focus:bg-white px-2 text-sm text-end num-latin font-mono"
@@ -251,14 +251,14 @@ export default function InvoiceFormPreview() {
                       </td>
                       <td className="p-1">
                         <input
-                          type="number"
+                          type="text" inputMode="decimal" dir="ltr"
                           value={l.discount}
                           onChange={(e) => updateLine(l.id, { discount: Number(e.target.value) })}
                           className="h-8 w-full rounded border border-transparent hover:border-slate-300 focus:border-sky-400 focus:bg-white px-2 text-sm text-end num-latin font-mono"
                         />
                       </td>
                       <td className="px-3 text-end font-bold text-slate-900 num-latin font-mono text-sm">
-                        {((l.qty * l.price) * (1 - l.discount / 100)).toLocaleString()}
+                        {((l.qty * l.price) * (1 - l.discount / 100)).toLocaleString('en-US')}
                       </td>
                       <td className="text-center">
                         <button onClick={() => delLine(l.id)} className="h-7 w-7 grid place-items-center text-rose-500 hover:bg-rose-50 rounded mx-auto">
@@ -308,7 +308,7 @@ export default function InvoiceFormPreview() {
                     <div className="flex justify-between items-center">
                       <span className="text-base font-bold text-slate-900">الإجمالي النهائي</span>
                       <span className="text-2xl font-bold text-sky-700 num-latin font-mono">
-                        {total.toLocaleString()} د.ع
+                        {total.toLocaleString('en-US')} د.ع
                       </span>
                     </div>
                   </div>
@@ -336,7 +336,7 @@ function Total({ label, value, negative, muted }: { label: string; value: number
     <div className={`flex justify-between items-center text-sm ${muted ? 'text-slate-400' : 'text-slate-700'}`}>
       <span>{label}</span>
       <span className={`num-latin font-mono ${negative ? 'text-rose-600' : ''}`}>
-        {value.toLocaleString()} د.ع
+        {value.toLocaleString('en-US')} د.ع
       </span>
     </div>
   );

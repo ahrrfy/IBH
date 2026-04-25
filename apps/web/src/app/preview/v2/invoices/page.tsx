@@ -285,7 +285,7 @@ export default function InvoicesPreview() {
                       <td className="px-4 py-2 text-slate-600 text-xs">{inv.branch}</td>
                       <td className="px-4 py-2 text-end num-latin font-mono text-xs text-slate-700">{inv.items}</td>
                       <td className="px-4 py-2 text-end num-latin font-mono font-semibold text-slate-900">
-                        {inv.amount.toLocaleString()}
+                        {inv.amount.toLocaleString('en-US')}
                       </td>
                       <td className="px-4 py-2">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${STATUS_BADGE[inv.color]}`}>

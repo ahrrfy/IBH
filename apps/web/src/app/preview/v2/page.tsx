@@ -508,7 +508,7 @@ export default function PreviewV2() {
         <span>الفترة: <strong className="num-latin">2026-04</strong></span>
         <div className="flex-1" />
         <span>250 فاتورة محمَّلة</span>
-        <span className="num-latin">{new Date().toLocaleDateString('ar-IQ')}</span>
+        <span className="num-latin">{new Date().toLocaleDateString('en-CA')}</span>
       </footer>
     </div>
   );

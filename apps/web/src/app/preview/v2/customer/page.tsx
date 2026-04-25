@@ -119,7 +119,12 @@ export default function CustomerDetailPreview() {
               </div>
               <div className="text-end">
                 <div className="text-xs text-sky-200">الرصيد الحالي</div>
-                <div className="text-3xl font-bold num-latin font-mono mt-1">2,450,000</div>
+                <div className="text-3xl font-bold num-latin mt-1 flex items-center justify-end gap-2">
+                  <span>2,450,000</span>
+                  <span className="text-[11px] font-normal bg-emerald-500/20 text-emerald-100 border border-emerald-300/30 rounded px-1.5 py-0.5">
+                    له علينا
+                  </span>
+                </div>
                 <div className="text-xs text-sky-100 mt-0.5">د.ع · حد الائتمان: <span className="num-latin">5,000,000</span></div>
               </div>
             </div>
@@ -211,7 +216,7 @@ export default function CustomerDetailPreview() {
                           <tr key={r.num} className="border-b border-slate-100 hover:bg-slate-50 last:border-0">
                             <td className="px-4 py-2.5 font-mono text-sky-700 font-semibold num-latin">{r.num}</td>
                             <td className="px-4 py-2.5 num-latin text-slate-600 text-xs font-mono">{r.date}</td>
-                            <td className="px-4 py-2.5 text-end num-latin font-mono font-semibold">{r.amt.toLocaleString()}</td>
+                            <td className="px-4 py-2.5 text-end num-latin font-mono font-semibold">{r.amt.toLocaleString('en-US')}</td>
                             <td className="px-4 py-2.5">
                               <span className={`inline-flex px-2 py-0.5 rounded text-xs border ${r.c === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : r.c === 'info' ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
                                 {r.st}
