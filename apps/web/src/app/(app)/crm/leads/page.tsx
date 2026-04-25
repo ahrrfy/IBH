@@ -1,5 +1,6 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import { api } from '@/lib/api';
 import { DataTable } from '@/components/data-table';
 import { StatusBadge } from '@/components/status-badge';
@@ -12,10 +13,13 @@ export default function LeadsPage() {
   });
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">العملاء المحتملون</h1>
+      <header className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">العملاء المحتملون</h1>
+        <Link href="/crm/leads/new" className="rounded bg-sky-700 px-4 py-2 text-white">+ عميل محتمل</Link>
+      </header>
       <DataTable
         columns={[
-          { key: 'name', header: 'الاسم', accessor: (r: any) => r.nameAr },
+          { key: 'name', header: 'الاسم', accessor: (r: any) => <Link href={`/crm/leads/${r.id}`} className="text-sky-700 hover:underline">{r.nameAr}</Link> },
           { key: 'phone', header: 'الهاتف', accessor: (r: any) => r.phone ?? '—' },
           { key: 'source', header: 'المصدر', accessor: (r: any) => r.source ?? '—' },
           { key: 'value', header: 'القيمة المتوقعة', accessor: (r: any) => r.estimatedValueIqd ? formatIqd(r.estimatedValueIqd) : '—', align: 'end' },
