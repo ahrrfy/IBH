@@ -33,9 +33,20 @@
 | W6 | AI (forecasting) + Licensing | 2 | 0 |
 | **TOTAL** | | **44 clean** | **0 remaining** ✅ |
 
-### الإنجاز الكلي من الخطة: **~70%** (Iraqi CoA wired + 9 detail pages
+### الإنجاز الكلي من الخطة: **~75%** (Iraqi CoA wired + 25+ web pages
 + POS Tauri commands real + AI Brain + WhatsApp Bridge + License Server
-+ Mobile scaffold + 7 e2e specs)
++ Mobile scaffold w/ CustomerDetail + 7 e2e specs)
+
+### Web admin pages الإضافية (هذه الجلسة):
+- `/purchases/suppliers` (list + [id] + new) — supplier management
+- `/assets` (list + [id]) — Fixed Assets module + sidebar entry
+- `/finance/income-statement` — P&L parameterized by date range
+- `/finance/balance-sheet` — Assets vs Liab+Equity with balanced check
+- `/reports/[slug]` — generic viewer for 16 report endpoints
+- `/job-orders` (list + [id]) — manufacturing orders + sidebar entry
+- `/marketing/promotions` + `/marketing/campaigns` — sidebar entry
+- `/crm/leads/new` — new lead form
+- supplier+warehouse pickers in `/purchases/orders/new`
 
 ---
 
@@ -162,7 +173,7 @@ payment-receipts, reconciliation, assets.
 | Acceptance tests | 5% |
 | Runtime verified | 0% |
 | Production deployed | 0% |
-| **الإنجاز الكلي من الخطة** | **~55%** |
+| **الإنجاز الكلي من الخطة** | **~75%** |
 
 ---
 
