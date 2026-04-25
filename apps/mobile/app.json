@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "Al-Ruya",
+    "slug": "al-ruya-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "alruya",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": { "supportsTablet": true, "bundleIdentifier": "com.alruya.mobile" },
+    "android": { "package": "com.alruya.mobile" },
+    "plugins": ["expo-secure-store"]
+  }
+}
