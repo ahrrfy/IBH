@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 
 const SCREENS = [
+  { href: '/preview/v2/home',      label: '🏠 الرئيسية',   icon: Home,       desc: 'App Launcher' },
   { href: '/preview/v2',           label: 'لوحة التحكم',  icon: Home,       desc: 'Dashboard' },
   { href: '/preview/v2/pos',       label: 'نقطة البيع',   icon: CreditCard, desc: 'POS Cashier' },
   { href: '/preview/v2/invoices',  label: 'قائمة الفواتير', icon: FileText,  desc: 'List view' },
