@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -13,10 +13,14 @@ import {
 
 export default function ReconcileWorkspacePage() {
   const params = useParams<{ id: string }>();
-  const search = useSearchParams();
   const router = useRouter();
   const bankId = params?.id;
-  const recoId = search?.get('recoId') ?? null;
+  // Avoid useSearchParams — requires <Suspense> in Next.js 15, breaks prerender
+  const [recoId, setRecoId] = useState<string | null>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setRecoId(new URLSearchParams(window.location.search).get('recoId'));
+  }, []);
 
   const bankQ = useQuery({
     queryKey: ['bank-account', bankId],
