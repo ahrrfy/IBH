@@ -56,6 +56,20 @@ export class ProductsService {
     private readonly audit: AuditService,
   ) {}
 
+  // ─── Units of Measure ─────────────────────────────────────────────────────
+  // Read-only lookup for UI pickers. Seeded via prisma/seed.ts (~14 units).
+
+  async getUnits(companyId: string) {
+    return this.prisma.unitOfMeasure.findMany({
+      where: { companyId, isActive: true },
+      orderBy: [{ isBaseUnit: 'desc' }, { abbreviation: 'asc' }],
+      select: {
+        id: true, abbreviation: true, nameAr: true, nameEn: true,
+        isBaseUnit: true,
+      },
+    });
+  }
+
   // ─── Categories ───────────────────────────────────────────────────────────
 
   async getCategories(companyId: string) {

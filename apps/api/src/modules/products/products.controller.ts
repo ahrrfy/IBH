@@ -23,6 +23,16 @@ export class ProductsController {
     private readonly priceListsService: PriceListsService,
   ) {}
 
+  // ─── Units of Measure ─────────────────────────────────────────────────────
+  // Lookup endpoint for UI pickers — products require base/sale/purchase units.
+  // Read-only here; full CRUD lives in a dedicated module if/when needed.
+
+  @Get('units')
+  @RequirePermission('Product', 'read')
+  async getUnits(@CurrentUser() user: UserSession) {
+    return this.productsService.getUnits(user.companyId);
+  }
+
   // ─── Categories ───────────────────────────────────────────────────────────
 
   @Get('categories')

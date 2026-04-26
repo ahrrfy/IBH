@@ -113,13 +113,15 @@
 ---
 
 #### T03 — User Detail + Edit + Deactivate (FE only)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** []
-- **Branch:** `feat/t03-user-crud-fe`
+- **Branch:** `feat/t03-user-crud-fe` (merged)
 - **File scope:**
   - `apps/web/src/app/(app)/settings/users/[id]/page.tsx` (new)
   - `apps/web/src/app/(app)/settings/users/[id]/edit/page.tsx` (new)
-- **Owner:** *(unclaimed)*
+- **Owner:** claude-opus-4-7-20260426 (this session)
+- **Completed:** 2026-04-26T15:38:10Z
+- **Commit:** `eca6767` (PR #10 merged)
 - **Estimate:** 90min
 - **Real state:** Backend CRUD مكتمل (GET /users/:id, PUT, DELETE). الناقص: 2 صفحة UI.
 - **Deliverables:**
