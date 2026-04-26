@@ -1,0 +1,102 @@
+name: CI
+
+# Gate every push and PR before deploy-vps.yml gets a chance to run.
+# All jobs run in parallel; deploy is gated separately.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# pnpm MUST be installed before actions/setup-node — setup-node's
+# `cache: 'pnpm'` shells out to pnpm to find the store path. Reverse
+# order = "Unable to locate executable file: pnpm" (this killed the
+# previous ci.yml — see governance/OPEN_ISSUES §I014).
+
+jobs:
+  typecheck-build:
+    name: Typecheck + Build (api + workspace packages)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Generate Prisma client
+        run: pnpm --filter api exec prisma generate
+      - name: Build workspace packages first
+        run: pnpm --filter '@erp/shared-types' --filter '@erp/validation-schemas' --filter '@erp/domain-events' build
+      - name: Type-check API
+        run: cd apps/api && pnpm exec tsc --noEmit
+      - name: Build API
+        run: pnpm --filter api build
+      - name: Verify build output
+        run: test -f apps/api/dist/main.js
+
+  e2e-tests:
+    name: E2E acceptance tests (Postgres + Prisma)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: alruya_erp_test
+          POSTGRES_USER: erp
+          POSTGRES_PASSWORD: testpass
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U erp -d alruya_erp_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://erp:testpass@localhost:5432/alruya_erp_test?schema=public
+      JWT_SECRET: ci-test-secret-not-for-production
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install required Postgres extensions
+        env: { PGPASSWORD: testpass }
+        run: |
+          psql -h localhost -U erp -d alruya_erp_test -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+          psql -h localhost -U erp -d alruya_erp_test -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+      - name: Generate Prisma client
+        run: pnpm --filter api exec prisma generate
+      - name: Apply migrations
+        run: pnpm --filter api exec prisma migrate deploy
+      - name: Build workspace packages
+        run: pnpm --filter '@erp/shared-types' --filter '@erp/validation-schemas' --filter '@erp/domain-events' build
+      - name: Run e2e suite
+        run: pnpm --filter api test:e2e
+        # If pnpm script doesn't exist, fall back to running jest directly
+        continue-on-error: false
+
+  standalone-services:
+    name: Standalone services (license-server + whatsapp-bridge)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: license-server tests
+        working-directory: apps/license-server
+        run: |
+          npm install --no-audit --no-fund
+          npm test
+      - name: whatsapp-bridge tests
+        working-directory: apps/whatsapp-bridge
+        run: |
+          npm install --no-audit --no-fund
+          npm test

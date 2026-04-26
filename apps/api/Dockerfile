@@ -77,7 +77,10 @@ WORKDIR /app/apps/api
 EXPOSE 3000
 ENV NODE_ENV=production
 
+# NestJS uses setGlobalPrefix('api') so the live path is /api/health, NOT /health.
+# --spider checks status code only (no body download), -t 1 disables wget retries
+# so a slow probe doesn't accumulate. Closes I012 (api container always unhealthy).
 HEALTHCHECK --interval=15s --timeout=5s --start-period=45s --retries=3 \
-  CMD wget -qO- http://localhost:3000/health || exit 1
+  CMD wget --spider -q -t 1 http://localhost:3000/api/health || exit 1
 
 CMD ["node", "dist/main.js"]
