@@ -200,13 +200,14 @@
 > **ملاحظة:** T08 (Customers) و T09 (Suppliers) **مكتملتان فعلياً** — أُسقطتا من القائمة.
 
 #### T10 — Sales Invoice Cancel/Reverse Buttons (FE only)
-- **Status:** ⏳ TODO
+- **Status:** 🔄 IN_PROGRESS
 - **Deps:** []
 - **Branch:** `feat/t10-invoice-cancel-fe`
 - **File scope:**
   - `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx` (add buttons)
-  - `apps/web/src/components/cancel-modal.tsx` (new shared)
-- **Owner:** *(unclaimed)*
+  - `apps/web/src/components/reason-modal.tsx` (new shared)
+- **Owner:** claude-opus-4-7-20260426-4
+- **Started:** 2026-04-26T16:10:00Z
 - **Estimate:** 60min
 - **Real state:** `POST /sales/invoices/:id/reverse` موجود. الناقص: زر + modal.
 
