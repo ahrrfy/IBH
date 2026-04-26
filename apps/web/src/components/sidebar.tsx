@@ -96,7 +96,11 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-slate-200 p-3">
-        <div className="mb-2 flex items-center gap-3 rounded-lg bg-slate-50 p-2">
+        <Link
+          href="/profile"
+          className="mb-2 flex items-center gap-3 rounded-lg bg-slate-50 p-2 transition hover:bg-slate-100"
+          aria-label="الملف الشخصي"
+        >
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-700 text-white text-sm font-bold">
             {displayName.slice(0, 1)}
           </div>
@@ -108,7 +112,7 @@ export function Sidebar() {
               {roleLabel ?? user?.email ?? ''}
             </div>
           </div>
-        </div>
+        </Link>
         <button
           onClick={handleLogout}
           className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
