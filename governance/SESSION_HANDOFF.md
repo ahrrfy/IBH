@@ -1,5 +1,62 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff — 2026-04-26 (Session 3 — verification + acceptance-test gap closure) ✅ CLOSED
+
+## Branch
+`main` (no new worktrees left behind)
+
+## Latest Commit on main
+`5da760a` — docs(governance): mark session 2 closed — PR #50 merged, main clean
+*(no new code commits in Session 3 — work that landed during the session is already captured in Session 2 below)*
+
+## Completed This Session
+- ✅ T15 (#14) merged — Sales Returns UI (resolved merge conflict in `governance/ACTIVE_SESSION_LOCKS.md` via worktree-isolated rebase)
+- ✅ T19 (#23) merged — Payroll Run UI + workflow actions (rebased on latest main)
+- ✅ T29 (#29) merged — UAT Playbook (40 scenarios across 6 waves)
+- ✅ W3 acceptance test (#38) merged — GRN → inventory ledger linkage (closes §3 gap)
+- ⚠️ T26 (#27) closed — competing PR #26 from a parallel session merged the same scope first
+- 🎯 W6 lead→customer test (#36) closed by us — exposed `update_updated_at()` trigger column-case bug. Another session then landed PR #41/#44/#45 to fix it, and reopened our test as PR #42 (now merged). Net effect: one closed PR catalyzed three production-code fixes.
+- ✅ Confirmed PRs #40 (SSL monitor) and #43 (B2 offsite) already merged
+
+## Final State of main
+- **TASK_QUEUE: 30/30 ✅ DONE** (every T-task in scope is in `main`)
+- **Open PRs: 0**
+- **Acceptance test coverage** (per SESSION_HANDOFF §3 audit): W3 GRN→inventory and W6 lead→customer now both green in CI
+
+## Worktrees / Branches Cleaned
+This session created several feature worktrees (`D:/t19-work`, `D:/t26-work`, `D:/t29-work`, `D:/i011-work`, `D:/handoff-work`) — these can be safely removed by the next session via `git worktree remove`. No uncommitted work in any of them.
+
+## Remaining Genuinely Open Issues
+Same as Session 2 — no new ones discovered:
+| # | Issue | Why Open |
+|---|---|---|
+| I003 | POS sync conflict strategy | Design decision, Wave 2 |
+| I009 | 2FA manual browser QA | Needs real browser session |
+| I024 | Production password rotation | Manual VPS SSH needed |
+
+## Next Safest Step
+```bash
+# 1. Optional cleanup of stale local worktrees from Session 3:
+for d in t19-work t26-work t29-work i011-work handoff-work; do
+  [ -d "../$d" ] && git worktree remove --force "../$d"
+done
+
+# 2. Pull latest main + survey:
+git pull origin main && gh pr list --state open
+
+# 3. Pick from same options as Session 2:
+#    a) VPS manual steps (highest operational priority — see list below)
+#    b) UAT testing via governance/UAT_PLAYBOOK.md
+#    c) Wave 2 planning per governance/MASTER_SCOPE.md
+```
+
+## Lessons (this session specifically)
+1. **Worktree-per-task is mandatory under high parallelism** — main worktree's branch was swapped by parallel sessions during my work, requiring rescue moves. Worktrees from origin/main eliminated the race.
+2. **A failing test is sometimes infrastructure exposing a bug, not a bad test.** Closing PR #36 with a clear infra-issue note (rather than `it.skip()`) prompted a parallel session to investigate, find the root cause (`update_updated_at()` trigger column case), fix it, and reopen the test. This is the desired workflow when you can't fix the underlying issue yourself.
+3. **TASK_QUEUE.md drifts under heavy parallelism** — multiple times tasks were claimed/PR'd by other sessions while my local view showed them as TODO. Always re-fetch + check `gh pr list` before claiming.
+
+---
+
 # Session Handoff — 2026-04-26 (Session 2 — post-30-tasks cleanup + UX fixes) ✅ CLOSED
 
 ## Branch
