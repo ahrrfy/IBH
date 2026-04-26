@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# Al-Ruya ERP — Install Backup Cron on VPS
+# Al-Ruya ERP — Install Cron Entries on VPS (backup + SSL renewal)
 #
-# Idempotent: adds (or replaces) a single root crontab entry that runs
-# backup-cron.sh nightly at 02:00 server time.
+# Idempotent: removes any prior al-ruya-erp entries and re-adds the canonical
+# set. Safe to re-run after deploys.
+#
+# Schedules:
+#   - backup-cron.sh   @ 02:00 daily
+#   - ssl-renew.sh     @ 03:17 + 15:17 daily (Let's Encrypt recommends
+#                       twice/day at random minutes; certbot is a no-op
+#                       until the cert is within 30 days of expiry)
 #
 # Usage (on VPS, as root):
 #   bash /opt/al-ruya-erp/infra/scripts/install-cron.sh
@@ -15,38 +21,53 @@
 set -euo pipefail
 
 REPO_ROOT="${REPO_ROOT:-/opt/al-ruya-erp}"
-WRAPPER="${REPO_ROOT}/infra/scripts/backup-cron.sh"
-SCHEDULE="${SCHEDULE:-0 2 * * *}"  # 02:00 daily
-TAG="# al-ruya-erp:backup-cron"     # marker line for idempotent replace
+BACKUP_WRAPPER="${REPO_ROOT}/infra/scripts/backup-cron.sh"
+SSL_WRAPPER="${REPO_ROOT}/infra/scripts/ssl-renew.sh"
+LOG_DIR="${LOG_DIR:-/var/log/al-ruya-erp}"
+TAG="# al-ruya-erp:cron"  # marker line for idempotent replace
 
 if [[ "$(id -u)" -ne 0 ]]; then
   echo "ERROR: must run as root (need to edit root crontab)" >&2
   exit 1
 fi
 
-if [[ ! -x "$WRAPPER" ]]; then
-  chmod +x "$WRAPPER" 2>/dev/null || {
-    echo "ERROR: wrapper not executable and chmod failed: $WRAPPER" >&2
-    exit 1
-  }
-fi
+mkdir -p "$LOG_DIR"
 
-# Build new crontab: keep all lines that are NOT ours, then append our 2 lines
+for f in "$BACKUP_WRAPPER" "$SSL_WRAPPER"; do
+  if [[ ! -f "$f" ]]; then
+    echo "ERROR: wrapper missing: $f" >&2
+    exit 1
+  fi
+  chmod +x "$f" 2>/dev/null || true
+done
+
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
 
-# Capture existing crontab (empty if none)
-crontab -l 2>/dev/null | grep -vF "$TAG" | grep -vF "$WRAPPER" > "$TMP" || true
+# Strip any prior al-ruya-erp lines (tag line + the wrapper paths) so re-runs
+# don't accumulate duplicates.
+crontab -l 2>/dev/null \
+  | grep -vF "$TAG" \
+  | grep -vF "$BACKUP_WRAPPER" \
+  | grep -vF "$SSL_WRAPPER" \
+  > "$TMP" || true
 
 cat >> "$TMP" <<EOF
-$TAG
-$SCHEDULE $WRAPPER >> /var/log/al-ruya-erp/cron.log 2>&1
+$TAG backup (daily 02:00)
+0 2 * * * $BACKUP_WRAPPER >> $LOG_DIR/cron.log 2>&1
+$TAG ssl-renew (twice daily, randomized minutes per LE recommendation)
+17 3 * * * $SSL_WRAPPER >> $LOG_DIR/cron.log 2>&1
+17 15 * * * $SSL_WRAPPER >> $LOG_DIR/cron.log 2>&1
 EOF
 
 crontab "$TMP"
 
-echo "Installed cron entry:"
-crontab -l | grep -A1 -F "$TAG"
+echo "Installed cron entries:"
+crontab -l | grep -E "al-ruya-erp|backup-cron|ssl-renew"
 echo ""
-echo "Logs: /var/log/al-ruya-erp/backup-YYYYMMDD.log"
-echo "Verify next run:  systemctl status cron  (or: grep CRON /var/log/syslog)"
+echo "Logs:"
+echo "  $LOG_DIR/backup-YYYYMMDD.log"
+echo "  $LOG_DIR/ssl-renew-YYYYMMDD.log"
+echo "  $LOG_DIR/cron.log  (combined stdout/stderr)"
+echo ""
+echo "Verify next fire:  systemctl status cron  (or: grep CRON /var/log/syslog)"
