@@ -31,7 +31,8 @@
 | I011 | Login error not displayed in UI (Console only) — UX bug | 🟢 تحسين | Wave 1 | Frontend | مفتوح — منخفض الأولوية بعد إغلاق I007 |
 | I012 | infra-web-1 و infra-api-1 يظهرون unhealthy رغم أنهم يعملون — healthcheck endpoints مفقودة/خاطئة | 🟡 مهم | Wave 1 | DevOps | مفتوح (2026-04-25) |
 | I013 | nginx Docker DNS cache — كل web rebuild يحتاج `docker restart nginx` يدوياً | 🟡 مهم | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — resolver 127.0.0.11 + variable upstreams + nginx -s reload في deploy workflow |
-| I014 | GitHub Actions Deploy to VPS فاشل في كل push منذ 2026-04-25 — `ssh-keyscan` صامت في `deploy-vps.yml:27` يُنتج known_hosts فارغاً → Host key verification failed | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — أُضيف `-t rsa,ecdsa,ed25519` + `test -s` guard + force-recreate + nginx reload + retry loop للـ health |
+| I014 | GitHub Actions Deploy to VPS فاشل في كل push منذ 2026-04-25 — 4 جذور متراكبة | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — راجع §I014 |
+| I015 | Self-Healing Loop — auto-diagnose + auto-issue على أي CI failure | 🟢 تحسين | Wave 1 | DevOps | ✅ **بُني** (2026-04-26) — `.github/workflows/auto-diagnose.yml` + `scripts/diagnose-ci.sh` + `scripts/open-ci-issue.sh` |
 
 ---
 
@@ -74,7 +75,45 @@
 
 ---
 
-## §I013 — nginx DNS cache بعد web rebuild (2026-04-25)
+## §I014 — Deploy workflow كان فاشل في 4 طبقات متراكبة (2026-04-26)
+
+كل push من 2026-04-25 ولّد deploy فاشل (10+ runs). كل ما نفتح log نلقى سبب جديد لأن السبب السابق كان يُخفي اللي تحته. الترتيب الفعلي للجذور (من المُكتَشَف أولاً للأعمق):
+
+1. **`ssh-keyscan -H VPS_HOST` صامت** — يكتب لـ stderr، بدون `test -s` لـ known_hosts، فالـ workflow يكمل بـ known_hosts فارغ → ssh التالي يموت بـ `Host key verification failed`.
+2. **`VPS_SSH_KEY` Secret ما يطابق أي مفتاح في authorized_keys على VPS** — السبب الجذري: المفتاح القديم (`github-actions-deploy`) محذوف من Hostinger panel، فحُذف من authorized_keys تلقائياً. أُنشئ مفتاح جديد ed25519 (`github-actions-deploy-2026-04-26`)، أُضيف للـ panel، خاصه في الـ Secret.
+3. **YAML heredoc trap** — `ssh ... bash -s <<'EOF' ... $(hostname -f) ... EOF` كان يُعطي `hostname=runnervm...` بدل VPS hostname. الـ `$()` كان يتوسّع على الـ runner قبل ما يصل لـ ssh. الإصلاح: نقل السكريبت لـ `infra/scripts/deploy-on-vps.sh` ثم `ssh ... 'bash -s' < script.sh`.
+4. **`VPS_HOST` Secret فيه trailing newline** — يسبب `ssh root@ibherp.cloud\n` → `hostname contains invalid characters`. الإصلاح: `printf '%s' 'ibherp.cloud' | gh secret set VPS_HOST` (بدون newline).
+
+**النتيجة:** Run `24953737620` نجح end-to-end في 1m56s. `https://ibherp.cloud/health` → HTTP 200 في 0.4s. كل push من الآن يُنشَر تلقائياً.
+
+**الدروس:**
+- ssh-keyscan يستحق دايماً `test -s` بعده
+- secrets يُفضّل تعيينها بـ `printf '%s'` (بدون newline)، ليس `echo`
+- heredoc-in-YAML سامّ — استخدم سكريبت ملف منفصل
+- Hostinger panel يُزامن SSH keys للـ VPS فوراً (حذف = حذف فوري من authorized_keys)
+
+---
+
+## §I013 — nginx DNS cache بعد web rebuild (✅ مغلق 2026-04-26)
+
+**كان:** كل rebuild يحتاج `docker restart infra-nginx-1` يدوياً.
+
+**الإصلاح المُطبَّق في `infra/nginx/conf.d/bootstrap.conf`:**
+```nginx
+resolver 127.0.0.11 valid=10s ipv6=off;
+resolver_timeout 5s;
+set $upstream_api api;
+set $upstream_web web;
+# ثم في كل proxy_pass:
+proxy_pass http://$upstream_api:3000;
+proxy_pass http://$upstream_web:3001;
+```
+
+والـ deploy workflow يُنفّذ `nginx -t && nginx -s reload` بعد كل recreate. **لا حاجة لتدخل يدوي.**
+
+---
+
+## §I013 (الأصلي) — nginx DNS cache بعد web rebuild (2026-04-25)
 
 **الأعراض:** بعد `docker compose up -d --force-recreate web`، أي طلب لـ ibherp.cloud يرجع 502 حتى `docker restart infra-nginx-1`.
 

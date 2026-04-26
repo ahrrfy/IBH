@@ -1,0 +1,58 @@
+name: Auto-Diagnose CI/CD failures
+
+# Self-healing loop: when ANY workflow on main fails, this listener:
+#   1. Pulls the failed run's logs
+#   2. Runs scripts/diagnose-ci.sh to classify the failure
+#   3. Opens (or updates) a GitHub Issue tagged auto-diagnosed
+#   4. The next Claude Code session reads the issue and pushes a fix
+#
+# Why this exists: the project's brain is Claude. If a deploy fails at 03:00,
+# we want a structured artifact waiting in the morning, not just a red ✗.
+
+on:
+  workflow_run:
+    workflows: ['Deploy to VPS', 'CI']
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  issues: write
+  actions: read
+
+jobs:
+  diagnose:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (for the diagnose script)
+        uses: actions/checkout@v4
+
+      - name: Download failed run logs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          mkdir -p .ci-logs
+          gh run view "$RUN_ID" --log-failed > .ci-logs/failed.log 2>&1 || true
+          gh run view "$RUN_ID" --log > .ci-logs/full.log 2>&1 || true
+          wc -l .ci-logs/*.log
+
+      - name: Diagnose
+        id: diag
+        env:
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: bash scripts/diagnose-ci.sh
+
+      - name: Open or update issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          CATEGORY: ${{ steps.diag.outputs.category }}
+          SUMMARY: ${{ steps.diag.outputs.summary }}
+        run: bash scripts/open-ci-issue.sh
