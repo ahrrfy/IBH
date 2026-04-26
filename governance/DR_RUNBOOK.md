@@ -288,7 +288,7 @@ echo | openssl s_client -servername ibherp.cloud -connect ibherp.cloud:443 2>/de
 
 ### 10.5. حدود معروفة
 
-- 🟡 لا monitoring لتاريخ انتهاء الشهادة كـ proactive check. **TODO:** أضف healthcheck يومي يفحص `notAfter` ويُنبّه قبل 14 يوماً (مستقل عن `SSL_HEALTHCHECK_URL` أدناه — هذا للـ run alerting، لا فحص `notAfter`).
+- ✅ **proactive notAfter monitor**: `infra/scripts/ssl-expiry-check.sh` يفحص يومياً (cron 04:42) عبر `openssl s_client` ويُنبّه إذا بقي < 14 يوماً (قابل للتعديل عبر `THRESHOLD_DAYS`). Pings عبر `SSL_EXPIRY_HEALTHCHECK_URL` (فصلٌ متعمَّد عن `SSL_HEALTHCHECK_URL` — الأول للـ proactive، الثاني لـ run-failure).
 - ✅ **alerting**: `ssl-renew.sh` يدعم `SSL_HEALTHCHECK_URL` (healthchecks.io). يُرسل `/start` عند البدء، URL مباشر عند نجاح الـ run، و`/fail-<exit-code>` عند الفشل (يشمل `exit 21` — nginx reload فاشل بعد renewal). الإعداد:
   ```bash
   # 1. أنشئ check جديد على https://healthchecks.io (مدة 24h، grace 1h)
