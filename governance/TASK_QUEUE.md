@@ -66,15 +66,15 @@
 ### المرحلة 1 — حماية وأساسيات (T01-T07)
 
 #### T01 — Backup Cron Schedule
-- **Status:** ⏳ TODO
+- **Status:** 🔄 IN_PROGRESS
 - **Deps:** []
 - **Branch:** `feat/t01-backup-cron`
 - **File scope:**
   - `infra/scripts/backup-cron.sh` (new)
   - `infra/scripts/install-cron.sh` (new)
   - `governance/DR_RUNBOOK.md` (new)
-- **Owner:** *(unclaimed)*
-- **Started:** —
+- **Owner:** claude-opus-4-7-20260426-1
+- **Started:** 2026-04-26T14:50:00Z
 - **Completed:** —
 - **Commit:** —
 - **Estimate:** 30min
