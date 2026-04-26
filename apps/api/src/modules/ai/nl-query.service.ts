@@ -4,8 +4,24 @@ import { PrismaService } from '../../platform/prisma/prisma.service';
 import { AuditService } from '../../engines/audit/audit.service';
 import type { UserSession } from '@erp/shared-types';
 
-const ALLOWED_TABLES = ['sales_invoices', 'customers', 'inventory_balances', 'journal_entry_lines'];
-const FORBIDDEN_KEYWORDS = /\b(DROP|DELETE|UPDATE|ALTER|INSERT|TRUNCATE|CREATE|GRANT|REVOKE)\b/i;
+// Tables the AI Brain is allowed to query. Anything outside this list — even
+// if the FORBIDDEN_KEYWORDS regex passes — is rejected. Table names are
+// extracted from the generated SQL by simple tokenization (FROM / JOIN).
+const ALLOWED_TABLES = new Set([
+  'sales_invoices',
+  'customers',
+  'inventory_balances',
+  'journal_entry_lines',
+]);
+
+// Reject any non-SELECT keyword and DDL. Matched as whole words.
+const FORBIDDEN_KEYWORDS = /\b(DROP|DELETE|UPDATE|ALTER|INSERT|TRUNCATE|CREATE|GRANT|REVOKE|MERGE|CALL|DO|COPY|EXECUTE)\b/i;
+
+// Cap result rows so a runaway SELECT can't OOM the API.
+const MAX_RESULT_ROWS = 5000;
+
+// Hard cap so a single statement can't ship a megabyte to the AI logs.
+const MAX_SQL_LEN = 4000;
 
 @Injectable()
 export class NlQueryService {
@@ -17,6 +33,42 @@ export class NlQueryService {
 
   private get apiKey(): string | undefined {
     return this.config.get<string>('AI_BRAIN_API_KEY');
+  }
+
+  /**
+   * Extract table identifiers that follow FROM or JOIN clauses.
+   * Comments and string literals are stripped first so a payload like
+   * `SELECT '/* FROM users */ FROM sales_invoices` can't smuggle table names.
+   */
+  private extractTables(sql: string): string[] {
+    const stripped = sql
+      .replace(/'(?:[^']|'')*'/g, "''")              // single-quoted strings
+      .replace(/--[^\n\r]*/g, ' ')                   // line comments
+      .replace(/\/\*[\s\S]*?\*\//g, ' ');            // block comments
+
+    const tables: string[] = [];
+    const re = /\b(?:FROM|JOIN)\s+("?([a-zA-Z_][a-zA-Z0-9_]*)"?)/gi;
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(stripped)) !== null) {
+      tables.push(match[2].toLowerCase());
+    }
+    return tables;
+  }
+
+  /**
+   * Run the AI-generated SELECT inside an explicit READ ONLY transaction so
+   * Postgres itself blocks any write attempt — defense in depth on top of the
+   * keyword and table-name checks. Rolled back regardless of outcome.
+   */
+  private async runReadOnly(sql: string, companyId: string): Promise<any[]> {
+    return this.prisma.$transaction(async (tx) => {
+      // Set the tenant for any RLS policy that reads app.current_company_id.
+      await tx.$executeRawUnsafe(`SET LOCAL app.current_company_id = '${companyId.replace(/'/g, "''")}'`);
+      // Block writes for the rest of this transaction.
+      await tx.$executeRawUnsafe(`SET TRANSACTION READ ONLY`);
+      const rows = (await tx.$queryRawUnsafe(sql)) as any[];
+      return Array.isArray(rows) ? rows.slice(0, MAX_RESULT_ROWS) : [];
+    });
   }
 
   async executeQuery(nlQuery: string, companyId: string, session: UserSession) {
@@ -39,7 +91,7 @@ export class NlQueryService {
         body: JSON.stringify({
           query: nlQuery,
           companyId,
-          allowedTables: ALLOWED_TABLES,
+          allowedTables: [...ALLOWED_TABLES],
           userRole: session.roles?.[0] ?? 'user',
         }),
       });
@@ -52,23 +104,52 @@ export class NlQueryService {
     const generatedSql: string | undefined = brainResp?.sql;
     if (!generatedSql) return { available: false, message: 'AI لم يُعِد استعلامًا' };
 
-    if (FORBIDDEN_KEYWORDS.test(generatedSql) || !/^\s*SELECT\b/i.test(generatedSql.trim())) {
+    const sql = generatedSql.trim();
+
+    // 1. Length cap.
+    if (sql.length > MAX_SQL_LEN) {
+      throw new BadRequestException({ code: 'SQL_TOO_LONG', messageAr: 'الاستعلام المولّد طويل جداً' });
+    }
+
+    // 2. Single statement only — semicolon allowed only as trailing terminator.
+    const noTrailing = sql.replace(/;\s*$/, '');
+    if (noTrailing.includes(';')) {
+      throw new BadRequestException({ code: 'MULTI_STATEMENT', messageAr: 'عبارة متعددة غير مسموحة' });
+    }
+
+    // 3. Must start with SELECT (or WITH for CTE) and contain no DDL/DML keywords.
+    if (!/^\s*(SELECT|WITH)\b/i.test(sql) || FORBIDDEN_KEYWORDS.test(sql)) {
       throw new BadRequestException({ code: 'UNSAFE_SQL', messageAr: 'الاستعلام المولّد غير آمن' });
+    }
+
+    // 4. Every table referenced must be in the whitelist.
+    const referenced = this.extractTables(sql);
+    if (referenced.length === 0) {
+      throw new BadRequestException({ code: 'NO_TABLE', messageAr: 'لا يمكن تحديد الجداول' });
+    }
+    const offending = referenced.filter((t) => !ALLOWED_TABLES.has(t));
+    if (offending.length > 0) {
+      throw new BadRequestException({
+        code: 'TABLE_NOT_ALLOWED',
+        messageAr: `جداول غير مسموحة: ${offending.join(', ')}`,
+      });
     }
 
     let results: any[] = [];
     try {
-      results = (await this.prisma.$queryRawUnsafe(generatedSql)) as any[];
+      results = await this.runReadOnly(sql, companyId);
     } catch (e: any) {
       return { available: true, error: 'SQL execution failed', message: e?.message };
     }
 
-    await this.saveQuery(companyId, nlQuery, generatedSql, session);
+    await this.saveQuery(companyId, nlQuery, sql, session);
 
     return {
       available: true,
       nlQuery,
-      generatedSql,
+      generatedSql: sql,
+      rowCount: results.length,
+      truncated: results.length === MAX_RESULT_ROWS,
       results,
       chartSuggestion: brainResp?.chartSuggestion ?? null,
     };
