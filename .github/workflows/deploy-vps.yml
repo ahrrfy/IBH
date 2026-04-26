@@ -33,6 +33,13 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} bash -s <<'EOF'
           set -euo pipefail
+          echo "🔎 DIAG: hostname=$(hostname -f) user=$(whoami) pwd=$(pwd)"
+          echo "🔎 DIAG: /opt contents:"
+          ls -la /opt 2>&1 | head -20
+          if [ ! -d /opt/al-ruya-erp ]; then
+            echo "❌ /opt/al-ruya-erp not found — wrong host or repo missing"
+            exit 1
+          fi
           cd /opt/al-ruya-erp
           git fetch origin main
           git reset --hard origin/main
