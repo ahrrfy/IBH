@@ -1,5 +1,25 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff - 2026-04-26 (I020 parallel lock guard)
+
+## Completed
+- Added `governance/ACTIVE_SESSION_LOCKS.md` as the coordination registry for Codex, Claude Code, and any parallel agent.
+- Defined high-collision shared contract files that require explicit locks before edits.
+- Claimed and closed `COD-I020-LOCK` on branch `codex/fix-i020-parallel-lock`.
+
+## Verification
+- `git diff --check` planned before commit.
+- Runtime build/test not required because this cycle changes governance documentation only.
+
+## Remaining
+- Assign an Integration Owner before merging multiple parallel branches into `main`.
+- Future sessions must claim active scopes in `governance/ACTIVE_SESSION_LOCKS.md` before editing shared files.
+
+## Risk
+- This mitigates I020 process risk, but it does not technically enforce locks in CI yet.
+
+---
+
 # Session Handoff — 2026-04-26 (branching strategy + I019 partial fix)
 
 ## ما تم إنجازه اليوم
