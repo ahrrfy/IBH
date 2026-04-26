@@ -11,7 +11,7 @@ export default function PayrollRunDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data, isLoading, error } = useQuery({
     queryKey: ['payroll-run', id],
-    queryFn: () => api<any>(`/hr/payroll/${id}`),
+    queryFn: () => api<any>(`/hr/payroll/runs/${id}`),
     enabled: !!id,
   });
 
