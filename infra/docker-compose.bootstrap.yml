@@ -268,7 +268,12 @@ services:
   # Receives Meta webhooks (orders/support) and proxies outbound messages
   # from the ERP. Listens on :8002 inside the docker network. Exposed
   # publicly via host nginx at /webhook/whatsapp (see vhost conf).
+  #
+  # ⚠️  OPTIONAL — only starts with the "whatsapp" compose profile.
+  # Normal deploys skip this service until Meta credentials are in VPS .env.
+  # To enable: docker compose --profile whatsapp up -d whatsapp-bridge
   whatsapp-bridge:
+    profiles: [whatsapp]
     build:
       context: ../apps/whatsapp-bridge
       dockerfile: Dockerfile
