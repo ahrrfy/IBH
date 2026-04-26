@@ -66,17 +66,18 @@
 ### المرحلة 1 — حماية وأساسيات (T01-T07)
 
 #### T01 — Backup Cron Schedule
-- **Status:** 🔄 IN_PROGRESS
+- **Status:** ✅ DONE
 - **Deps:** []
-- **Branch:** `feat/t01-backup-cron`
+- **Branch:** `feat/t01-backup-cron` (merged)
 - **File scope:**
   - `infra/scripts/backup-cron.sh` (new)
   - `infra/scripts/install-cron.sh` (new)
   - `governance/DR_RUNBOOK.md` (new)
 - **Owner:** claude-opus-4-7-20260426-1
 - **Started:** 2026-04-26T14:50:00Z
-- **Completed:** —
-- **Commit:** —
+- **Completed:** 2026-04-26T15:08:04Z
+- **Commit:** `fa3aeee` (PR #6 merged)
+- **VPS verify:** ⏳ pending — DR drill on VPS not yet executed (tracked as next manual step)
 - **Estimate:** 30min
 - **Real state:** `infra/scripts/backup.sh` موجود ومكتمل (Restic 3-2-1-1). الناقص فقط: cron entry + RUNBOOK.
 - **Deliverables:**
@@ -343,13 +344,15 @@
 - **Note:** Helmet + HSTS + CORS whitelist + frameguard كلها في main.ts:36-64.
 
 #### T24 — SSL Auto-Renewal Cron
-- **Status:** ⏳ TODO
+- **Status:** 🔄 IN_PROGRESS
 - **Deps:** []
 - **Branch:** `feat/t24-ssl-renewal`
 - **File scope:**
   - `infra/scripts/ssl-renew.sh` (new)
+  - `infra/scripts/install-cron.sh` (extend — add SSL cron alongside backup)
   - `governance/DR_RUNBOOK.md` (append section)
-- **Owner:** *(unclaimed)*
+- **Owner:** claude-opus-4-7-20260426-1
+- **Started:** 2026-04-26T15:15:00Z
 - **Estimate:** 60min
 - **Real state:** certbot في `vps-deploy.sh` لكن الـ renewal cron مفقود.
 - **Deliverables:**
@@ -444,10 +447,10 @@
 | Metric | Value |
 |---|---:|
 | Total tasks | 30 |
-| ✅ Done (pre-existed or completed) | 4 |
-| ⏳ TODO (available for pickup) | 22 |
+| ✅ Done (pre-existed or completed) | 5 |
+| ⏳ TODO (available for pickup) | 21 |
 | 🔄 IN_PROGRESS | 0 |
 | 🚫 BLOCKED | 0 |
 | 🟡 SKIP | 4 (T08, T09 بسبب اكتمالهم؛ T26 partial-deploy-only) |
 
-**آخر تحديث:** 2026-04-26 14:30 UTC · بعد deep audit
+**آخر تحديث:** 2026-04-26 15:15 UTC · T01 merged (PR #6, fa3aeee)
