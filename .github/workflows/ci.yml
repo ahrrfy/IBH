@@ -98,11 +98,14 @@ jobs:
           psql -h localhost -U erp -d alruya_erp_test -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
       - name: Generate Prisma client
         run: pnpm --filter api exec prisma generate
-      - name: Sync schema to test DB (prisma db push)
-        # Migrations 0001-0007 are partial snapshots; they don't actually CREATE
-        # all tables — production DB was bootstrapped with `db push` then
-        # migrations were saved for incremental changes only. For CI's ephemeral
-        # DB we sync directly from schema.prisma. Safe — DB is throwaway.
+      - name: Apply migrations (creates gen_ulid + ENUMs + RLS functions)
+        # Migrations are partial — they create the SQL functions, ENUMs, and
+        # RLS policies that the schema depends on, but only ~52 of ~75 tables.
+        run: pnpm --filter api exec prisma migrate deploy
+      - name: Sync remaining tables from schema.prisma (db push)
+        # After migrations create the functions, this fills in the rest of
+        # the tables that the partial migrations don't cover. Safe on the
+        # ephemeral CI DB. Long-term fix: regenerate a complete baseline.
         run: pnpm --filter api exec prisma db push --skip-generate --accept-data-loss
       - name: Seed bootstrap data (companies, roles, admin user, Iraqi CoA)
         # Many tests reference companies/users from seed via prisma.company.findFirst().
