@@ -1,23 +1,41 @@
 # SESSION_HANDOFF.md
 
-# Session Handoff — 2026-04-26 (Session 4 — final close) ✅ CLOSED
+# Session Handoff — 2026-04-26 (Session 5 — deploy fixes + useSearchParams) ✅ CLOSED
 
 ## Branch
-`main` — latest commit `5f3026f` (PR #53 merged)
+`main` — latest commit `4e55b90`
 
-## Completed This Session (Session 4)
-- ✅ Merged PRs: #40, #43, #46, #47, #51 (governance), #52 (CST prefix), #53 (WA optional profile)
-- ✅ **Critical deploy fix (PR #53)**: WhatsApp env `:?` was aborting every `docker compose up` on VPS → moved to `--profile whatsapp` (optional). Deploys now succeed without WA credentials.
-- ✅ **Customer.code overflow fix (PR #52)**: 'customer' prefix → 'CST' — codes now max 19 chars (VarChar(20) safe)
-- ✅ ACTIVE_SESSION_LOCKS.md cleaned: removed stale T13 + T25 active locks
-- ✅ Synced TASK_QUEUE.md: 30/30 ✅ DONE
-- ✅ MODULE_STATUS_BOARD: 18/18 modules, 0 open PRs
+## Completed This Session (Session 5)
+
+### I029 — VPS deploy يفشل في كل push (مُغلَق)
+الجذران (اكتُشفا بالتسلسل بعد كل deploy):
+
+**جذر 1 — WhatsApp env `:?` تُوقف compose حتى لخدمات ذات profile:**
+- أضفنا `profiles: [whatsapp]` للـ whatsapp-bridge في PR #53
+- لكن compose يُقيّم interpolation في وقت parse لكل الخدمات بغض النظر عن الـ profile
+- الإصلاح النهائي: حوّلنا الـ 4 vars من `:?` إلى `:-` في `8b6252f`
+- حذفنا whatsapp-bridge من build/recreate في deploy-on-vps.sh
+
+**جذر 2 — `useSearchParams()` بدون Suspense يفشل prerender:**
+- `pnpm web build` كان يفشل في `/finance/chart-of-accounts/new`
+- 3 صفحات تستخدم `useSearchParams()` مباشرة دون `<Suspense>`
+- الإصلاح: `window.location.search` في `useEffect` (نفس نمط login page)
+- الصفحات المُصلَّحة في `4e55b90`:
+  - `finance/chart-of-accounts/new`
+  - `finance/periods/new`
+  - `finance/banks/[id]/reconcile`
+
+### نتيجة
+- GitHub issues #48 + #54 مغلقان
+- Deploy run `24963352657` نجح ✅ (1m41s) — أول deploy ناجح منذ أسابيع
+- 0 open GitHub issues
 
 ## Final State of main
 - **Open PRs: 0** ✅
+- **Open GitHub Issues: 0** ✅
 - **TASK_QUEUE: 30/30 DONE** ✅
-- **Active locks: 0** ✅
-- **CI: all checks passing** ✅
+- **VPS deploy: ✅ سليم** (run 24963352657)
+- **Latest commit:** `4e55b90`
 
 ## Remaining Genuinely Open (manual/VPS only)
 | # | Issue | Action |
@@ -26,18 +44,26 @@
 | I009 | 2FA manual browser QA | Needs browser session on VPS |
 | I024 | Production password rotation | `ssh vps` → Settings → Users → Edit |
 
-## Manual VPS Steps Required
-1. `ssh root@vps 'bash /opt/al-ruya-erp/infra/scripts/install-cron.sh'` — 4 crons (backup + offsite + ssl-renew + ssl-expiry)
+## Manual VPS Steps Still Required
+1. `ssh root@vps 'bash /opt/al-ruya-erp/infra/scripts/install-cron.sh'` — 4 crons
 2. DNS A `shop.ibherp.cloud` → VPS IP + `certbot --nginx -d shop.ibherp.cloud`
 3. B2 backup: add `RESTIC_B2_REPOSITORY` + `B2_ACCOUNT_ID` + `B2_ACCOUNT_KEY` to VPS `.env`
-4. Run `docker compose up -d` — now succeeds without WA credentials (WA is `--profile whatsapp`)
+4. WhatsApp (when ready): add WA credentials to `.env`, then `docker compose --profile whatsapp up -d whatsapp-bridge`
 5. DR drill: `restic restore latest --target /tmp/restore-test`
 
-## Next Safest Step
+## Risks
+- React 19 type mismatch in `apps/web` — `next build` passes locally but VPS had hidden page errors (fixed)
+- `as any` ×258 in API source — tech debt, not blocking
+- B2 backup inactive until credentials added to VPS `.env`
+
+## Next Safest Step (new session)
 ```bash
-git pull origin main && gh pr list --state open
-# → should be empty
-# Next: VPS manual steps above, then UAT via governance/UAT_PLAYBOOK.md
+git pull origin main && gh pr list --state open && gh issue list --state open
+# → should all be empty
+# Options:
+#   a) VPS manual steps above (highest operational priority)
+#   b) UAT testing: governance/UAT_PLAYBOOK.md
+#   c) Wave 2 planning: governance/MASTER_SCOPE.md
 ```
 
 ---
