@@ -86,13 +86,15 @@ describe('CRM — Lead → Customer conversion (e2e)', () => {
     );
 
     // Add an activity so the new → contacted gate is satisfied.
+    // LeadActivity uses `body` (not `notes`) per schema.prisma.
     await prisma.leadActivity.create({
       data: {
         leadId: lead.id,
         type: 'call',
-        notes: 'Initial contact',
+        subject: 'Initial contact',
+        body: 'Test activity created by lead-to-customer e2e',
         createdBy: session.userId,
-      } as any,
+      },
     });
 
     await leads.changeStatus(lead.id, 'contacted', session);
