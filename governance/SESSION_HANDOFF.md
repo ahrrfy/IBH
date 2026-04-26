@@ -1,6 +1,95 @@
 # SESSION_HANDOFF.md
 
-# Session Handoff — 2026-04-25 (governance sync + acceptance test gap-fill)
+# Session Handoff — 2026-04-25 (FULL SESSION: governance + I010 + I007 + first UAT)
+
+## 🎯 الحدث الفارق
+**أول مرة يصل فيها HTTP 200 على https://ibherp.cloud/login مع البندل الجديد.** البنية التحتية الكاملة (host nginx → docker nginx → Next.js → API → Postgres) تعمل end-to-end. dashboard.
+
+## ما تم إنجازه اليوم
+### المسار 1 — Governance + Audit
+- تدقيق فعلي لـ 17 e2e test عبر وكيل Explore (HANDOFF كان يقول 7)
+- مصفوفة تغطية W1-W6 الحقيقية في §3
+- HANDOFF + STATUS_BOARD + OPEN_ISSUES تطابق الواقع
+
+### المسار 2 — Acceptance Tests (3 جديدة)
+- `apps/api/test/shift-open-close.e2e-spec.ts` — W2 partial unique invariant
+- `apps/api/test/depreciation-idempotency.e2e-spec.ts` — W4 unique constraint
+- `apps/api/test/iraqi-tax-brackets.e2e-spec.ts` — W5 4-bracket regression spec
+
+### المسار 3 — I010 (Build Regression) ✅
+- التشخيص الأولي ادّعى 14 schema mismatch errors
+- الجذر الفعلي: Prisma Client stale من schema قديم
+- الإصلاح: `prisma generate` (دقيقة واحدة) → 0 errors → `dist/main.js` produced
+- Commit: `a239255`
+
+### المسار 4 — I007 (Login Button) ✅ — الفصل المعقّد
+- HANDOFF القديم وصفها كـ "زر لا يستجيب"
+- 5 إصلاحات سابقة (form/Suspense/onClick/hydration) فشلت جميعاً
+- التشخيص الحقيقي عبر اختبار runtime على VPS:
+  - الزر شغّال منذ البداية
+  - Network tab أظهر POST 200 + dashboard 307 + login 200
+  - **الجذر:** `api.ts:20` يخزن في localStorage، `middleware.ts:18` يقرأ cookie
+- الإصلاح: `setToken()` يكتب في localStorage + cookie معاً
+- Commit: `d2073a5`
+
+### المسار 5 — Infra Fixes
+- `infra/scripts/install-git-hooks.sh` — أضيف post-merge hook لـ `prisma generate` (commit `645e729`)
+- `.env.example` — توسيع لـ OWNER/SEED_ADMIN/TEST_ADMIN/LICENSE keys (commit `d3f41b6`)
+
+### المسار 6 — VPS Deployment + Debugging
+- اكتشفت: web يُخدم بـ `infra-web-1` (image `al-ruya/erp-web:latest`)
+- compose file: `infra/docker-compose.bootstrap.yml`
+- `docker compose build --no-cache web` → image جديد ✅
+- `up -d --force-recreate web` → web container جديد على IP `172.20.0.5`
+- اكتشفنا 502: nginx كان يحتفظ بـ DNS cache للـ IP القديم `172.20.0.4`
+- `docker restart infra-nginx-1` → reolution refresh → ✅ HTTP 200
+- bundle hash تحوّل من `page-ec7eae910f7a5e78.js` إلى `page-ec32629dda96fa33.js`
+
+## ما لم يكتمل
+- ⚠️ **UAT النهائي:** المستخدم لم يؤكد بعد أن الدخول من المتصفح وصل لـ /dashboard. كل المؤشرات إيجابية (200 OK + bundle جديد + cookie fix منشور)، لكن screenshot للـ /dashboard لم يصل
+- W3 GRN→inventory + vendor invoice posting (tests جزئية فقط)
+- W4 period close 7-step (test مفقود)
+- W5 attendance+payroll integration (test جزئي)
+- W6 lead→customer (test مفقود)
+- nginx resolver permanent fix (لمنع تكرار I013) — مُسجَّل كـ TODO
+
+## القرارات الجديدة
+- لا قرارات معمارية جديدة (DECISIONS_LOG لم يتغيّر)
+
+## الملفات المتأثرة (15 commit عبر الجلسة)
+- `governance/*` — 4 ملفات تحديث متعدد
+- `apps/api/test/` — 3 ملفات tests جديدة
+- `apps/api/package.json` + `pnpm-lock.yaml` — I010 fix
+- `apps/web/src/lib/api.ts` — I007 fix (cookie + localStorage)
+- `infra/scripts/install-git-hooks.sh` — post-merge hook
+- `.env.example` — توسيع
+
+## الاختبارات المنفذة
+- ✅ `pnpm --filter api build` → Exit 0 (بعد I010 fix)
+- ✅ `pnpm --filter web build` → "Compiled successfully in 2.7s"
+- ✅ Docker rebuild web → `Image al-ruya/erp-web:latest Built`
+- ✅ `curl https://ibherp.cloud/login` → HTTP/2 200 (بعد nginx restart)
+- ✅ Bundle hash مختلف ومُحدَّث على VPS
+- ⏳ Browser UAT login → /dashboard — pending user confirmation
+
+## المخاطر المفتوحة
+- 🟡 **I013 (جديد):** nginx Docker DNS cache — في كل web rebuild يحدث 502 حتى `docker restart nginx`. يحتاج `resolver 127.0.0.11 valid=10s` + variable في proxy_pass
+- 🟡 web container مُعلَّم `unhealthy` رغم أنه يعمل — healthcheck endpoint مفقود/خاطئ
+- 🟢 19 e2e test لم يُشغَّل أيٌّ منها — يحتاج Docker setup للـ test runner
+
+## ممنوع تغييره
+- إصلاح cookie في `api.ts:setToken()` — مدفوع ومُنشَر، لا تُعدَّل
+- مصفوفة تغطية e2e (§3) — مُحدَّثة من تدقيق فعلي
+- بنية commits اليوم: `c7e0d97` → `12e813c` (15 commit)
+
+## الخطوة التالية بالضبط
+1. **أكّد UAT (دقيقة واحدة):** افتح `https://ibherp.cloud/login`، Ctrl+Shift+R، login بـ `ahrrfy/>[REDACTED-ROTATED]` → يجب الوصول لـ `/dashboard`. أرسل screenshot
+2. **إصلاح I013 (دقائق):** أضف `resolver 127.0.0.11 valid=10s;` لـ `infra/nginx/conf.d/bootstrap.conf` + استبدل `proxy_pass http://web:3001` بـ `set $upstream_web web; proxy_pass http://$upstream_web:3001` — يمنع حاجة restart nginx مع كل rebuild
+3. **تشغيل e2e tests:** docker compose up -d postgres + `pnpm --filter api test:e2e` — تحقق من 19 test
+4. **اختبار 2FA UI:** بعد UAT الأول — يُغلق I009
+5. ابدأ سيكل لكتابة test مفقود (W3 GRN → الأبسط بعد UAT)
+
+
 
 ## ما تم إنجازه اليوم
 - تدقيق تغطية e2e عبر وكيل Explore: 17 ملف موجود، 7 كامل + 3 جزئي + 8 مفقود من متطلبات W1-W6 (ارتفعت بعد هذه الجلسة)
