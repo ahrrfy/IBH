@@ -34,7 +34,20 @@
     "category": "Business",
     "copyright": "© 2026 شركة الرؤية العربية للتجارة",
     "shortDescription": "نقطة البيع للرؤية العربية",
-    "longDescription": "نظام نقطة البيع (POS) لشركة الرؤية العربية — يعمل offline بقاعدة SQLite مشفَّرة"
+    "longDescription": "نظام نقطة البيع (POS) لشركة الرؤية العربية — يعمل offline بقاعدة SQLite مشفَّرة",
+    "publisher": "شركة الرؤية العربية للتجارة",
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com",
+      "wix": {
+        "language": ["ar-SA", "en-US"]
+      },
+      "nsis": {
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "languages": ["Arabic", "English"]
+      }
+    }
   },
   "plugins": {
     "sql": {
