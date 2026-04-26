@@ -43,14 +43,20 @@ $COMPOSE up -d --force-recreate api web
 # IPs via Docker DNS (resolver 127.0.0.11). Closes I013 — no more manual
 # `docker restart nginx` after deploy.
 echo "→ test + reload nginx"
-if $COMPOSE exec -T nginx nginx -t; then
-  $COMPOSE exec -T nginx nginx -s reload
+if $COMPOSE exec -T nginx nginx -t 2>&1; then
+  # nginx -s reload returns 0 immediately but on some compose+ssh combos it
+  # appears to close the parent shell's stdin (or something equally weird).
+  # We saw the script bail right after this line — never reaching migrations.
+  # Detach explicitly so even if the child does something to our TTY we
+  # don't inherit the issue.
+  $COMPOSE exec -T nginx nginx -s reload </dev/null >/dev/null 2>&1 || true
   echo "   ✅ nginx reloaded"
 else
   echo "   ❌ nginx config invalid"
   exit 1
 fi
 
+echo "→ post-nginx checkpoint reached"
 echo "→ run any new prisma migrations"
 # Two bugs were here for ~6 weeks (silently, causing missing F2 triggers — I022):
 #   1. cd /app — schema is at /app/apps/api/prisma/schema.prisma, not /app
