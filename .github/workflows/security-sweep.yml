@@ -1,0 +1,132 @@
+name: Security Sweep (continuous polling loop)
+
+# Runs every 4 hours. Pulls EVERY open alert from CodeQL + Dependabot +
+# Secret Scanning and ensures each one has a tracking issue. This is the
+# "continuous" half of the self-healing loop — security-bridge.yml reacts
+# to events, this one reconciles state. Together they guarantee no alert
+# can sit in GitHub UI without a corresponding governance task.
+#
+# Loop terminates implicitly: when there are zero open alerts, the sweep
+# posts a "all clear" comment on the digest issue and idles cheaply.
+
+on:
+  # Event-driven first — every signal that COULD have changed security state
+  # fires the sweep immediately. The cron is just a 15-min safety net for
+  # alerts that arrive without a corresponding webhook (rare, but happens
+  # with delayed Dependabot rescans).
+  push:
+    branches: [main]
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_run:
+    workflows: ['CodeQL', 'CI', 'Deploy to VPS']
+    types: [completed]
+  issues:
+    types: [closed, reopened]   # so closing one alert refreshes the digest
+  schedule:
+    - cron: '*/15 * * * *'      # safety net — ~15 min max staleness
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  security-events: read
+
+concurrency:
+  group: security-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sweep all alert sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/sweep
+          TOTAL=0
+
+          # ── 1. Code scanning ──────────────────────────────────────
+          gh api "repos/$REPO/code-scanning/alerts?state=open&per_page=100" \
+            > /tmp/sweep/codeql.json 2>/dev/null || echo "[]" > /tmp/sweep/codeql.json
+          CQL=$(jq 'length' /tmp/sweep/codeql.json)
+          echo "→ Code scanning: $CQL open"
+
+          jq -c '.[]' /tmp/sweep/codeql.json | while read -r a; do
+            export ALERT_TYPE=code-scanning
+            export ALERT_NUMBER=$(echo "$a" | jq -r .number)
+            export ALERT_URL=$(echo "$a"    | jq -r .html_url)
+            export ALERT_RULE=$(echo "$a"   | jq -r .rule.id)
+            export ALERT_SEVERITY=$(echo "$a" | jq -r .rule.severity)
+            export ALERT_FILE=$(echo "$a"   | jq -r '.most_recent_instance.location.path // ""')
+            export ALERT_LINE=$(echo "$a"   | jq -r '.most_recent_instance.location.start_line // ""')
+            export ALERT_SUMMARY=$(echo "$a" | jq -r '.rule.description // .rule.name' | tr '\n' ' ')
+            bash scripts/sync-security-issues.sh || echo "  sync failed for codeql #$ALERT_NUMBER"
+          done
+
+          # ── 2. Dependabot ─────────────────────────────────────────
+          gh api "repos/$REPO/dependabot/alerts?state=open&per_page=100" \
+            > /tmp/sweep/dep.json 2>/dev/null || echo "[]" > /tmp/sweep/dep.json
+          DEP=$(jq 'length' /tmp/sweep/dep.json)
+          echo "→ Dependabot: $DEP open"
+
+          jq -c '.[]' /tmp/sweep/dep.json | while read -r a; do
+            export ALERT_TYPE=dependabot
+            export ALERT_NUMBER=$(echo "$a" | jq -r .number)
+            export ALERT_URL=$(echo "$a"    | jq -r .html_url)
+            export ALERT_RULE=$(echo "$a"   | jq -r '.security_advisory.cve_id // .security_advisory.ghsa_id // "unknown"')
+            export ALERT_SEVERITY=$(echo "$a" | jq -r .security_advisory.severity)
+            export ALERT_FILE=$(echo "$a"   | jq -r '.dependency.manifest_path // ""')
+            export ALERT_LINE=""
+            export ALERT_SUMMARY=$(echo "$a" | jq -r '.security_advisory.summary' | tr '\n' ' ')
+            bash scripts/sync-security-issues.sh || echo "  sync failed for dep #$ALERT_NUMBER"
+          done
+
+          # ── 3. Secret scanning ────────────────────────────────────
+          gh api "repos/$REPO/secret-scanning/alerts?state=open&per_page=100" \
+            > /tmp/sweep/sec.json 2>/dev/null || echo "[]" > /tmp/sweep/sec.json
+          SEC=$(jq 'length' /tmp/sweep/sec.json)
+          echo "→ Secret scanning: $SEC open"
+
+          jq -c '.[]' /tmp/sweep/sec.json | while read -r a; do
+            export ALERT_TYPE=secret-scanning
+            export ALERT_NUMBER=$(echo "$a" | jq -r .number)
+            export ALERT_URL=$(echo "$a"    | jq -r .html_url)
+            export ALERT_RULE=$(echo "$a"   | jq -r .secret_type)
+            export ALERT_SEVERITY=critical
+            export ALERT_FILE=""
+            export ALERT_LINE=""
+            export ALERT_SUMMARY="Leaked $(echo "$a" | jq -r .secret_type) — rotate the credential immediately"
+            bash scripts/sync-security-issues.sh || echo "  sync failed for sec #$ALERT_NUMBER"
+          done
+
+          TOTAL=$((CQL + DEP + SEC))
+          echo "TOTAL_OPEN=$TOTAL"   >> "$GITHUB_ENV"
+          echo "CQL_OPEN=$CQL"       >> "$GITHUB_ENV"
+          echo "DEP_OPEN=$DEP"       >> "$GITHUB_ENV"
+          echo "SEC_OPEN=$SEC"       >> "$GITHUB_ENV"
+
+      - name: Update rolling digest issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/update-security-digest.sh
+
+      - name: Trigger Claude Code session if backlog grows
+        if: env.TOTAL_OPEN != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STAMP: ${{ github.run_id }}
+        run: |
+          # Soft signal: refresh the digest's labels so a watching session
+          # can subscribe. We don't @-mention because that creates noise.
+          echo "→ $TOTAL_OPEN alerts still open — digest issue updated."

@@ -21,8 +21,12 @@ on:
   secret_scanning_alert:
     types: [created, reopened]
 
-  # Dependabot vulnerability alerts (no native event — we poll on schedule
-  # and on every successful CodeQL run as a piggyback trigger).
+  # Dependabot alerts — native event (instant)
+  dependabot_alert:
+    types: [created, reopened, auto_reopened]
+
+  # Backup trigger: every CodeQL completion piggybacks a sweep so nothing
+  # slips through if a webhook is dropped.
   workflow_run:
     workflows: ['CodeQL']
     types: [completed]
@@ -73,6 +77,25 @@ jobs:
             echo "ALERT_SUMMARY=$SUM"
           } >> "$GITHUB_ENV"
 
+      # ── Dependabot alert path (native event) ───────────────────────
+      - name: Extract dependabot_alert payload
+        if: github.event_name == 'dependabot_alert'
+        env:
+          ALERT_JSON: ${{ toJson(github.event.alert) }}
+        run: |
+          echo "$ALERT_JSON" > /tmp/alert.json
+          {
+            echo "ALERT_TYPE=dependabot"
+            echo "ALERT_NUMBER=$(jq -r .number /tmp/alert.json)"
+            echo "ALERT_URL=$(jq -r .html_url /tmp/alert.json)"
+            echo "ALERT_RULE=$(jq -r '.security_advisory.cve_id // .security_advisory.ghsa_id // \"unknown\"' /tmp/alert.json)"
+            echo "ALERT_SEVERITY=$(jq -r .security_advisory.severity /tmp/alert.json)"
+            echo "ALERT_FILE=$(jq -r '.dependency.manifest_path // \"\"' /tmp/alert.json)"
+            echo "ALERT_LINE="
+            SUM=$(jq -r '.security_advisory.summary' /tmp/alert.json | tr '\n' ' ')
+            echo "ALERT_SUMMARY=$SUM"
+          } >> "$GITHUB_ENV"
+
       # ── Secret scanning alert path ─────────────────────────────────
       - name: Extract secret_scanning_alert payload
         if: github.event_name == 'secret_scanning_alert'
@@ -120,9 +143,12 @@ jobs:
             bash scripts/sync-security-issues.sh || echo "  (sync failed for #$ALERT_NUMBER — continuing)"
           done
 
-      # ── Run the sync for code-scanning / secret-scanning paths ──
+      # ── Run the sync for native event paths ──
       - name: Sync alert to governance
-        if: github.event_name == 'code_scanning_alert' || github.event_name == 'secret_scanning_alert'
+        if: |
+          github.event_name == 'code_scanning_alert' ||
+          github.event_name == 'secret_scanning_alert' ||
+          github.event_name == 'dependabot_alert'
         env:
           GH_TOKEN: ${{ github.token }}
         run: bash scripts/sync-security-issues.sh
