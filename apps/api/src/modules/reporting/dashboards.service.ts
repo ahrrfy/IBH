@@ -40,7 +40,7 @@ export class DashboardsService {
     ]);
 
     const cashRows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT COALESCE(SUM(CASE WHEN "direction" = 'in' THEN "amountIqd" ELSE -"amountIqd" END), 0)::float AS cash
+      `SELECT COALESCE(SUM(CASE WHEN "toAccountId" IS NOT NULL AND "fromAccountId" IS NULL THEN "amountIqd" WHEN "fromAccountId" IS NOT NULL AND "toAccountId" IS NULL THEN -"amountIqd" ELSE 0 END), 0)::float AS cash
        FROM "cash_movements" WHERE "companyId" = $1`,
       companyId,
     );
@@ -151,7 +151,7 @@ export class DashboardsService {
   async financeDashboard(companyId: string) {
     const cashRows: any[] = await this.prisma.$queryRawUnsafe(
       `SELECT ba."accountType" AS kind,
-              COALESCE(SUM(CASE WHEN cm."direction" = 'in' THEN cm."amountIqd" ELSE -cm."amountIqd" END), 0)::float AS balance
+              COALESCE(SUM(CASE WHEN cm."toAccountId" IS NOT NULL AND cm."fromAccountId" IS NULL THEN cm."amountIqd" WHEN cm."fromAccountId" IS NOT NULL AND cm."toAccountId" IS NULL THEN -cm."amountIqd" ELSE 0 END), 0)::float AS balance
        FROM "bank_accounts" ba
        LEFT JOIN "cash_movements" cm ON cm."bankAccountId" = ba.id
        WHERE ba."companyId" = $1 GROUP BY ba."accountType"`,
