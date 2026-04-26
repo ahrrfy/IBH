@@ -40,8 +40,8 @@ claims them.
 | COD-I020-LOCK | Codex | `codex/fix-i020-parallel-lock` | Parallel-session governance guard | `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, frontend pages | Closed |
 | SESSION-Z0 | Codex Audit Agent | `agent/z0-audit` | Accuracy audit and stub map | `governance/ACCURACY_MAP.md`, `governance/SESSION_HANDOFF.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, frontend pages, runtime config | Closed |
 | claude-opus-4-7-20260426-1 | Claude Code (Opus 4.7) | `feat/t01-backup-cron` | T01 — Backup cron schedule + DR runbook | `infra/scripts/backup-cron.sh`, `infra/scripts/install-cron.sh`, `governance/DR_RUNBOOK.md`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, frontend pages | Closed (merged in PR #6 / fa3aeee on 2026-04-26T15:08:04Z) |
-| claude-opus-4-7-20260426-4 | Claude Code (Opus 4.7) | `feat/t10-invoice-cancel-fe` | T10 — Sales invoice reverse button (FE) | `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx`, `apps/web/src/components/reason-modal.tsx`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, other frontend pages | Closed (merged in PR #11 / 3473307 on 2026-04-26T15:32:26Z) |
-| claude-opus-4-7-20260426-3 | Claude Code (Opus 4.7) | `feat/t04-branches-fe` | T04 — Branches Detail + Edit (FE only) | `apps/web/src/app/(app)/settings/branches/[id]/**`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, infra scripts, T24's files | Active |
+| claude-opus-4-7-20260426-6 | Claude Code (Opus 4.7) | `feat/t12-grn-fe` | T12 — GRN UI (list + new + detail) + sidebar entry | `apps/web/src/app/(app)/purchases/grn/**`, `apps/web/src/components/sidebar.tsx`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, other frontend pages | Closed (merged in PR #21 / f7d3a16 on 2026-04-26T16:25:00Z) |
+| claude-opus-4-7-20260426-6 | Claude Code (Opus 4.7) | `feat/t28-mobile-eas` | T28 — Mobile EAS scaffold (eas.json + release workflow) | `apps/mobile/eas.json`, `.github/workflows/mobile-release.yml`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | All other workflows, business modules, Prisma schema, frontend pages | Active |
 
 ## Integration Owner
 
@@ -75,7 +75,7 @@ Before marking a session closed:
 
 ## Active Locks (live)
 
-- **T04** | session: `claude-opus-4-7-20260426-3` | branch: `feat/t04-branches-fe` | files: `apps/web/src/app/(app)/settings/branches/[id]/**` | started: 2026-04-26T15:35:00Z
-- **T14** | session: `claude-opus-4-7-20260426-3` | branch: `feat/t14-stocktaking-fe` | files: `apps/api/src/modules/inventory/inventory.{controller,service}.ts`, `apps/web/src/app/(app)/inventory/stocktaking/**` | started: 2026-04-26T17:30:00Z
+- **T13** | session: `claude-opus-4-7-20260426-3` | branch: `feat/t13-transfers-fe` | files: `apps/api/src/modules/inventory/inventory.{controller,service}.ts`, `apps/web/src/app/(app)/inventory/transfers/**` | started: 2026-04-26T16:30:00Z
+- **T30** | session: `claude-opus-4-7-20260426-3` | branch: `docs/t30-onboarding` | files: `governance/CUSTOMER_ONBOARDING.md`, `docs/training/*.md` | started: 2026-04-26T19:30:00Z
 
 _(T01 closed 2026-04-26T15:08:04Z via PR #6 — fa3aeee)_
