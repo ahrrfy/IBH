@@ -283,13 +283,17 @@ services:
     environment:
       NODE_ENV: production
       PORT: 8002
-      # Meta-side credentials — set in /opt/al-ruya-erp/infra/.env (chmod 600)
-      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:?WHATSAPP_VERIFY_TOKEN required in .env}
-      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:?WHATSAPP_ACCESS_TOKEN required in .env}
-      WHATSAPP_PHONE_ID:     ${WHATSAPP_PHONE_ID:?WHATSAPP_PHONE_ID required in .env}
+      # Meta-side credentials — set in /opt/al-ruya-erp/infra/.env (chmod 600).
+      # Using :- (not :?) because docker-compose interpolates all vars at parse
+      # time, even for profile-gated services — empty defaults prevent startup
+      # failure when WA is not yet configured. The bridge itself validates these
+      # at boot and exits loudly if they are empty.
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_PHONE_ID:     ${WHATSAPP_PHONE_ID:-}
       # Internal handoff to the ERP API (uses docker-network DNS)
       ERP_API_URL:           ${ERP_API_URL:-http://api:3000}
-      ERP_API_TOKEN:         ${ERP_API_TOKEN:?ERP_API_TOKEN required in .env}
+      ERP_API_TOKEN:         ${ERP_API_TOKEN:-}
     networks:
       - erp-internal
     depends_on:
