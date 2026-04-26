@@ -50,7 +50,7 @@ describe('Purchases — GRN → Inventory ledger link (e2e)', () => {
         const qAcc = Number(line.qtyAccepted ?? 0);
         if (qAcc <= 0) continue;
 
-        const ledgerEntries = await prisma.stockLedger.findMany({
+        const ledgerEntries = await prisma.stockLedgerEntry.findMany({
           where: {
             companyId:     grn.companyId,
             warehouseId:   grn.warehouseId,
@@ -77,7 +77,7 @@ describe('Purchases — GRN → Inventory ledger link (e2e)', () => {
 
   it('no GRN-referenced ledger entry exists without a corresponding GRN', async () => {
     // The reverse direction — orphan ledger entries break audit traceability.
-    const ledgerEntries = await prisma.stockLedger.findMany({
+    const ledgerEntries = await prisma.stockLedgerEntry.findMany({
       where: { referenceType: { in: ['GRN', 'GRN_REJECT', 'GRN_REVERSE'] } },
       select: { id: true, referenceId: true, companyId: true, referenceType: true },
       take: 50,
@@ -85,7 +85,9 @@ describe('Purchases — GRN → Inventory ledger link (e2e)', () => {
 
     if (ledgerEntries.length === 0) return;
 
-    const grnIds = Array.from(new Set(ledgerEntries.map((e) => e.referenceId)));
+    const grnIds = Array.from(
+      new Set(ledgerEntries.map((e) => e.referenceId).filter((id): id is string => !!id)),
+    );
     const existing = await prisma.goodsReceiptNote.findMany({
       where: { id: { in: grnIds } },
       select: { id: true },
