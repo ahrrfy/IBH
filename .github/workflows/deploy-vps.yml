@@ -24,7 +24,10 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -t rsa,ecdsa,ed25519 -H "${{ secrets.VPS_HOST }}" > ~/.ssh/known_hosts 2>/dev/null
+          chmod 644 ~/.ssh/known_hosts
+          test -s ~/.ssh/known_hosts || { echo "❌ ssh-keyscan produced empty known_hosts for host '${{ secrets.VPS_HOST }}'"; exit 1; }
+          echo "✅ known_hosts populated ($(wc -l < ~/.ssh/known_hosts) entries)"
 
       - name: Pull latest + restart stack on VPS
         run: |
@@ -35,23 +38,42 @@ jobs:
           git reset --hard origin/main
 
           cd infra
+          COMPOSE="docker compose -f docker-compose.bootstrap.yml --env-file .env"
+
           # Rebuild only api + web (postgres/redis/minio don't change)
-          docker compose -f docker-compose.bootstrap.yml --env-file .env build api web
-          docker compose -f docker-compose.bootstrap.yml --env-file .env up -d api web
+          $COMPOSE build api web
+          $COMPOSE up -d --force-recreate api web
 
-          # Run any new migrations
-          docker compose -f docker-compose.bootstrap.yml --env-file .env exec -T api \
-            sh -c 'cd /app && npx prisma migrate deploy --schema=prisma/schema.prisma' || true
-
-          # Quick health probe
-          sleep 5
-          if curl -fsS https://ibherp.cloud/health > /dev/null; then
-            echo "✅ Deploy successful"
+          # Reload nginx so it picks up any conf changes AND re-resolves
+          # the new container IPs via Docker's embedded DNS (resolver 127.0.0.11).
+          # Closes I013 — no more manual `docker restart nginx` after deploy.
+          if $COMPOSE exec -T nginx nginx -t 2>&1; then
+            $COMPOSE exec -T nginx nginx -s reload
+            echo "✅ nginx reloaded"
           else
-            echo "⚠️  /health did not respond — check logs"
-            docker compose -f docker-compose.bootstrap.yml --env-file .env logs api --tail=50
+            echo "❌ nginx config invalid — skipping reload"
             exit 1
           fi
+
+          # Run any new migrations
+          $COMPOSE exec -T api \
+            sh -c 'cd /app && npx prisma migrate deploy --schema=prisma/schema.prisma' || true
+
+          # Health probe with retries (api may need a few seconds to boot)
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS --max-time 5 https://ibherp.cloud/health > /dev/null; then
+              echo "✅ Deploy successful — /health OK on attempt $i"
+              exit 0
+            fi
+            echo "⏳ /health not ready (attempt $i/6) — sleeping 5s"
+            sleep 5
+          done
+
+          echo "❌ /health failed after 6 attempts — dumping logs"
+          $COMPOSE logs api --tail=80
+          $COMPOSE logs web --tail=40
+          $COMPOSE logs nginx --tail=20
+          exit 1
           EOF
 
       - name: Cleanup
