@@ -18,7 +18,8 @@
 6. اقرأ `governance/OPEN_ISSUES.md` — مشاكل مفتوحة
 7. اقرأ `governance/DECISIONS_LOG.md` + `MODULE_STATUS_BOARD.md` + `ARCHITECTURE.md` — للسياق المعماري
 8. **شغّل** `bash scripts/next-task.sh` — يطبع المهمة التالية المتاحة
-9. **اطبع ملخص**: "أنا فاهم إننا في [المرحلة]، المهمة التالية المتاحة [TXX]، أنوي ادّعاءها وتنفيذها"
+9. **شغّل** `gh issue list --label security:auto --state open --limit 10` — اكتشافات أمان تلقائية من CodeQL/Dependabot/Secret Scanning (تُغلق الحلقة عبر `.github/workflows/security-bridge.yml`)
+10. **اطبع ملخص**: "أنا فاهم إننا في [المرحلة]، المهمة التالية المتاحة [TXX]، أنوي ادّعاءها وتنفيذها"
 
 > ❌ إذا ما قرأت الملفات السبعة — لا تبدأ أي عمل
 > ❌ إذا ما ادّعيت المهمة في `TASK_QUEUE.md` + `ACTIVE_SESSION_LOCKS.md` قبل الكود — قد تتعارض مع جلسة أخرى

@@ -1,0 +1,128 @@
+name: Security Bridge (alerts → governance)
+
+# Self-healing security loop. When CodeQL, Secret Scanning, or Dependabot
+# raises an alert, this workflow:
+#   1. Pulls the alert metadata
+#   2. Calls scripts/sync-security-issues.sh to:
+#       - open/update a GitHub Issue with structured Arabic body
+#       - for CRITICAL: append a row to governance/OPEN_ISSUES.md via auto-PR
+#   3. Next Claude session reads the issue (per CLAUDE.md session-start
+#      protocol) and ships a fix → security-close-hook.yml closes the loop.
+#
+# Mirrors the proven pattern of auto-diagnose.yml (CI failures), extended
+# to security findings — one consistent self-healing pipeline.
+
+on:
+  # CodeQL findings
+  code_scanning_alert:
+    types: [created, reopened, appeared_in_branch]
+
+  # Leaked secrets (works on enabled repos)
+  secret_scanning_alert:
+    types: [created, reopened]
+
+  # Dependabot vulnerability alerts (no native event — we poll on schedule
+  # and on every successful CodeQL run as a piggyback trigger).
+  workflow_run:
+    workflows: ['CodeQL']
+    types: [completed]
+
+  # Manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      alert_type:
+        description: code-scanning | secret-scanning | dependabot
+        required: true
+      alert_number:
+        description: Numeric alert ID
+        required: true
+
+permissions:
+  contents: write           # to push the bot branch
+  issues: write             # to open/update issues
+  pull-requests: write      # to open the OPEN_ISSUES.md PR
+  security-events: read     # to read code scanning alerts
+  actions: read
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ── CodeQL alert path ──────────────────────────────────────────
+      - name: Extract code_scanning_alert payload
+        if: github.event_name == 'code_scanning_alert'
+        id: cs
+        env:
+          ALERT_JSON: ${{ toJson(github.event.alert) }}
+        run: |
+          echo "$ALERT_JSON" > /tmp/alert.json
+          {
+            echo "ALERT_TYPE=code-scanning"
+            echo "ALERT_NUMBER=$(jq -r .number /tmp/alert.json)"
+            echo "ALERT_URL=$(jq -r .html_url /tmp/alert.json)"
+            echo "ALERT_RULE=$(jq -r .rule.id /tmp/alert.json)"
+            echo "ALERT_SEVERITY=$(jq -r .rule.severity /tmp/alert.json)"
+            echo "ALERT_FILE=$(jq -r '.most_recent_instance.location.path // ""' /tmp/alert.json)"
+            echo "ALERT_LINE=$(jq -r '.most_recent_instance.location.start_line // ""' /tmp/alert.json)"
+            # Use heredoc for summary in case it spans lines
+            SUM=$(jq -r '.rule.description // .rule.name' /tmp/alert.json | tr '\n' ' ')
+            echo "ALERT_SUMMARY=$SUM"
+          } >> "$GITHUB_ENV"
+
+      # ── Secret scanning alert path ─────────────────────────────────
+      - name: Extract secret_scanning_alert payload
+        if: github.event_name == 'secret_scanning_alert'
+        env:
+          ALERT_JSON: ${{ toJson(github.event.alert) }}
+        run: |
+          echo "$ALERT_JSON" > /tmp/alert.json
+          {
+            echo "ALERT_TYPE=secret-scanning"
+            echo "ALERT_NUMBER=$(jq -r .number /tmp/alert.json)"
+            echo "ALERT_URL=$(jq -r .html_url /tmp/alert.json)"
+            echo "ALERT_RULE=$(jq -r .secret_type /tmp/alert.json)"
+            echo "ALERT_SEVERITY=critical"
+            echo "ALERT_FILE="
+            echo "ALERT_LINE="
+            echo "ALERT_SUMMARY=Leaked secret of type $(jq -r .secret_type /tmp/alert.json) — rotate immediately"
+          } >> "$GITHUB_ENV"
+
+      # ── Dependabot poll (piggyback on CodeQL completion + scheduled run) ──
+      - name: Poll Dependabot alerts
+        if: github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # List open dependabot alerts that don't already have an issue.
+          gh api "repos/${{ github.repository }}/dependabot/alerts?state=open&per_page=20" \
+            > /tmp/dependabot.json || echo "[]" > /tmp/dependabot.json
+
+          COUNT=$(jq 'length' /tmp/dependabot.json)
+          echo "→ Found $COUNT open Dependabot alerts"
+
+          if [ "$COUNT" -eq 0 ]; then exit 0; fi
+
+          # Process each (the script is idempotent — won't dupe issues)
+          jq -c '.[]' /tmp/dependabot.json | while read -r alert; do
+            export ALERT_TYPE=dependabot
+            export ALERT_NUMBER=$(echo "$alert" | jq -r .number)
+            export ALERT_URL=$(echo "$alert"   | jq -r .html_url)
+            export ALERT_RULE=$(echo "$alert"  | jq -r '.security_advisory.cve_id // .security_advisory.ghsa_id // "unknown"')
+            export ALERT_SEVERITY=$(echo "$alert" | jq -r .security_advisory.severity)
+            export ALERT_FILE=$(echo "$alert"  | jq -r '.dependency.manifest_path // ""')
+            export ALERT_LINE=""
+            export ALERT_SUMMARY=$(echo "$alert" | jq -r '.security_advisory.summary')
+            export GH_TOKEN=${{ github.token }}
+            bash scripts/sync-security-issues.sh || echo "  (sync failed for #$ALERT_NUMBER — continuing)"
+          done
+
+      # ── Run the sync for code-scanning / secret-scanning paths ──
+      - name: Sync alert to governance
+        if: github.event_name == 'code_scanning_alert' || github.event_name == 'secret_scanning_alert'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/sync-security-issues.sh

@@ -1,0 +1,55 @@
+name: CodeQL
+
+# Static analysis for JS/TS across the monorepo. Catches SQL injection,
+# XSS, prototype pollution, hardcoded credentials, insecure deserialization
+# — the OWASP-class bugs that would silently corrupt the financial layer
+# (F2 Double-Entry, F3 StockLedger) if they shipped.
+#
+# Findings appear under Security → Code scanning. Each new alert triggers
+# .github/workflows/security-bridge.yml, which mirrors it into
+# governance/OPEN_ISSUES.md so the next Claude session picks it up via
+# next-task.sh — same loop pattern as auto-diagnose.yml for CI failures.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly Monday 03:00 UTC — catches advisories that landed in CodeQL's
+    # query packs since the last push (new CVE patterns surface this way).
+    - cron: '0 3 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # security-extended adds ~30 high-signal queries beyond default
+          # (incl. cleartext-storage, weak-crypto, tainted-format-string).
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:${{ matrix.language }}'
