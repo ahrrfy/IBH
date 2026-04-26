@@ -199,6 +199,29 @@ services:
   # Why 127.0.0.1:8080 and not 0.0.0.0:80?
   # The VPS already runs a host-level nginx for sirajalquran.org. We avoid
   # the conflict by binding internally; host nginx proxies ibherp.cloud here.
+  # ── 7. License Server (RSA-2048 signed licenses, heartbeat, grace) ──────
+  # Standalone Fastify service, listens on :8003 inside the docker network.
+  # Wave 6 / D12 — required for production licensing.
+  license-server:
+    build:
+      context: ../apps/license-server
+      dockerfile: Dockerfile
+    image: al-ruya/license-server:latest
+    <<: *restart-policy
+    logging: *default-logging
+    environment:
+      NODE_ENV: production
+      PORT: 8003
+      LICENSE_ADMIN_TOKEN: ${LICENSE_ADMIN_TOKEN:?LICENSE_ADMIN_TOKEN required in .env}
+    networks:
+      - erp-internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --spider -q -t 1 http://127.0.0.1:8003/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
   # See infra/nginx/host-vhost-ibherp.conf for the host-side vhost.
   nginx:
     image: nginx:1.27-alpine
