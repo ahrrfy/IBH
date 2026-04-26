@@ -239,16 +239,20 @@
 
 ---
 
-#### T13 — Stock Transfers UI (FE only)
-- **Status:** ⏳ TODO
+#### T13 — Stock Transfers UI + GET endpoints
+- **Status:** 🔄 IN_PROGRESS
 - **Deps:** []
 - **Branch:** `feat/t13-transfers-fe`
 - **File scope:**
-  - `apps/web/src/app/(app)/inventory/transfers/page.tsx`
-  - `apps/web/src/app/(app)/inventory/transfers/new/page.tsx`
-  - `apps/web/src/app/(app)/inventory/transfers/[id]/page.tsx`
+  - `apps/api/src/modules/inventory/inventory.controller.ts` (extend) — GET /transfers + GET /transfers/:id
+  - `apps/api/src/modules/inventory/inventory.service.ts` (extend) — listTransfers + getTransferById
+  - `apps/web/src/app/(app)/inventory/transfers/page.tsx` (new)
+  - `apps/web/src/app/(app)/inventory/transfers/new/page.tsx` (new)
+  - `apps/web/src/app/(app)/inventory/transfers/[id]/page.tsx` (new)
+- **Owner:** claude-opus-4-7-20260426-3
+- **Started:** 2026-04-26T16:30:00Z
 - **Estimate:** 120min
-- **Real state:** Backend مكتمل (POST + approveTransfer). UI مفقود.
+- **Real state:** POST + approveTransfer كانا موجودين؛ GETs مفقودان فاقتضى إضافتهما. UI كاملة جديدة.
 
 ---
 

@@ -73,4 +73,6 @@ Before marking a session closed:
 
 ## Active Locks (live)
 
-_(none — T01 closed 2026-04-26T15:08:04Z via PR #6)_
+- **T13** | session: `claude-opus-4-7-20260426-3` | branch: `feat/t13-transfers-fe` | files: `apps/api/src/modules/inventory/inventory.{controller,service}.ts`, `apps/web/src/app/(app)/inventory/transfers/**` | started: 2026-04-26T16:30:00Z
+
+_(T01 closed 2026-04-26T15:08:04Z via PR #6 — fa3aeee)_
