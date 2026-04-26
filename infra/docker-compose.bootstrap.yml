@@ -221,6 +221,37 @@ services:
       retries: 3
       start_period: 30s
 
+  # ── 7b. WhatsApp Bridge (Cloud API ↔ ERP) ───────────────────────────────
+  # Receives Meta webhooks (POST /webhook), forwards inbound messages to
+  # /crm/whatsapp/inbox on the API, and exposes /send for outbound.
+  # Listens on :8002 inside the docker network. Public exposure via nginx
+  # proxy at /whatsapp/* (so Meta can reach https://ibherp.cloud/whatsapp/webhook).
+  # Wave 6 / D11. Tokens optional — if missing, /send returns sent:false
+  # gracefully so deploys succeed before Meta is wired up.
+  whatsapp-bridge:
+    build:
+      context: ../apps/whatsapp-bridge
+      dockerfile: Dockerfile
+    image: al-ruya/whatsapp-bridge:latest
+    <<: *restart-policy
+    logging: *default-logging
+    environment:
+      NODE_ENV: production
+      PORT: 8002
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_PHONE_ID: ${WHATSAPP_PHONE_ID:-}
+      ERP_API_URL: http://api:3000
+      ERP_API_TOKEN: ${WHATSAPP_BRIDGE_ERP_TOKEN:-}
+    networks:
+      - erp-internal
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --spider -q -t 1 http://127.0.0.1:8002/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
   # ── 8. License Server (RSA-2048 signed licenses, heartbeat, grace) ──────
   # Standalone Fastify service, listens on :8003 inside the docker network.
   # Wave 6 / D12 — required for production licensing.
