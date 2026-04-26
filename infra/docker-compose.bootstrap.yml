@@ -195,6 +195,26 @@ services:
     depends_on:
       - api
 
+  # ── 5b. Storefront (public e-commerce, shop.ibherp.cloud) ────────────────
+  # Read-only product catalog + checkout. Listens on :3002 inside the
+  # docker network. Host nginx + bootstrap nginx proxy shop.* here.
+  storefront:
+    build:
+      context: ..
+      dockerfile: apps/storefront/Dockerfile
+      target: production
+    image: al-ruya/erp-storefront:latest
+    <<: *restart-policy
+    logging: *default-logging
+    environment:
+      NODE_ENV: production
+      API_BASE_URL: http://api:3000
+      NEXT_PUBLIC_API_URL: ${SHOP_URL:-https://shop.ibherp.cloud}/api
+    networks:
+      - erp-internal
+    depends_on:
+      - api
+
   # ── 6. Nginx (binds to 127.0.0.1:8080 — host nginx fronts it) ────────────
   # Why 127.0.0.1:8080 and not 0.0.0.0:80?
   # The VPS already runs a host-level nginx for sirajalquran.org. We avoid
