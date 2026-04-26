@@ -36,6 +36,12 @@ COMPOSE="docker compose -f $COMPOSE_FILE --env-file .env"
 echo "→ build api + web"
 $COMPOSE build api web
 
+echo "→ ensure storage + cache services are up (postgres/redis/minio)"
+# These don't get recreated normally (their state matters), but `up -d`
+# is idempotent and starts any that aren't running. Closes the gap where
+# MinIO was defined in compose but never started after VPS reboot.
+$COMPOSE up -d postgres redis minio minio-init
+
 echo "→ recreate api + web"
 $COMPOSE up -d --force-recreate api web
 
