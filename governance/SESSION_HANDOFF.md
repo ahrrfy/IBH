@@ -1,5 +1,75 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff — 2026-04-26 (branching strategy + I019 partial fix)
+
+## ما تم إنجازه اليوم
+
+### هذه الجلسة (Claude Sonnet 4.6):
+- أنشأت فرع `feat/web-windows-compat` — `next.config.js` standalone fix لـ Windows + `.gitignore` يضيف `next-env.d.ts` و `tsconfig.tsbuildinfo`. Commit: `5aca478`. PR #4 مفتوح.
+- أنشأت فرع `feat/e2e-i019` — 5 إصلاحات لـ I019: `iraqi-tax-brackets` (قيم توقع خاطئة) · `depreciation-idempotency` (FK bypass) · `audit-append-only` (seed row + اسم جدول خاطئ) · `sequence-uniqueness` (NULL branchId) · `rbac-deny` (مسارات خاطئة). Commit: `e8a66b1`. PR #5 مفتوح.
+- فرع `feat/e2e-i019` يحتوي أيضاً commit إضافي من جلسة موازية: `fc13d76` (loginSchema + rbac-deny guard).
+
+### الجلسات الموازية (Claude Opus 4.7) دفعت مباشرة لـ main:
+- `aff32c8`: CI — تطبيق migration SQL بعد db push لإضافة triggers + RLS + partial indexes
+- `dd4538e`: Web Windows standalone fix (مشابه لـ feat/web-windows-compat — قد يكون PR #4 redundant)
+- `b29ffd8`: shift-open-close test 2 fix (CTE snapshot issue) + auth email field + global guard setup
+
+## ما لم يكتمل
+- PR #5 لم يُدمج بعد في main — يحتاج rebase على main الحالي (I021)
+- PR #4 قد يكون redundant إذا `dd4538e` يغطي نفس التغيير — يجب مقارنة
+- I019: الـ 5 tests الموجودة في PR #5 لم تُشغَّل فعلياً (Docker غير متاح)
+- UAT: دخول ibherp.cloud/login من المتصفح لم يُؤكَّد بعد
+- I009: 2FA UI لم يُختبَر
+
+## القرارات الجديدة
+- لا قرارات معمارية جديدة — قرار التفرع (feat/*) موجود لكن يحتاج إنفاذ من كل الجلسات
+
+## الملفات المتأثرة
+- `governance/OPEN_ISSUES.md` — I019 تحديث حالة + I020 + I021 جديدة
+- `governance/SESSION_HANDOFF.md` — هذا التحديث
+- `apps/api/test/audit-append-only.e2e-spec.ts` — في feat/e2e-i019
+- `apps/api/test/depreciation-idempotency.e2e-spec.ts` — في feat/e2e-i019
+- `apps/api/test/iraqi-tax-brackets.e2e-spec.ts` — في feat/e2e-i019
+- `apps/api/test/rbac-deny.e2e-spec.ts` — في feat/e2e-i019
+- `apps/api/test/sequence-uniqueness.e2e-spec.ts` — في feat/e2e-i019
+
+## الاختبارات المنفذة
+- ✅ `pnpm --filter api build` → Exit 0 (main الحالي نظيف)
+- ⏳ e2e tests لم تُشغَّل (Docker غير متاح محلياً)
+- ⏳ PR #5 في انتظار CI على GitHub Actions
+
+## المخاطر المفتوحة
+- 🟡 I020: جلسات متعددة تدفع لـ main مباشرة — تعارضات متكررة وإعادة تغييرات
+- 🟡 I021: PR #5 يحتاج rebase قبل الدمج
+- 🟡 PR #4 قد يكون مكرراً بعد `dd4538e` — يجب مراجعة قبل الدمج
+
+## ممنوع تغييره في الجلسة القادمة
+- الكود الموجود في `feat/e2e-i019` (`e8a66b1` + `fc13d76`) — لا تُعيد الكتابة، فقط rebase
+- `dd4538e` (Windows standalone fix في main) — لا تُعيده، تحقق منه قبل دمج PR #4
+
+## الخطوة التالية بالضبط
+1. **أولاً — تحقق من PR #4 redundancy:**
+   ```bash
+   git diff dd4538e main -- apps/web/next.config.js
+   git diff feat/web-windows-compat main -- apps/web/next.config.js
+   ```
+   إذا كانت نفس التغيير → أغلق PR #4 بدون دمج.
+
+2. **Rebase PR #5 على main:**
+   ```bash
+   git checkout feat/e2e-i019
+   git rebase main
+   git push --force-with-lease origin feat/e2e-i019
+   ```
+
+3. **UAT**: افتح `https://ibherp.cloud/login` → Ctrl+Shift+R → login → تأكيد /dashboard
+
+4. **بعد UAT**: اختبار 2FA UI (يُغلق I009)
+
+5. **دمج PR #5** بعد CI يمر ✅
+
+---
+
 # Session Handoff — 2026-04-26 (CI cleanup)
 
 ## ما تم إنجازه اليوم

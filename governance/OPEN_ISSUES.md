@@ -33,7 +33,9 @@
 | I016 | NL Query في `nl-query.service.ts` يستخدم `$queryRawUnsafe(generatedSql)` بدون validation للجداول ولا READ ONLY tx → SQL injection ممكن من AI Brain | 🔴 حرج | Wave 6 | Security | ✅ **مغلق** (2026-04-26) — table parser + READ ONLY tx + multi-statement guard + 5K row cap (commit `4586252` + JSDoc fix `39f3751`) |
 | I017 | `ci.yml` مفقود (تم حذفه في `d1b39b3`) → لا حماية من بناء فاشل قبل deploy | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — `ci.yml` مُعاد بناؤه: 3 jobs (typecheck-build ✅ · standalone ✅ · e2e ⚠️ يكشف bugs قائمة) |
 | I018 | البنية التحتية لـ e2e tests في CI لم تكن قابلة للتشغيل — 12 ملف يفشل بأخطاء infra | 🟡 مهم | Wave 1 | QA | ✅ **مغلق** (2026-04-26) — راجع §I018 (6 طبقات infra) |
-| I019 | 8 e2e tests فردية فيها bugs (FK setup, type errors, calc mismatch) — مكشوفة بعد إصلاح I018 | 🟡 مهم | Wave 1 | Backend/QA | جديد (2026-04-26) — راجع §I019 |
+| I019 | 8 e2e tests فردية فيها bugs (FK setup, type errors, calc mismatch) — مكشوفة بعد إصلاح I018 | 🟡 مهم | Wave 1 | Backend/QA | 🔄 جزئي — 3 مغلقة في main (2026-04-26) · 5 في PR #5 (feat/e2e-i019) تنتظر merge |
+| I020 | جلسات متعددة تعمل على main مباشرة — تتعارض مع بعضها وتُعيد تغييرات بعضها | 🟡 مهم | Wave 1 | DevOps | جديد (2026-04-26) — استراتيجية فروع مُنشأة (feat/*) لكن الجلسات الأخرى تتجاهلها وتدفع لـ main مباشرة |
+| I021 | PR #5 (feat/e2e-i019) يحتاج rebase على main الحالي قبل الدمج | 🟢 تحسين | Wave 1 | DevOps | جديد (2026-04-26) — main تقدّم بـ 3 commits بعد نشأة الفرع |
 | I013 | nginx Docker DNS cache — كل web rebuild يحتاج `docker restart nginx` يدوياً | 🟡 مهم | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — resolver 127.0.0.11 + variable upstreams + nginx -s reload في deploy workflow |
 | I014 | GitHub Actions Deploy to VPS فاشل في كل push منذ 2026-04-25 — 4 جذور متراكبة | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — راجع §I014 |
 | I015 | Self-Healing Loop — auto-diagnose + auto-issue على أي CI failure | 🟢 تحسين | Wave 1 | DevOps | ✅ **بُني** (2026-04-26) — `.github/workflows/auto-diagnose.yml` + `scripts/diagnose-ci.sh` + `scripts/open-ci-issue.sh` |
