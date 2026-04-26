@@ -189,7 +189,13 @@ md5sum "$DUMP"
 
 - 🟡 لا offsite remote حالياً — repo محلي فقط على VPS. **TODO:** أضف Backblaze B2 أو SFTP secondary. حتى ذلك الحين فقدان VPS = فقدان البيانات.
 - 🟡 لا encryption-at-rest خارج Restic (الذي يُشفّر بمفتاح في `.env`). فقدان `.env` = فقدان كل النسخ.
-- 🟡 لا alerting — فشل cron يظهر فقط في `/var/log/al-ruya-erp/cron.log`. **TODO:** أضف healthcheck.io ping بعد كل run ناجح.
+- ✅ **alerting**: `backup-cron.sh` يدعم `BACKUP_HEALTHCHECK_URL` (healthchecks.io). يُرسل ping عند البدء (`/start`)، عند النجاح (URL مباشر)، وعند الفشل (`/fail-<exit-code>`). الإعداد:
+  ```bash
+  # 1. أنشئ check جديد على https://healthchecks.io (مدة 26h، grace 1h)
+  # 2. أضف للـ /opt/al-ruya-erp/infra/.env:
+  BACKUP_HEALTHCHECK_URL=https://hc-ping.com/<UUID>
+  ```
+  لو الـ URL غير مضبوط، الـ ping calls كلها no-op — لا تأثير على installs لا تريد alerting خارجي.
 
 ---
 
@@ -269,8 +275,14 @@ echo | openssl s_client -servername ibherp.cloud -connect ibherp.cloud:443 2>/de
 
 ### 10.5. حدود معروفة
 
-- 🟡 لا monitoring لتاريخ انتهاء الشهادة. **TODO:** أضف healthcheck يومي يفحص `notAfter` ويُنبّه قبل 14 يوماً
-- 🟡 لو كل من host و dockerized nginx فشلا في الـ reload، الموقع قد يبقى على القديم حتى انتهائه (ثم HTTPS down) — exit 21 يكشف هذا لكن لا alerting
+- 🟡 لا monitoring لتاريخ انتهاء الشهادة كـ proactive check. **TODO:** أضف healthcheck يومي يفحص `notAfter` ويُنبّه قبل 14 يوماً (مستقل عن `SSL_HEALTHCHECK_URL` أدناه — هذا للـ run alerting، لا فحص `notAfter`).
+- ✅ **alerting**: `ssl-renew.sh` يدعم `SSL_HEALTHCHECK_URL` (healthchecks.io). يُرسل `/start` عند البدء، URL مباشر عند نجاح الـ run، و`/fail-<exit-code>` عند الفشل (يشمل `exit 21` — nginx reload فاشل بعد renewal). الإعداد:
+  ```bash
+  # 1. أنشئ check جديد على https://healthchecks.io (مدة 24h، grace 1h)
+  # 2. أضف للـ /opt/al-ruya-erp/infra/.env:
+  SSL_HEALTHCHECK_URL=https://hc-ping.com/<UUID>
+  ```
+  لو الـ URL غير مضبوط، الـ ping calls كلها no-op.
 
 ---
 

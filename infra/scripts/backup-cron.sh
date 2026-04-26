@@ -1,26 +1,13 @@
 #!/usr/bin/env bash
-# ─────────────────────────────────────────────────────────────────────────────
 # Al-Ruya ERP — Backup Cron Wrapper (host-side, docker-compose-aware)
-#
-# Why this exists: postgres runs INSIDE a docker container (no host-mapped
-# port, by design — security). pg_dump on the host can't reach it directly.
-# So this wrapper does pg_dump via `docker exec` instead of relying on a host
-# pg_dump and a host-routable POSTGRES_HOST.
-#
-# Steps:
-#   1. acquire flock (cron-safe — concurrent runs are blocked, not queued)
-#   2. source /opt/al-ruya-erp/infra/.env (POSTGRES_*, RESTIC_*, RETENTION_*)
-#   3. docker exec postgres pg_dump → /tmp/<dump>
-#   4. restic backup the dump dir, prune, integrity-check
-#   5. cleanup tmp
+# pg_dump runs INSIDE the postgres container (no host port).
 #
 # Exit codes:
-#   0   — completed OK
-#   10  — env file missing or env var missing
-#   11  — another backup is already running (lock held)
-#   12  — pg_dump failed (postgres container down or wrong creds)
-#   13  — restic failed (repo unreachable, password wrong, integrity error)
-# ─────────────────────────────────────────────────────────────────────────────
+#   0 OK · 10 env missing · 11 lock held · 12 pg_dump failed · 13 restic failed
+#
+# Optional alerting (closes DR_RUNBOOK §8): set BACKUP_HEALTHCHECK_URL in
+# .env (e.g. https://hc-ping.com/<UUID>). Pings /start, bare URL on
+# success, /fail-<code> on failure. No-op when unset.
 
 set -euo pipefail
 
@@ -31,51 +18,45 @@ PG_CONTAINER="${PG_CONTAINER:-infra-postgres-1}"
 
 mkdir -p "$LOG_DIR"
 LOG_FILE="${LOG_DIR}/backup-$(date +%Y%m%d).log"
-
 log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"; }
 
-# ── 1. Lock ──────────────────────────────────────────────────────────────────
+hc_ping() {
+  local suffix="${1:-}"
+  local url="${BACKUP_HEALTHCHECK_URL:-}"
+  [[ -z "$url" ]] && return 0
+  curl -fsS -m 10 --retry 2 -o /dev/null \
+    "${url%/}${suffix:+/$suffix}" 2>/dev/null || true
+}
+
+DUMP_DIR=""
+on_exit() {
+  local code=$?
+  if [[ "$code" -eq 0 ]]; then hc_ping; else hc_ping "fail-${code}"; fi
+  [[ -n "$DUMP_DIR" && -d "$DUMP_DIR" ]] && rm -rf "$DUMP_DIR"
+}
+trap on_exit EXIT
+
 if command -v flock >/dev/null 2>&1; then
   exec 9>"$LOCK_FILE"
-  if ! flock -n 9; then
-    log "ERROR: another backup is already running (lock: $LOCK_FILE)"
-    exit 11
-  fi
+  if ! flock -n 9; then log "ERROR: another backup running"; exit 11; fi
 else
-  if ! mkdir "$LOCK_FILE" 2>/dev/null; then
-    log "ERROR: another backup is already running (lock dir: $LOCK_FILE)"
-    exit 11
-  fi
-  trap 'rmdir "$LOCK_FILE" 2>/dev/null || true' EXIT
+  if ! mkdir "$LOCK_FILE" 2>/dev/null; then log "ERROR: another backup running"; exit 11; fi
+  USED_MKDIR_LOCK=1
 fi
 
 log "=== backup-cron starting (pid=$$) ==="
+hc_ping start
 
-# ── 2. Load env ──────────────────────────────────────────────────────────────
-if [[ ! -f "$ENV_FILE" ]]; then
-  log "FATAL: env file not found: $ENV_FILE"
-  exit 10
-fi
-
-set -a
-# shellcheck disable=SC1090
-source "$ENV_FILE"
-set +a
-
-# pg_dump runs inside the postgres container — we don't need a host-routable
-# POSTGRES_HOST. We DO need POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD
-# to authenticate inside the container.
+if [[ ! -f "$ENV_FILE" ]]; then log "FATAL: env file not found: $ENV_FILE"; exit 10; fi
+set -a; source "$ENV_FILE"; set +a
 : "${POSTGRES_DB:?missing in $ENV_FILE}"
 : "${POSTGRES_USER:?missing in $ENV_FILE}"
 : "${POSTGRES_PASSWORD:?missing in $ENV_FILE}"
 : "${RESTIC_REPOSITORY:?missing in $ENV_FILE}"
 : "${RESTIC_PASSWORD:?missing in $ENV_FILE}"
 
-# ── 3. Dump postgres via docker exec ─────────────────────────────────────────
 DUMP_DIR="/tmp/al-ruya-backup-$$"
 mkdir -p "$DUMP_DIR"
-trap 'rm -rf "$DUMP_DIR"' EXIT
-
 TS=$(date +%Y%m%d_%H%M%S)
 DUMP_FILE="$DUMP_DIR/postgres_${TS}.dump"
 
@@ -84,14 +65,10 @@ if ! docker exec -e PGPASSWORD="$POSTGRES_PASSWORD" "$PG_CONTAINER" \
        pg_dump -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
                --format=custom --no-password \
        > "$DUMP_FILE" 2>>"$LOG_FILE"; then
-  log "FATAL: pg_dump failed (container=$PG_CONTAINER, db=$POSTGRES_DB)"
-  exit 12
+  log "FATAL: pg_dump failed"; exit 12
 fi
+log "dump OK: $DUMP_FILE ($(du -h "$DUMP_FILE" | cut -f1))"
 
-DUMP_SIZE=$(du -h "$DUMP_FILE" | cut -f1)
-log "dump OK: $DUMP_FILE ($DUMP_SIZE)"
-
-# ── 4. Restic backup + prune + verify ────────────────────────────────────────
 if ! restic snapshots >/dev/null 2>&1; then
   log "initializing restic repo: $RESTIC_REPOSITORY"
   restic init >>"$LOG_FILE" 2>&1
@@ -100,23 +77,21 @@ fi
 log "restic backup ..."
 if ! restic backup --tag erp-backup --tag "ts-$TS" --compression max \
        "$DUMP_DIR" >>"$LOG_FILE" 2>&1; then
-  log "FATAL: restic backup failed"
-  exit 13
+  log "FATAL: restic backup failed"; exit 13
 fi
 
-log "restic prune (daily=${RETENTION_DAILY:-7} weekly=${RETENTION_WEEKLY:-4} monthly=${RETENTION_MONTHLY:-3}) ..."
+log "restic prune ..."
 restic forget \
   --keep-daily   "${RETENTION_DAILY:-7}" \
   --keep-weekly  "${RETENTION_WEEKLY:-4}" \
   --keep-monthly "${RETENTION_MONTHLY:-3}" \
   --prune >>"$LOG_FILE" 2>&1
 
-log "restic integrity check (5% sample) ..."
+log "restic integrity check (5%) ..."
 if ! restic check --read-data-subset=5% >>"$LOG_FILE" 2>&1; then
-  log "FATAL: restic integrity check failed — repo may be corrupted"
-  exit 13
+  log "FATAL: restic integrity check failed"; exit 13
 fi
 
-# ── 5. Done ──────────────────────────────────────────────────────────────────
-log "=== backup-cron completed OK (snapshot=$TS, size=$DUMP_SIZE) ==="
+if [[ "${USED_MKDIR_LOCK:-0}" == "1" ]]; then rmdir "$LOCK_FILE" 2>/dev/null || true; fi
+log "=== backup-cron completed OK (snapshot=$TS) ==="
 exit 0
