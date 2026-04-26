@@ -20,7 +20,7 @@ export class ReportsService {
       return this.prisma.$queryRawUnsafe(
         `SELECT si."branchId" AS bucket, COUNT(*)::int AS invoice_count,
                 SUM(si."totalIqd")::float AS total_revenue
-         FROM "SalesInvoice" si
+         FROM "sales_invoices" si
          WHERE si."companyId" = $1 AND si."invoiceDate" BETWEEN $2 AND $3
          ${params.branchId ? `AND si."branchId" = '${params.branchId}'` : ''}
          GROUP BY si."branchId" ORDER BY total_revenue DESC`,
@@ -34,10 +34,10 @@ export class ReportsService {
       return this.prisma.$queryRawUnsafe(
         `SELECT p."categoryId" AS bucket, SUM(sil."qty")::float AS qty,
                 SUM(sil."lineTotalIqd")::float AS total_revenue
-         FROM "SalesInvoiceLine" sil
-         JOIN "SalesInvoice" si ON si.id = sil."salesInvoiceId"
-         JOIN "ProductVariant" pv ON pv.id = sil."variantId"
-         JOIN "Product" p ON p.id = pv."productId"
+         FROM "sales_invoice_lines" sil
+         JOIN "sales_invoices" si ON si.id = sil."invoiceId"
+         JOIN "product_variants" pv ON pv.id = sil."variantId"
+         JOIN "product_templates" p ON p.id = pv."templateId"
          WHERE si."companyId" = $1 AND si."invoiceDate" BETWEEN $2 AND $3
          GROUP BY p."categoryId" ORDER BY total_revenue DESC`,
         companyId,
@@ -51,7 +51,7 @@ export class ReportsService {
               SUM(si."totalIqd")::float AS total_revenue,
               SUM(si."totalTaxIqd")::float AS total_tax,
               SUM(si."discountIqd")::float AS total_discount
-       FROM "SalesInvoice" si
+       FROM "sales_invoices" si
        WHERE si."companyId" = $1 AND si."invoiceDate" BETWEEN $2 AND $3
        ${params.branchId ? `AND si."branchId" = '${params.branchId}'` : ''}
        GROUP BY bucket ORDER BY bucket ASC`,
@@ -70,10 +70,10 @@ export class ReportsService {
     return this.prisma.$queryRawUnsafe(
       `SELECT sil."variantId", p."nameAr" AS product_name,
               SUM(sil."qty")::float AS qty, SUM(sil."lineTotalIqd")::float AS revenue
-       FROM "SalesInvoiceLine" sil
-       JOIN "SalesInvoice" si ON si.id = sil."salesInvoiceId"
-       JOIN "ProductVariant" pv ON pv.id = sil."variantId"
-       JOIN "Product" p ON p.id = pv."productId"
+       FROM "sales_invoice_lines" sil
+       JOIN "sales_invoices" si ON si.id = sil."invoiceId"
+       JOIN "product_variants" pv ON pv.id = sil."variantId"
+       JOIN "product_templates" p ON p.id = pv."templateId"
        WHERE si."companyId" = $1 AND si."invoiceDate" BETWEEN $2 AND $3
        GROUP BY sil."variantId", p."nameAr"
        ORDER BY ${orderCol} DESC LIMIT ${limit}`,
@@ -88,8 +88,8 @@ export class ReportsService {
     return this.prisma.$queryRawUnsafe(
       `SELECT si."customerId", c."nameAr" AS customer_name,
               COUNT(*)::int AS invoice_count, SUM(si."totalIqd")::float AS revenue
-       FROM "SalesInvoice" si
-       LEFT JOIN "Customer" c ON c.id = si."customerId"
+       FROM "sales_invoices" si
+       LEFT JOIN "customers" c ON c.id = si."customerId"
        WHERE si."companyId" = $1 AND si."invoiceDate" BETWEEN $2 AND $3
        GROUP BY si."customerId", c."nameAr"
        ORDER BY revenue DESC LIMIT ${limit}`,
@@ -103,7 +103,7 @@ export class ReportsService {
     return this.prisma.$queryRawUnsafe(
       `SELECT si."createdBy" AS cashier_id, COUNT(*)::int AS invoice_count,
               SUM(si."totalIqd")::float AS revenue
-       FROM "SalesInvoice" si
+       FROM "sales_invoices" si
        WHERE si."companyId" = $1 AND si."invoiceDate" BETWEEN $2 AND $3
        GROUP BY si."createdBy" ORDER BY revenue DESC`,
       companyId,
@@ -116,8 +116,8 @@ export class ReportsService {
     return this.prisma.$queryRawUnsafe(
       `SELECT sp."method" AS payment_method, COUNT(*)::int AS count,
               SUM(sp."amountIqd")::float AS total
-       FROM "SalesPayment" sp
-       JOIN "SalesInvoice" si ON si.id = sp."salesInvoiceId"
+       FROM "sales_invoice_payments" sp
+       JOIN "sales_invoices" si ON si.id = sp."invoiceId"
        WHERE si."companyId" = $1 AND si."invoiceDate" BETWEEN $2 AND $3
        GROUP BY sp."method" ORDER BY total DESC`,
       companyId,
@@ -137,11 +137,11 @@ export class ReportsService {
       `SELECT pv.id AS "variantId", p."nameAr" AS product_name,
               SUM(ib."qtyOnHand")::float AS on_hand,
               MAX(si."invoiceDate") AS last_sold
-       FROM "ProductVariant" pv
-       JOIN "Product" p ON p.id = pv."productId"
-       LEFT JOIN "InventoryBalance" ib ON ib."variantId" = pv.id AND ib."companyId" = $1
-       LEFT JOIN "SalesInvoiceLine" sil ON sil."variantId" = pv.id
-       LEFT JOIN "SalesInvoice" si ON si.id = sil."salesInvoiceId" AND si."companyId" = $1
+       FROM "product_variants" pv
+       JOIN "product_templates" p ON p.id = pv."templateId"
+       LEFT JOIN "inventory_balances" ib ON ib."variantId" = pv.id AND ib."companyId" = $1
+       LEFT JOIN "sales_invoice_lines" sil ON sil."variantId" = pv.id
+       LEFT JOIN "sales_invoices" si ON si.id = sil."invoiceId" AND si."companyId" = $1
        WHERE p."companyId" = $1
        GROUP BY pv.id, p."nameAr"
        HAVING SUM(ib."qtyOnHand") > 0 AND (MAX(si."invoiceDate") < $2 OR MAX(si."invoiceDate") IS NULL)
@@ -156,9 +156,9 @@ export class ReportsService {
       `SELECT pv.id AS "variantId", p."nameAr" AS product_name,
               SUM(ib."qtyOnHand")::float AS on_hand,
               pv."reorderLevel"::float AS reorder_level
-       FROM "ProductVariant" pv
-       JOIN "Product" p ON p.id = pv."productId"
-       LEFT JOIN "InventoryBalance" ib ON ib."variantId" = pv.id AND ib."companyId" = $1
+       FROM "product_variants" pv
+       JOIN "product_templates" p ON p.id = pv."templateId"
+       LEFT JOIN "inventory_balances" ib ON ib."variantId" = pv.id AND ib."companyId" = $1
        WHERE p."companyId" = $1
        GROUP BY pv.id, p."nameAr", pv."reorderLevel"
        HAVING SUM(ib."qtyOnHand") <= COALESCE(pv."reorderLevel", 0)
@@ -173,9 +173,9 @@ export class ReportsService {
               SUM(ib."qtyOnHand")::float AS on_hand,
               AVG(ib."avgCostIqd")::float AS avg_cost,
               SUM(ib."qtyOnHand" * ib."avgCostIqd")::float AS total_value
-       FROM "InventoryBalance" ib
-       JOIN "ProductVariant" pv ON pv.id = ib."variantId"
-       JOIN "Product" p ON p.id = pv."productId"
+       FROM "inventory_balances" ib
+       JOIN "product_variants" pv ON pv.id = ib."variantId"
+       JOIN "product_templates" p ON p.id = pv."templateId"
        WHERE ib."companyId" = $1
        GROUP BY pv.id, p."nameAr"
        ORDER BY total_value DESC`,
@@ -192,8 +192,8 @@ export class ReportsService {
               SUM(CASE WHEN $2 - si."invoiceDate" > INTERVAL '60 days' AND $2 - si."invoiceDate" <= INTERVAL '90 days' THEN si."balanceIqd" ELSE 0 END)::float AS bucket_61_90,
               SUM(CASE WHEN $2 - si."invoiceDate" > INTERVAL '90 days' THEN si."balanceIqd" ELSE 0 END)::float AS bucket_90_plus,
               SUM(si."balanceIqd")::float AS total
-       FROM "SalesInvoice" si
-       LEFT JOIN "Customer" c ON c.id = si."customerId"
+       FROM "sales_invoices" si
+       LEFT JOIN "customers" c ON c.id = si."customerId"
        WHERE si."companyId" = $1 AND si."balanceIqd" > 0
        GROUP BY si."customerId", c."nameAr"
        ORDER BY total DESC`,
@@ -211,8 +211,8 @@ export class ReportsService {
               SUM(CASE WHEN $2 - pi."invoiceDate" > INTERVAL '60 days' AND $2 - pi."invoiceDate" <= INTERVAL '90 days' THEN pi."balanceIqd" ELSE 0 END)::float AS bucket_61_90,
               SUM(CASE WHEN $2 - pi."invoiceDate" > INTERVAL '90 days' THEN pi."balanceIqd" ELSE 0 END)::float AS bucket_90_plus,
               SUM(pi."balanceIqd")::float AS total
-       FROM "PurchaseInvoice" pi
-       LEFT JOIN "Supplier" s ON s.id = pi."supplierId"
+       FROM "vendor_invoices" pi
+       LEFT JOIN "suppliers" s ON s.id = pi."supplierId"
        WHERE pi."companyId" = $1 AND pi."balanceIqd" > 0
        GROUP BY pi."supplierId", s."nameAr"
        ORDER BY total DESC`,
@@ -228,7 +228,7 @@ export class ReportsService {
               MIN(si."invoiceDate") AS first_purchase,
               MAX(si."invoiceDate") AS last_purchase,
               AVG(si."totalIqd")::float AS avg_invoice
-       FROM "SalesInvoice" si
+       FROM "sales_invoices" si
        WHERE si."companyId" = $1 AND si."customerId" = $2`,
       companyId,
       customerId,
@@ -243,11 +243,11 @@ export class ReportsService {
               SUM(sil."lineTotalIqd")::float AS revenue,
               SUM(sil."qty" * COALESCE(ib."avgCostIqd", 0))::float AS cost,
               SUM(sil."lineTotalIqd" - (sil."qty" * COALESCE(ib."avgCostIqd", 0)))::float AS profit
-       FROM "SalesInvoiceLine" sil
-       JOIN "SalesInvoice" si ON si.id = sil."salesInvoiceId"
-       JOIN "ProductVariant" pv ON pv.id = sil."variantId"
-       JOIN "Product" p ON p.id = pv."productId"
-       LEFT JOIN "InventoryBalance" ib ON ib."variantId" = pv.id AND ib."companyId" = $1
+       FROM "sales_invoice_lines" sil
+       JOIN "sales_invoices" si ON si.id = sil."invoiceId"
+       JOIN "product_variants" pv ON pv.id = sil."variantId"
+       JOIN "product_templates" p ON p.id = pv."templateId"
+       LEFT JOIN "inventory_balances" ib ON ib."variantId" = pv.id AND ib."companyId" = $1
        WHERE si."companyId" = $1 AND si."invoiceDate" BETWEEN $2 AND $3
          AND p."isGiftware" = true
        GROUP BY sil."variantId", p."nameAr"
@@ -262,7 +262,7 @@ export class ReportsService {
     return this.prisma.$queryRawUnsafe(
       `SELECT DATE(cm."movementDate") AS day, cm."direction" AS direction,
               SUM(cm."amountIqd")::float AS total
-       FROM "CashMovement" cm
+       FROM "cash_movements" cm
        WHERE cm."companyId" = $1 AND cm."movementDate" BETWEEN $2 AND $3
        ${params.branchId ? `AND cm."branchId" = '${params.branchId}'` : ''}
        GROUP BY DATE(cm."movementDate"), cm."direction"
@@ -279,7 +279,7 @@ export class ReportsService {
               s."expectedCashIqd"::float AS expected,
               s."actualCashIqd"::float AS actual,
               s."cashDifferenceIqd"::float AS variance
-       FROM "Shift" s
+       FROM "shifts" s
        WHERE s."companyId" = $1 AND s."closedAt" BETWEEN $2 AND $3
        ${params.branchId ? `AND s."branchId" = '${params.branchId}'` : ''}
        ORDER BY ABS(s."cashDifferenceIqd") DESC`,
@@ -298,7 +298,7 @@ export class ReportsService {
               CASE WHEN SUM(si."totalIqd") > 0
                 THEN (SUM(si."discountIqd") / SUM(si."totalIqd"))::float
                 ELSE 0 END AS discount_rate
-       FROM "SalesInvoice" si
+       FROM "sales_invoices" si
        WHERE si."companyId" = $1 AND si."invoiceDate" BETWEEN $2 AND $3
        GROUP BY DATE(si."invoiceDate") ORDER BY day ASC`,
       companyId,
@@ -311,7 +311,7 @@ export class ReportsService {
     return this.prisma.$queryRawUnsafe(
       `SELECT sr."reason", COUNT(*)::int AS count,
               SUM(sr."totalIqd")::float AS total_returned
-       FROM "SalesReturn" sr
+       FROM "sales_returns" sr
        WHERE sr."companyId" = $1 AND sr."returnDate" BETWEEN $2 AND $3
        GROUP BY sr."reason" ORDER BY total_returned DESC`,
       companyId,

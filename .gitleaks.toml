@@ -1,0 +1,35 @@
+# gitleaks custom rules for al-ruya-erp
+#
+# Built on top of the default rule set. Add project-specific patterns here
+# (e.g. our own credential format if it doesn't match a default rule).
+
+title = "al-ruya-erp gitleaks config"
+
+# Allowlist files that are intentionally committed and contain placeholder
+# patterns that look like secrets but are not. Anything matching these paths
+# is skipped — keep the list tight.
+[allowlist]
+description = "Allowed files (templates with documented placeholders only)"
+paths = [
+  '''\.env\.example$''',
+  '''\.env\.production\.example$''',
+  '''\.gitleaks\.toml$''',
+  # Test fixtures use 'CHANGE_ME', 'fake-key', 'test-secret' — never real values.
+  '''.*\.(test|spec)\.(ts|js)$''',
+  '''.*/__tests__/.*''',
+  '''.*\.e2e-spec\.ts$''',
+]
+regexes = [
+  '''CHANGE_ME''',
+  '''ci-test-secret-not-for-production''',
+  '''ci-owner-password-not-for-production''',
+  '''ci-admin-password-not-for-production''',
+  '''ci-test-admin-password-not-for-production''',
+  '''testpass''',  # CI Postgres password
+  '''dummy''',
+  '''placeholder''',
+  '''<.*OWNER_PASSWORD.*>''',
+  '''<.*OWNER_USERNAME.*>''',
+  '''ssh-rsa AAAAB3''',  # Public keys are not secrets
+  '''ssh-ed25519 AAAA''',
+]
