@@ -28,17 +28,10 @@ jobs:
           echo "known_hosts populated ($(wc -l < ~/.ssh/known_hosts) entries)"
 
       - name: Verify SSH connectivity
-        run: |
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes root@${{ secrets.VPS_HOST }} \
-            'echo connected as $(whoami)@$(hostname -f)'
+        run: ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes "root@${{ secrets.VPS_HOST }}" 'whoami; hostname -f; uptime'
 
       - name: Run deploy script on VPS
-        run: |
-          # Pipe the repo's deploy script straight into a remote bash. No
-          # heredoc — heredoc bodies inside YAML can be ambiguous and we hit
-          # exactly that earlier (variables expanded on runner, not on VPS).
-          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} \
-            'bash -s' < infra/scripts/deploy-on-vps.sh
+        run: ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" 'bash -s' < infra/scripts/deploy-on-vps.sh
 
       - name: Cleanup
         if: always()
