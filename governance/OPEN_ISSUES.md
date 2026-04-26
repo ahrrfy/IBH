@@ -32,7 +32,8 @@
 | I012 | api + web containers `unhealthy` — healthcheck path/protocol خاطئ في 4 مواضع | 🟡 مهم | Wave 1 | DevOps | ✅ **مغلق نهائياً** (2026-04-26) — راجع §I012 (4 جذور متراكبة) |
 | I016 | NL Query في `nl-query.service.ts` يستخدم `$queryRawUnsafe(generatedSql)` بدون validation للجداول ولا READ ONLY tx → SQL injection ممكن من AI Brain | 🔴 حرج | Wave 6 | Security | ✅ **مغلق** (2026-04-26) — table parser + READ ONLY tx + multi-statement guard + 5K row cap (commit `4586252` + JSDoc fix `39f3751`) |
 | I017 | `ci.yml` مفقود (تم حذفه في `d1b39b3`) → لا حماية من بناء فاشل قبل deploy | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — `ci.yml` مُعاد بناؤه: 3 jobs (typecheck-build ✅ · standalone ✅ · e2e ⚠️ يكشف bugs قائمة) |
-| I018 | 14+ من الـ 19 e2e tests تفشل بـ PrismaClientKnownRequestError و TypeError: request is not a function — لم تُشغَّل من قبل | 🟡 مهم | Wave 1 | QA | جديد (2026-04-26) — مكشوفة بـ I017 الجديد. تحتاج: seed setup + إصلاح imports |
+| I018 | البنية التحتية لـ e2e tests في CI لم تكن قابلة للتشغيل — 12 ملف يفشل بأخطاء infra | 🟡 مهم | Wave 1 | QA | ✅ **مغلق** (2026-04-26) — راجع §I018 (6 طبقات infra) |
+| I019 | 8 e2e tests فردية فيها bugs (FK setup, type errors, calc mismatch) — مكشوفة بعد إصلاح I018 | 🟡 مهم | Wave 1 | Backend/QA | جديد (2026-04-26) — راجع §I019 |
 | I013 | nginx Docker DNS cache — كل web rebuild يحتاج `docker restart nginx` يدوياً | 🟡 مهم | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — resolver 127.0.0.11 + variable upstreams + nginx -s reload في deploy workflow |
 | I014 | GitHub Actions Deploy to VPS فاشل في كل push منذ 2026-04-25 — 4 جذور متراكبة | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — راجع §I014 |
 | I015 | Self-Healing Loop — auto-diagnose + auto-issue على أي CI failure | 🟢 تحسين | Wave 1 | DevOps | ✅ **بُني** (2026-04-26) — `.github/workflows/auto-diagnose.yml` + `scripts/diagnose-ci.sh` + `scripts/open-ci-issue.sh` |
@@ -75,6 +76,46 @@
 | # | المشكلة | القرار | التاريخ |
 |---|---|---|---|
 | — | — | — | — |
+
+---
+
+## §I018 — e2e tests infra في CI (✅ مغلق 2026-04-26، 6 طبقات متراكبة)
+
+النتيجة قبل: 7 PASS / 12 FAIL (kept failing for ~6 weeks — 0 e2e ran).
+النتيجة بعد: **11 PASS / 8 FAIL** (4 ملفات إضافية تنجح، الباقي bugs فردية I019).
+
+الجذور الـ 6 المكتشفة بالتسلسل (كل واحد كان يخفي اللي بعده):
+
+1. **`import * as request from 'supertest'`** في 3 ملفات → `TypeError: request is not a function`. الـ `* as` ينتج namespace object مو function. غُيِّر لـ `import request from 'supertest'`.
+2. **`gen_ulid()` يستخدم `SUBSTR(text, bigint, integer)`** بدون cast → خطأ `function does not exist` في `postgres:16-alpine`. أُضيفت migration `0007` فيها explicit `::int` cast (production كان يقبل implicit cast).
+3. **CI يفتقد `prisma db seed` step** → tests تفترض company exists فتفشل بـ null. أُضيف الـ seed step + env vars المطلوبة (`OWNER_USERNAME`, `OWNER_PASSWORD`, إلخ).
+4. **Migrations جزئية** — تخلق ~52 من ~75 جدول فقط. الإنتاج أُنشئ بـ `db push` ثم migrations حُفظت كـ snapshots للتغييرات الإضافية. الـ CI كان يستخدم `migrate deploy` فيُحصل على DB ناقص. الإصلاح: استخدم `db push` بدل `migrate deploy`.
+5. **`postgres:16-alpine` لا يحوي pgvector** — schema تستلزمه. غُيِّر لـ `pgvector/pgvector:pg16` (نفس الإنتاج).
+6. **`migrate deploy + db push` معاً = state تعارض** — db push يفحص `_prisma_migrations` ويرفض إنشاء جداول يظنها موجودة. الحل النهائي: psql heredoc لإنشاء `gen_ulid` + helpers، ثم db push للجداول والـ enums من schema.prisma مباشرة.
+
+**الدروس:**
+- migrations الجزئية = خطر صامت — يجب إعادة إنشاء baseline كامل (مهمة منفصلة)
+- CI service images يجب تطابق الإنتاج بالضبط (pgvector، ليس alpine)
+- `import * as` خطأ مع modules لها default export
+
+---
+
+## §I019 — 8 e2e tests فردية فيها bugs (جديد 2026-04-26)
+
+بعد إغلاق I018، كُشفت bugs حقيقية في الـ tests/code (لم تُشغَّل من قبل):
+
+| ملف الـ test | الجذر المرشّح |
+|---|---|
+| `iraqi-tax-brackets` | بـ Bracket 2/3/4: expected vs actual mismatch — منطق payroll لا يطابق spec |
+| `shift-open-close` | FK violation `shifts_posDeviceId_fkey` — test ينشئ shift بدون device |
+| `period-lock` | TS error: `'closed'` غير موجود في `PeriodStatus` enum — schema field renamed |
+| `depreciation-idempotency` | يحتاج تحقيق |
+| `auth` | login بـ TEST_ADMIN يفشل — ربما TEST_ADMIN لم يُنشَأ في seed |
+| `audit-append-only` | يحتاج تحقيق |
+| `sequence-uniqueness` | يحتاج تحقيق |
+| `rbac-deny` | يحتاج تحقيق (يستخدم supertest بعد إصلاح import) |
+
+**التوصية:** كل test يُصلَح في cycle منفصل (CLAUDE.md 2-3 files/cycle). أولوية: `iraqi-tax-brackets` و `period-lock` (واضحة) قبل الباقي.
 
 ---
 
