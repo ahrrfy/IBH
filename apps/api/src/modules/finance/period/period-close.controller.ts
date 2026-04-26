@@ -8,6 +8,15 @@ import type { UserSession } from '@erp/shared-types';
 export class PeriodCloseController {
   constructor(private readonly svc: PeriodCloseService) {}
 
+  @Get()
+  @RequirePermission('Period', 'read')
+  list(
+    @CurrentUser() session: UserSession,
+    @Query('year') year?: string,
+  ) {
+    return this.svc.listPeriods(session.companyId, year ? Number(year) : undefined);
+  }
+
   @Get('status')
   @RequirePermission('Period', 'close')
   status(

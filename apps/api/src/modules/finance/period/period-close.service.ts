@@ -248,6 +248,17 @@ export class PeriodCloseService {
     return updated;
   }
 
+  async listPeriods(companyId: string, year?: number) {
+    return this.prisma.accountingPeriod.findMany({
+      where: {
+        companyId,
+        ...(year ? { year } : {}),
+      },
+      orderBy: [{ year: 'desc' }, { month: 'desc' }],
+      take: year ? 12 : 24,
+    });
+  }
+
   async status(
     companyId: string,
     year: number,
