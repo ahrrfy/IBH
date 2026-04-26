@@ -166,16 +166,26 @@ async function main() {
     { key: 'credit_limit_default_iqd',      val: 1000000,   desc: 'حد الائتمان الافتراضي للعميل' },
     { key: 'quotation_validity_days',       val: 7,         desc: 'صلاحية عرض السعر (يوم)' },
   ];
+  // Prisma's compound-unique upsert can't match `branchId: null` (Postgres
+  // treats NULL as not-equal-to-NULL). Use findFirst + create/update instead.
   for (const p of policies) {
-    await prisma.systemPolicy.upsert({
-      where: { companyId_branchId_policyKey: { companyId: company.id, branchId: null as any, policyKey: p.key } },
-      update: { policyValue: p.val as any, description: p.desc, updatedBy: adminUser.id },
-      create: {
-        companyId: company.id, branchId: null,
-        policyKey: p.key, policyValue: p.val as any,
-        description: p.desc, updatedBy: adminUser.id,
-      },
+    const existing = await prisma.systemPolicy.findFirst({
+      where: { companyId: company.id, branchId: null, policyKey: p.key },
     });
+    if (existing) {
+      await prisma.systemPolicy.update({
+        where: { id: existing.id },
+        data: { policyValue: p.val as any, description: p.desc, updatedBy: adminUser.id },
+      });
+    } else {
+      await prisma.systemPolicy.create({
+        data: {
+          companyId: company.id, branchId: null,
+          policyKey: p.key, policyValue: p.val as any,
+          description: p.desc, updatedBy: adminUser.id,
+        },
+      });
+    }
   }
   console.log(`✅ Policies: ${policies.length}`);
 
