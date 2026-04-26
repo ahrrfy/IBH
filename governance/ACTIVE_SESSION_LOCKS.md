@@ -38,6 +38,7 @@ claims them.
 | Session ID | Agent | Branch | Owned Scope | Allowed Files | Forbidden Files | Status |
 |---|---|---|---|---|---|---|
 | COD-I020-LOCK | Codex | `codex/fix-i020-parallel-lock` | Parallel-session governance guard | `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, frontend pages | Closed |
+| SESSION-Z0 | Codex Audit Agent | `agent/z0-audit` | Accuracy audit and stub map | `governance/ACCURACY_MAP.md`, `governance/SESSION_HANDOFF.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, frontend pages, runtime config | Closed |
 
 ## Integration Owner
 

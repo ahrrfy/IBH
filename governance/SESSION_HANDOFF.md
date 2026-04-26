@@ -1,5 +1,37 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff - 2026-04-26 (SESSION-Z0 accuracy audit)
+
+## Completed
+- Ran Z0 discovery audit for real-code vs stub/placeholders.
+- Added `governance/ACCURACY_MAP.md`.
+- Verified API typecheck passes.
+- Verified web admin production build passes and generates 53 app routes.
+- Confirmed POS and storefront builds fail locally because app-local dependencies are missing.
+
+## Key Findings
+- API and web admin are materially real, not fake.
+- POS UI still contains mock sale/payment/shift flows and is not operational.
+- Storefront login still has stub token fallback and is not production-safe.
+- Specific backend placeholders remain: vendor invoice OCR, payroll payslip PDF, AR receipt account mapping note.
+- `as any` appears 258 times in API source/tests; `$queryRawUnsafe` appears 47 times in API source.
+
+## Verification
+- `pnpm --filter @erp/api typecheck` -> pass.
+- `pnpm --filter @erp/web build` -> pass.
+- `pnpm --filter @erp/pos build` -> fail: missing app-local dependencies.
+- `pnpm --filter @erp/storefront build` -> fail: missing app-local dependencies.
+
+## Remaining
+- Orchestrator should review `governance/ACCURACY_MAP.md` before Wave 1 starts.
+- Wave 1 Environment must fix workspace dependency/install reliability for POS and storefront.
+- Wave 2 should not claim POS/storefront readiness until stub flows are replaced.
+
+## Risk
+- Audit did not run full e2e because this was a discovery/documentation cycle.
+
+---
+
 # Session Handoff - 2026-04-26 (I020 parallel lock guard)
 
 ## Completed
