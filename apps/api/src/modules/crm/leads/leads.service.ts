@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
+import { SequenceService } from '../../../engines/sequence/sequence.service';
 import { Prisma } from '@prisma/client';
 import type { UserSession } from '@erp/shared-types';
 
@@ -8,7 +9,11 @@ type LeadStatus = 'new' | 'contacted' | 'qualified' | 'proposal' | 'negotiation'
 
 @Injectable()
 export class LeadsService {
-  constructor(private prisma: PrismaService, private audit: AuditService) {}
+  constructor(
+    private prisma: PrismaService,
+    private audit: AuditService,
+    private sequence: SequenceService,
+  ) {}
 
   async create(
     dto: {
@@ -135,9 +140,13 @@ export class LeadsService {
     if (newStatus === 'won') {
       let customerId = extras?.customerId;
       if (!customerId) {
+        // Customer.code is required; mirror customers.service which pulls
+        // the next sequence value when no explicit code is supplied.
+        const code = await this.sequence.next(session.companyId, 'customer');
         const customer = await this.prisma.customer.create({
           data: {
             companyId: session.companyId,
+            code,
             nameAr: lead.nameAr,
             phone: lead.phone,
             email: lead.email,

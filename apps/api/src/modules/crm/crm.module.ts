@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuditModule } from '../../engines/audit/audit.module';
+import { SequenceModule } from '../../engines/sequence/sequence.module';
 import { LeadsService } from './leads/leads.service';
 import { LeadsController } from './leads/leads.controller';
 import { ActivitiesService } from './activities/activities.service';
@@ -8,7 +9,7 @@ import { PipelineService } from './pipeline/pipeline.service';
 import { PipelineController } from './pipeline/pipeline.controller';
 
 @Module({
-  imports: [AuditModule],
+  imports: [AuditModule, SequenceModule],
   controllers: [LeadsController, ActivitiesController, PipelineController],
   providers: [LeadsService, ActivitiesService, PipelineService],
   exports: [LeadsService, ActivitiesService, PipelineService],
