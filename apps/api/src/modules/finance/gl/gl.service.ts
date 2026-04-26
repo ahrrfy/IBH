@@ -1,10 +1,191 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
-import { Prisma } from '@prisma/client';
+import { Prisma, AccountCategory, AccountType } from '@prisma/client';
+import type { UserSession } from '@erp/shared-types';
+
+export interface CreateAccountDto {
+  code: string;
+  nameAr: string;
+  nameEn?: string;
+  category: AccountCategory;
+  accountType: AccountType;
+  parentId?: string | null;
+  isHeader?: boolean;
+  allowDirectPosting?: boolean;
+  currency?: string;
+}
+
+export interface UpdateAccountDto {
+  nameAr?: string;
+  nameEn?: string;
+  category?: AccountCategory;
+  accountType?: AccountType;
+  parentId?: string | null;
+  isHeader?: boolean;
+  isActive?: boolean;
+  allowDirectPosting?: boolean;
+}
 
 @Injectable()
 export class GLService {
   constructor(private readonly prisma: PrismaService) {}
+
+  // ─── Chart of Accounts ─────────────────────────────────────────────────────
+
+  async listAccounts(
+    companyId: string,
+    opts: { category?: string; activeOnly?: boolean } = {},
+  ) {
+    return this.prisma.chartOfAccount.findMany({
+      where: {
+        companyId,
+        ...(opts.category ? { category: opts.category as AccountCategory } : {}),
+        ...(opts.activeOnly ? { isActive: true } : {}),
+      },
+      orderBy: { code: 'asc' },
+    });
+  }
+
+  async getAccount(id: string, companyId: string) {
+    const account = await this.prisma.chartOfAccount.findFirst({
+      where: { id, companyId },
+      include: { parent: { select: { id: true, code: true, nameAr: true } } },
+    });
+    if (!account) {
+      throw new NotFoundException({
+        code: 'ACCOUNT_NOT_FOUND',
+        messageAr: 'الحساب غير موجود',
+      });
+    }
+    return account;
+  }
+
+  async createAccount(
+    companyId: string,
+    dto: CreateAccountDto,
+    session: UserSession,
+  ) {
+    const existing = await this.prisma.chartOfAccount.findFirst({
+      where: { companyId, code: dto.code },
+    });
+    if (existing) {
+      throw new BadRequestException({
+        code: 'CODE_EXISTS',
+        messageAr: 'كود الحساب مستخدم سابقاً',
+      });
+    }
+
+    if (dto.parentId) {
+      const parent = await this.prisma.chartOfAccount.findFirst({
+        where: { id: dto.parentId, companyId },
+      });
+      if (!parent) {
+        throw new BadRequestException({
+          code: 'PARENT_NOT_FOUND',
+          messageAr: 'الحساب الأب غير موجود',
+        });
+      }
+      if (parent.category !== dto.category) {
+        throw new BadRequestException({
+          code: 'CATEGORY_MISMATCH',
+          messageAr: 'تصنيف الحساب يجب أن يطابق الحساب الأب',
+        });
+      }
+    }
+
+    return this.prisma.chartOfAccount.create({
+      data: {
+        companyId,
+        code: dto.code,
+        nameAr: dto.nameAr,
+        nameEn: dto.nameEn,
+        category: dto.category,
+        accountType: dto.accountType,
+        parentId: dto.parentId ?? null,
+        isHeader: dto.isHeader ?? false,
+        allowDirectPosting: dto.allowDirectPosting ?? true,
+        currency: dto.currency ?? 'IQD',
+        createdBy: session.userId,
+      },
+    });
+  }
+
+  async updateAccount(
+    id: string,
+    companyId: string,
+    dto: UpdateAccountDto,
+    _session: UserSession,
+  ) {
+    const account = await this.prisma.chartOfAccount.findFirst({
+      where: { id, companyId },
+    });
+    if (!account) {
+      throw new NotFoundException({
+        code: 'ACCOUNT_NOT_FOUND',
+        messageAr: 'الحساب غير موجود',
+      });
+    }
+
+    if (
+      (dto.category !== undefined && dto.category !== account.category) ||
+      (dto.accountType !== undefined && dto.accountType !== account.accountType)
+    ) {
+      const usage = await this.prisma.journalEntryLine.count({
+        where: { accountId: id },
+      });
+      if (usage > 0) {
+        throw new BadRequestException({
+          code: 'ACCOUNT_IN_USE',
+          messageAr: 'لا يمكن تغيير تصنيف حساب مستخدم في قيود',
+        });
+      }
+    }
+
+    if (dto.parentId !== undefined && dto.parentId !== null && dto.parentId !== account.parentId) {
+      if (dto.parentId === id) {
+        throw new BadRequestException({
+          code: 'SELF_PARENT',
+          messageAr: 'لا يمكن أن يكون الحساب أباً لنفسه',
+        });
+      }
+      const parent = await this.prisma.chartOfAccount.findFirst({
+        where: { id: dto.parentId, companyId },
+      });
+      if (!parent) {
+        throw new BadRequestException({
+          code: 'PARENT_NOT_FOUND',
+          messageAr: 'الحساب الأب غير موجود',
+        });
+      }
+      const targetCat = dto.category ?? account.category;
+      if (parent.category !== targetCat) {
+        throw new BadRequestException({
+          code: 'CATEGORY_MISMATCH',
+          messageAr: 'تصنيف الحساب يجب أن يطابق الحساب الأب',
+        });
+      }
+    }
+
+    return this.prisma.chartOfAccount.update({
+      where: { id },
+      data: {
+        ...(dto.nameAr !== undefined && { nameAr: dto.nameAr }),
+        ...(dto.nameEn !== undefined && { nameEn: dto.nameEn }),
+        ...(dto.category !== undefined && { category: dto.category }),
+        ...(dto.accountType !== undefined && { accountType: dto.accountType }),
+        ...(dto.parentId !== undefined && { parentId: dto.parentId }),
+        ...(dto.isHeader !== undefined && { isHeader: dto.isHeader }),
+        ...(dto.isActive !== undefined && { isActive: dto.isActive }),
+        ...(dto.allowDirectPosting !== undefined && {
+          allowDirectPosting: dto.allowDirectPosting,
+        }),
+      },
+    });
+  }
 
   /**
    * All JE lines for a specific account within a date range with running balance.

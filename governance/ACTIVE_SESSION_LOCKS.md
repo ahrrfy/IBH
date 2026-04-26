@@ -41,7 +41,7 @@ claims them.
 | SESSION-Z0 | Codex Audit Agent | `agent/z0-audit` | Accuracy audit and stub map | `governance/ACCURACY_MAP.md`, `governance/SESSION_HANDOFF.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, frontend pages, runtime config | Closed |
 | claude-opus-4-7-20260426-1 | Claude Code (Opus 4.7) | `feat/t01-backup-cron` | T01 — Backup cron schedule + DR runbook | `infra/scripts/backup-cron.sh`, `infra/scripts/install-cron.sh`, `governance/DR_RUNBOOK.md`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, frontend pages | Closed (merged in PR #6 / fa3aeee on 2026-04-26T15:08:04Z) |
 | claude-opus-4-7-20260426-4 | Claude Code (Opus 4.7) | `feat/t10-invoice-cancel-fe` | T10 — Sales invoice reverse button (FE) | `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx`, `apps/web/src/components/reason-modal.tsx`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, other frontend pages | Closed (merged in PR #11 / 3473307 on 2026-04-26T15:32:26Z) |
-| claude-opus-4-7-20260426-3 | Claude Code (Opus 4.7) | `feat/t04-branches-fe` | T04 — Branches Detail + Edit (FE only) | `apps/web/src/app/(app)/settings/branches/[id]/**`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, infra scripts, T24's files | Active |
+| claude-opus-4-7-20260426-3 | Claude Code (Opus 4.7) | `feat/t04-branches-fe` | T04 — Branches Detail + Edit (FE only) | `apps/web/src/app/(app)/settings/branches/[id]/**`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, infra scripts, T24's files | Closed (merged in PR #9 / 2690855 on 2026-04-26T15:41:44Z) |
 | claude-opus-4-7-20260426-5 | Claude Code (Opus 4.7) | `feat/t15-returns-fe` | T15 — Sales returns UI (list + new + detail) | `apps/web/src/app/(app)/sales/returns/**`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, other frontend pages | Active |
 
 ## Integration Owner
@@ -76,7 +76,6 @@ Before marking a session closed:
 
 ## Active Locks (live)
 
-- **T04** | session: `claude-opus-4-7-20260426-3` | branch: `feat/t04-branches-fe` | files: `apps/web/src/app/(app)/settings/branches/[id]/**` | started: 2026-04-26T15:35:00Z
-- **T16** | session: `claude-opus-4-7-20260426-3` | branch: `feat/t16-bank-recon-fe` | files: `apps/web/src/app/(app)/finance/banks/page.tsx`, `apps/web/src/app/(app)/finance/banks/[id]/reconcile/page.tsx` | started: 2026-04-26T18:00:00Z
+- **T06** | session: `claude-opus-4-7-20260426-3` | branch: `feat/t06-coa-crud` | files: `apps/api/src/modules/finance/gl/gl.{controller,service}.ts`, `apps/web/src/app/(app)/finance/chart-of-accounts/**` | started: 2026-04-26T18:30:00Z
 
-_(T01 closed 2026-04-26T15:08:04Z via PR #6 — fa3aeee)_
+_(T04 closed 2026-04-26T15:41:44Z via PR #9 — 2690855)_

@@ -170,16 +170,17 @@
 ---
 
 #### T06 — Chart of Accounts CRUD (BE add POST/PUT + FE tree)
-- **Status:** ⏳ TODO
+- **Status:** 🔄 IN_PROGRESS
 - **Deps:** []
 - **Branch:** `feat/t06-coa-crud`
 - **File scope:**
-  - `apps/api/src/modules/finance/gl/accounts.controller.ts` (extend)
-  - `apps/api/src/modules/finance/gl/gl.service.ts` (add createAccount/updateAccount)
+  - `apps/api/src/modules/finance/gl/gl.controller.ts` (extend) — list/get/create/update accounts
+  - `apps/api/src/modules/finance/gl/gl.service.ts` (extend) — listAccounts/getAccount/createAccount/updateAccount + guards
   - `apps/web/src/app/(app)/finance/chart-of-accounts/page.tsx` (new — tree)
   - `apps/web/src/app/(app)/finance/chart-of-accounts/new/page.tsx` (new)
   - `apps/web/src/app/(app)/finance/chart-of-accounts/[id]/edit/page.tsx` (new)
-- **Owner:** *(unclaimed)*
+- **Owner:** claude-opus-4-7-20260426-3
+- **Started:** 2026-04-26T18:30:00Z
 - **Estimate:** 150min
 - **Real state:** GET endpoints موجودة. POST/PUT مفقودان. UI مفقود.
 - **Deliverables:**

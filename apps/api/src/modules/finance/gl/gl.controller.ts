@@ -1,5 +1,5 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
-import { GLService } from './gl.service';
+import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { GLService, CreateAccountDto, UpdateAccountDto } from './gl.service';
 import { CurrentUser } from '../../../engines/auth/decorators/current-user.decorator';
 import { RequirePermission } from '../../../engines/auth/decorators/require-permission.decorator';
 import type { UserSession } from '@erp/shared-types';
@@ -7,6 +7,43 @@ import type { UserSession } from '@erp/shared-types';
 @Controller('finance/gl')
 export class GLController {
   constructor(private readonly gl: GLService) {}
+
+  // ─── Chart of Accounts ─────────────────────────────────────────────────────
+
+  @Get('accounts')
+  @RequirePermission('GL', 'read')
+  listAccounts(
+    @CurrentUser() session: UserSession,
+    @Query('category') category?: string,
+    @Query('activeOnly') activeOnly?: string,
+  ) {
+    return this.gl.listAccounts(session.companyId, {
+      category,
+      activeOnly: activeOnly === 'true',
+    });
+  }
+
+  @Get('accounts/:id')
+  @RequirePermission('GL', 'read')
+  getAccount(@Param('id') id: string, @CurrentUser() session: UserSession) {
+    return this.gl.getAccount(id, session.companyId);
+  }
+
+  @Post('accounts')
+  @RequirePermission('GL', 'create')
+  createAccount(@Body() dto: CreateAccountDto, @CurrentUser() session: UserSession) {
+    return this.gl.createAccount(session.companyId, dto, session);
+  }
+
+  @Put('accounts/:id')
+  @RequirePermission('GL', 'update')
+  updateAccount(
+    @Param('id') id: string,
+    @Body() dto: UpdateAccountDto,
+    @CurrentUser() session: UserSession,
+  ) {
+    return this.gl.updateAccount(id, session.companyId, dto, session);
+  }
 
   @Get('trial-balance')
   @RequirePermission('GL', 'read')
