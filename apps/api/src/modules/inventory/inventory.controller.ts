@@ -160,6 +160,30 @@ export class InventoryController {
 
   // ─── Stocktaking ──────────────────────────────────────────────────────────
 
+  @Get('stocktaking')
+  @RequirePermission('Stocktaking', 'read')
+  async listStocktakingSessions(
+    @CurrentUser() user: UserSession,
+    @Query('warehouseId') warehouseId?: string,
+    @Query('status')      status?: string,
+    @Query('limit')       limit?: string,
+  ) {
+    return this.inventoryService.listStocktakingSessions(user.companyId, {
+      warehouseId,
+      status,
+      limit: limit ? parseInt(limit, 10) : 50,
+    });
+  }
+
+  @Get('stocktaking/:id')
+  @RequirePermission('Stocktaking', 'read')
+  async getStocktakingSession(
+    @Param('id') id: string,
+    @CurrentUser() user: UserSession,
+  ) {
+    return this.inventoryService.getStocktakingSession(id, user.companyId);
+  }
+
   @Post('stocktaking')
   @RequirePermission('Stocktaking', 'create')
   async createStocktakingSession(

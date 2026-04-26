@@ -611,6 +611,38 @@ export class InventoryService {
 
   // ─── Stocktaking ──────────────────────────────────────────────────────────
 
+  async listStocktakingSessions(
+    companyId: string,
+    opts: { warehouseId?: string; status?: string; limit?: number },
+  ) {
+    return this.prisma.stocktakingSession.findMany({
+      where: {
+        companyId,
+        ...(opts.warehouseId ? { warehouseId: opts.warehouseId } : {}),
+        ...(opts.status ? { status: opts.status as any } : {}),
+      },
+      include: {
+        lines: { select: { id: true, variance: true, varianceValueIqd: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: opts.limit ?? 50,
+    });
+  }
+
+  async getStocktakingSession(id: string, companyId: string) {
+    const stSession = await this.prisma.stocktakingSession.findFirst({
+      where: { id, companyId },
+      include: { lines: true },
+    });
+    if (!stSession) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        messageAr: 'جلسة الجرد غير موجودة',
+      });
+    }
+    return stSession;
+  }
+
   async createStocktakingSession(
     companyId:   string,
     warehouseId: string,
