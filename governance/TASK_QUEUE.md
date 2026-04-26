@@ -307,15 +307,19 @@
 
 ---
 
-#### T17 — Period Close Wizard UI (FE only)
-- **Status:** ⏳ TODO
+#### T17 — Period Close Wizard UI + GET /finance/periods
+- **Status:** 🔄 IN_PROGRESS
 - **Deps:** []
 - **Branch:** `feat/t17-period-close-fe`
 - **File scope:**
-  - `apps/web/src/app/(app)/finance/periods/page.tsx`
-  - `apps/web/src/app/(app)/finance/periods/[id]/close/page.tsx` (wizard)
+  - `apps/api/src/modules/finance/period/period-close.controller.ts` (extend) — GET /finance/periods
+  - `apps/api/src/modules/finance/period/period-close.service.ts` (extend) — listPeriods
+  - `apps/web/src/app/(app)/finance/periods/page.tsx` (new)
+  - `apps/web/src/app/(app)/finance/periods/new/page.tsx` (new — startClose redirect)
+  - `apps/web/src/app/(app)/finance/periods/[id]/close/page.tsx` (new — 7-step wizard)
+- **Owner:** claude-opus-4-7-20260426-3
+- **Started:** 2026-04-26T17:00:00Z
 - **Estimate:** 120min
-- **Real state:** Backend مكتمل (close/:id/step/:step). UI مفقود.
 
 ---
 
