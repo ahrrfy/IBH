@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { api } from '@/lib/api';
@@ -40,12 +40,18 @@ const EMPTY: AccountForm = {
 
 export default function NewAccountPage() {
   const router = useRouter();
-  const params = useSearchParams();
   const qc = useQueryClient();
 
-  const initialParent = params?.get('parentId') ?? '';
-  const [form, setForm] = useState<AccountForm>({ ...EMPTY, parentId: initialParent });
+  // Read ?parentId= on mount — avoids useSearchParams which requires <Suspense>
+  // in Next.js 15 and breaks static prerendering. Same pattern as login page.
+  const [form, setForm] = useState<AccountForm>({ ...EMPTY });
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const p = new URLSearchParams(window.location.search).get('parentId');
+    if (p) setForm((f) => ({ ...f, parentId: p }));
+  }, []);
 
   const accountsQ = useQuery({
     queryKey: ['chart-of-accounts'],

@@ -1,15 +1,21 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
 export default function NewPeriodPage() {
   const router = useRouter();
-  const params = useSearchParams();
-  const year = Number(params?.get('year') ?? new Date().getFullYear());
-  const month = Number(params?.get('month') ?? new Date().getMonth() + 1);
+  // Avoid useSearchParams — requires <Suspense> in Next.js 15, breaks prerender
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [month, setMonth] = useState(new Date().getMonth() + 1);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const p = new URLSearchParams(window.location.search);
+    if (p.get('year'))  setYear(Number(p.get('year')));
+    if (p.get('month')) setMonth(Number(p.get('month')));
+  }, []);
 
   const start = useMutation({
     mutationFn: () =>
