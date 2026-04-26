@@ -28,6 +28,9 @@
 | I008 | full seed.ts لم يُختبَر — Iraqi CoA + roles + policies لم تُسلَّم | 🟡 مهم | Wave 1 | Backend | مفتوح |
 | I009 | 2FA UI مكتمل لكن لم يُختبَر — يتطلب دخول ناجح من المتصفح أولاً | 🟡 مهم | Wave 1 | QA | مفتوح |
 | I010 | Build فشل (14 errors) — Prisma Client stale (schema حديث، Client قديم) | 🔴 حرج | Wave 1 | Backend | ✅ **مغلق** (2026-04-25, commit `a239255`) |
+| I011 | Login error not displayed in UI (Console only) — UX bug | 🟢 تحسين | Wave 1 | Frontend | مفتوح — منخفض الأولوية بعد إغلاق I007 |
+| I012 | infra-web-1 و infra-api-1 يظهرون unhealthy رغم أنهم يعملون — healthcheck endpoints مفقودة/خاطئة | 🟡 مهم | Wave 1 | DevOps | مفتوح (2026-04-25) |
+| I013 | nginx Docker DNS cache — كل web rebuild يحتاج `docker restart nginx` يدوياً | 🟡 مهم | Wave 1 | DevOps | مفتوح (2026-04-25) — راجع §I013 |
 
 ---
 
@@ -67,6 +70,37 @@
 | # | المشكلة | القرار | التاريخ |
 |---|---|---|---|
 | — | — | — | — |
+
+---
+
+## §I013 — nginx DNS cache بعد web rebuild (2026-04-25)
+
+**الأعراض:** بعد `docker compose up -d --force-recreate web`، أي طلب لـ ibherp.cloud يرجع 502 حتى `docker restart infra-nginx-1`.
+
+**الجذر:**
+- nginx يحل DNS لـ `web` في `proxy_pass http://web:3001` عند بدء nginx فقط (static resolution)
+- عند rebuild الـ web، Docker يعطيها IP جديد (مثلاً 172.20.0.4 → 172.20.0.5)
+- nginx يستمر بمحاولة الاتصال بـ IP القديم → connection refused → 502
+
+**الحل المقترح (لم يُطبَّق بعد):**
+في `infra/nginx/conf.d/bootstrap.conf`:
+```nginx
+# في server block أو http block
+resolver 127.0.0.11 valid=10s;  # Docker's embedded DNS
+
+# في location blocks، استبدل:
+#   proxy_pass http://web:3001;
+# بـ:
+set $upstream_web web;
+proxy_pass http://$upstream_web:3001;
+```
+
+استخدام variable يجبر nginx على re-resolve عبر الـ resolver المحدد. الـ valid=10s يجعل cache قصير.
+
+**أثناء الانتظار:** كل rebuild للـ web نفّذ:
+```bash
+docker restart infra-nginx-1
+```
 
 ---
 
