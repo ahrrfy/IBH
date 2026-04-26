@@ -81,6 +81,6 @@ ENV NODE_ENV=production
 # --spider checks status code only (no body download), -t 1 disables wget retries
 # so a slow probe doesn't accumulate. Closes I012 (api container always unhealthy).
 HEALTHCHECK --interval=15s --timeout=5s --start-period=45s --retries=3 \
-  CMD wget --spider -q -t 1 http://127.0.0.1:3000/api/health || exit 1
+  CMD wget --spider -q -t 1 http://127.0.0.1:3000/api/v1/health || exit 1
 
 CMD ["node", "dist/main.js"]
