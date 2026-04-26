@@ -244,6 +244,39 @@ services:
       retries: 3
       start_period: 20s
 
+  # ── 9. WhatsApp Bridge (Fastify webhook + outbound /send) ───────────────
+  # Receives Meta webhooks (orders/support) and proxies outbound messages
+  # from the ERP. Listens on :8002 inside the docker network. Exposed
+  # publicly via host nginx at /webhook/whatsapp (see vhost conf).
+  whatsapp-bridge:
+    build:
+      context: ../apps/whatsapp-bridge
+      dockerfile: Dockerfile
+    image: al-ruya/whatsapp-bridge:latest
+    <<: *restart-policy
+    logging: *default-logging
+    environment:
+      NODE_ENV: production
+      PORT: 8002
+      # Meta-side credentials — set in /opt/al-ruya-erp/infra/.env (chmod 600)
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:?WHATSAPP_VERIFY_TOKEN required in .env}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:?WHATSAPP_ACCESS_TOKEN required in .env}
+      WHATSAPP_PHONE_ID:     ${WHATSAPP_PHONE_ID:?WHATSAPP_PHONE_ID required in .env}
+      # Internal handoff to the ERP API (uses docker-network DNS)
+      ERP_API_URL:           ${ERP_API_URL:-http://api:3000}
+      ERP_API_TOKEN:         ${ERP_API_TOKEN:?ERP_API_TOKEN required in .env}
+    networks:
+      - erp-internal
+    depends_on:
+      api:
+        condition: service_started
+    healthcheck:
+      test: ['CMD-SHELL', 'wget --spider -q -t 1 http://127.0.0.1:8002/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
   # See infra/nginx/host-vhost-ibherp.conf for the host-side vhost.
   nginx:
     image: nginx:1.27-alpine
