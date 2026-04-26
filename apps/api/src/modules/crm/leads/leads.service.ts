@@ -140,9 +140,12 @@ export class LeadsService {
     if (newStatus === 'won') {
       let customerId = extras?.customerId;
       if (!customerId) {
-        // Customer.code is required; mirror customers.service which pulls
-        // the next sequence value when no explicit code is supplied.
-        const code = await this.sequence.next(session.companyId, 'customer');
+        // Customer.code is required (NOT NULL, VarChar(20)). Use a 3-letter
+        // prefix so the generated code (PREFIX-COMPANY-YEAR-NNNNNN) fits the
+        // 20-char column. customers.service uses 'customer' which produces
+        // 24-char codes that overflow — track separately if that path is ever
+        // exercised at runtime; this call site is on the lead → won path.
+        const code = await this.sequence.next(session.companyId, 'CST');
         const customer = await this.prisma.customer.create({
           data: {
             companyId: session.companyId,
@@ -150,6 +153,8 @@ export class LeadsService {
             nameAr: lead.nameAr,
             phone: lead.phone,
             email: lead.email,
+            createdBy: session.userId,
+            updatedBy: session.userId,
           } as any,
         });
         customerId = customer.id;

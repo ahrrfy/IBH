@@ -100,18 +100,31 @@ export class SequenceService {
         RETURNING "lastValue"
       `;
 
-      // Read back the current value
-      const row = await tx.documentSequence.findUniqueOrThrow({
-        where: {
-          companyId_branchId_prefix_year: {
-            companyId: params.companyId,
-            branchId: branchId as string,
-            prefix: params.prefix,
-            year,
-          },
-        },
-        select: { lastValue: true },
-      });
+      // Read back the current value. The compound unique key includes
+      // a nullable branchId; Prisma's findUniqueOrThrow rejects null on
+      // composite keys, so use findFirst with explicit nullable matching
+      // for the company-wide (no branch) case.
+      const row = branchId
+        ? await tx.documentSequence.findUniqueOrThrow({
+            where: {
+              companyId_branchId_prefix_year: {
+                companyId: params.companyId,
+                branchId,
+                prefix: params.prefix,
+                year,
+              },
+            },
+            select: { lastValue: true },
+          })
+        : await tx.documentSequence.findFirstOrThrow({
+            where: {
+              companyId: params.companyId,
+              branchId: null,
+              prefix: params.prefix,
+              year,
+            },
+            select: { lastValue: true },
+          });
 
       return row.lastValue;
     });
