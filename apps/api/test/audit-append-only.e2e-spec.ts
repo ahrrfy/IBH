@@ -27,34 +27,42 @@ describe('AuditLog — Append-Only (e2e)', () => {
   // Row-level triggers only fire when rows exist. Seed one row with FK bypass
   // so the UPDATE/DELETE tests have something to operate on.
   beforeAll(async () => {
-    await prisma.$executeRawUnsafe(`SET session_replication_role = 'replica'`);
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO audit_logs
-        ("id","companyId","userId","userEmail","action","entityType","entityId",
-         "hash","previousHash","occurredAt")
-      VALUES
-        (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26),
-         'seed@test.local', 'TEST_SEED', 'Test', gen_ulid()::char(26),
-         repeat('0',64), repeat('0',64), NOW())
-      ON CONFLICT DO NOTHING
-    `);
-    await prisma.$executeRawUnsafe(`SET session_replication_role = 'origin'`);
+    // Use an interactive transaction so SET LOCAL + INSERT share the same connection.
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SET LOCAL session_replication_role = 'replica'`);
+      await tx.$executeRawUnsafe(`
+        INSERT INTO audit_logs
+          ("id","companyId","userId","userEmail","action","entityType","entityId",
+           "hash","previousHash","occurredAt")
+        VALUES
+          (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26),
+           'seed@test.local', 'TEST_SEED', 'Test', gen_ulid()::char(26),
+           repeat('0',64), repeat('0',64), NOW())
+        ON CONFLICT DO NOTHING
+      `);
+    });
 
-    await prisma.$executeRawUnsafe(`SET session_replication_role = 'replica'`);
     // stock_ledger (@@map) — not stock_ledger_entries. Required non-null fields:
     // variantId, warehouseId, companyId, qtyChange, balanceAfter, unitCostIqd,
     // totalValueIqd, referenceType, referenceId, createdBy
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO stock_ledger
-        ("id","companyId","variantId","warehouseId",
-         "qtyChange","balanceAfter","unitCostIqd","totalValueIqd",
-         "referenceType","referenceId","createdBy")
-      VALUES
-        (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26), gen_ulid()::char(26),
-         1, 1, 1000, 1000, 'Test', gen_ulid()::char(26), gen_ulid()::char(26))
-      ON CONFLICT DO NOTHING
-    `);
-    await prisma.$executeRawUnsafe(`SET session_replication_role = 'origin'`);
+    //
+    // Use an interactive transaction so that SET LOCAL + INSERT share the SAME
+    // database connection. Without this, connection-pool round-robin could send
+    // SET to connection A and INSERT to connection B, leaving FK checks active.
+    // SET LOCAL is automatically reverted when the transaction commits.
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SET LOCAL session_replication_role = 'replica'`);
+      await tx.$executeRawUnsafe(`
+        INSERT INTO stock_ledger
+          ("id","companyId","variantId","warehouseId",
+           "qtyChange","balanceAfter","unitCostIqd","totalValueIqd",
+           "referenceType","referenceId","createdBy")
+        VALUES
+          (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26), gen_ulid()::char(26),
+           1, 1, 1000, 1000, 'Test', gen_ulid()::char(26), gen_ulid()::char(26))
+        ON CONFLICT DO NOTHING
+      `);
+    });
   });
 
   it('UPDATE on audit_logs is rejected by trigger', async () => {
