@@ -167,8 +167,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Compose healthcheck OVERRIDES the Dockerfile HEALTHCHECK — keep these
+    # in sync. Path: /api/v1/health (URI versioning). 127.0.0.1 explicit because
+    # Alpine resolves 'localhost' to ::1 first but Nest binds IPv4 only.
     healthcheck:
-      test: ['CMD-SHELL', 'wget -qO- http://localhost:3000/health || exit 1']
+      test: ['CMD-SHELL', 'wget --spider -q -t 1 http://127.0.0.1:3000/api/v1/health || exit 1']
       interval: 15s
       timeout: 5s
       retries: 5
