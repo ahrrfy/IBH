@@ -49,10 +49,15 @@ const TILE_DEFS: Record<ModuleKey, Omit<AppTile, 'key'>> = {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const userRoles: string[] = (user as any)?.roles ?? [(user as any)?.role ?? 'super_admin'];
+  const isOwner = Boolean((user as any)?.isSystemOwner);
+  // System owner sees everything regardless of roles array.
+  const userRoles: string[] = isOwner
+    ? ['super_admin']
+    : ((user as any)?.roles ?? [(user as any)?.role].filter(Boolean));
   const visible = getVisibleModulesForRoles(userRoles);
   const primaryRole = userRoles[0] ?? 'super_admin';
-  const primaryRoleLabel = ROLE_LABELS_AR[primaryRole] ?? primaryRole;
+  const primaryRoleLabel = isOwner ? 'مالك النظام' : (ROLE_LABELS_AR[primaryRole] ?? primaryRole);
+  const displayName = (user as any)?.nameAr ?? (user as any)?.name ?? (user as any)?.email?.split('@')[0] ?? 'مستخدم';
 
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard', 'executive'],
@@ -66,7 +71,7 @@ export default function DashboardPage() {
         {/* Welcome */}
         <div className="text-center">
           <h1 className="text-3xl sm:text-4xl font-bold text-slate-900">
-            مرحباً، <span className="text-sky-700">{user?.name || 'مستخدم'}</span>
+            مرحباً، <span className="text-sky-700">{displayName}</span>
           </h1>
           <p className="text-sm text-slate-500 mt-1.5">
             <span className="num-latin">{new Date().toLocaleDateString('en-CA')}</span>

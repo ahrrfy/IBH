@@ -6,18 +6,22 @@ import { User, Mail, Building2, Shield, Calendar, Edit } from 'lucide-react';
 
 export default function ProfilePage() {
   const { user } = useAuth();
-  const userRoles: string[] = (user as any)?.roles ?? [(user as any)?.role ?? ''].filter(Boolean);
-  const branchName = (user as any)?.branchName ?? '—';
+  const isOwner = Boolean((user as any)?.isSystemOwner);
+  const userRoles: string[] = isOwner
+    ? ['مالك النظام']
+    : ((user as any)?.roles ?? [(user as any)?.role].filter(Boolean));
+  const branchName = (user as any)?.branchNameAr ?? (user as any)?.branchName ?? '—';
+  const displayName = (user as any)?.nameAr ?? (user as any)?.name ?? (user as any)?.email?.split('@')[0] ?? 'مستخدم';
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-5">
       {/* Hero */}
       <div className="bg-gradient-to-l from-sky-700 to-sky-600 text-white rounded-2xl p-6 shadow-panel flex items-start gap-5">
         <div className="h-20 w-20 rounded-2xl bg-white/15 backdrop-blur grid place-items-center text-4xl font-bold shadow-lifted ring-4 ring-white/20">
-          {(user?.name || 'م').slice(0, 1)}
+          {displayName.slice(0, 1)}
         </div>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold">{user?.name || 'مستخدم'}</h1>
+          <h1 className="text-2xl font-bold">{displayName}</h1>
           <div className="text-sm text-sky-100 mt-1">{user?.email}</div>
           <div className="flex items-center gap-2 mt-3 flex-wrap">
             {userRoles.map((r) => (
@@ -37,7 +41,7 @@ export default function ProfilePage() {
       {/* Info cards */}
       <div className="grid sm:grid-cols-2 gap-4">
         <Card title="المعلومات الأساسية">
-          <Row icon={User}     label="الاسم"   value={user?.name} />
+          <Row icon={User}     label="الاسم"   value={displayName} />
           <Row icon={Mail}     label="البريد"  value={user?.email} mono />
           <Row icon={Building2}label="الفرع"   value={branchName} />
         </Card>

@@ -250,6 +250,7 @@ export class AuthService {
       locale:          (user.locale ?? 'ar') as 'ar' | 'en' | 'ku',
       requires2FA:     user.requires2FA,
       twoFactorVerified: user.requires2FA,
+      isSystemOwner:   user.isSystemOwner ?? false,
     };
 
     return { accessToken, refreshToken, user: authUser };

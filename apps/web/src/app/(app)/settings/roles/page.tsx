@@ -9,7 +9,7 @@ import { ROLE_LABELS_AR } from '@/lib/permissions';
 export default function RolesListPage() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['roles'],
-    queryFn: () => api<any>('/admin/roles'),
+    queryFn: () => api<any>('/company/roles'),
   });
   const rows: any[] = Array.isArray(data) ? data : data?.items ?? [];
 

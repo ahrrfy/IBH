@@ -8,6 +8,14 @@ title = "al-ruya-erp gitleaks config"
 # Allowlist files that are intentionally committed and contain placeholder
 # patterns that look like secrets but are not. Anything matching these paths
 # is skipped — keep the list tight.
+# Old leaked owner password — block any future re-introduction (was rotated
+# but lives in git history at commit 879788d).
+[[rules]]
+id = "old-owner-password-Ahrrfy"
+description = "Old owner password — must never reappear in any committed file"
+regex = '''Ahrrfy6399137'''
+keywords = ["Ahrrfy"]
+
 [allowlist]
 description = "Allowed files (templates with documented placeholders only)"
 paths = [
