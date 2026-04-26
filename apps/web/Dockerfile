@@ -56,10 +56,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 EXPOSE 3001
 
-# Probe /login (known to return 200) instead of / (which middleware redirects
-# to /login → 307, and busybox wget -qO- treats redirects as failure on some
-# Alpine builds). --spider returns success on any 2xx. Closes I012 (web part).
+# Probe /login (known to return 200) on 127.0.0.1 — Alpine resolves
+# 'localhost' to ::1 (IPv6) first but Next.js binds 0.0.0.0 (IPv4 only),
+# so localhost gives "Connection refused". --spider returns success on
+# any 2xx. Closes I012 (web part).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD wget --spider -q -t 1 http://localhost:3001/login || exit 1
+  CMD wget --spider -q -t 1 http://127.0.0.1:3001/login || exit 1
 
 CMD ["node", "apps/web/server.js"]
