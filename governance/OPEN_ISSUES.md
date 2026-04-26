@@ -36,7 +36,9 @@
 | I019 | 8 e2e tests فردية فيها bugs (FK setup, type errors, calc mismatch) — مكشوفة بعد إصلاح I018 | 🟡 مهم | Wave 1 | Backend/QA | 🔄 جزئي — 3 مغلقة في main (2026-04-26) · 5 في PR #5 (feat/e2e-i019) تنتظر merge |
 | I020 | جلسات متعددة تعمل على main مباشرة — تتعارض مع بعضها وتُعيد تغييرات بعضها | 🟡 مهم | Wave 1 | DevOps | جديد (2026-04-26) — استراتيجية فروع مُنشأة (feat/*) لكن الجلسات الأخرى تتجاهلها وتدفع لـ main مباشرة |
 | I021 | PR #5 (feat/e2e-i019) يحتاج rebase على main الحالي قبل الدمج | 🟢 تحسين | Wave 1 | DevOps | جديد (2026-04-26) — main تقدّم بـ 3 commits بعد نشأة الفرع |
-| I022 | **🚨 F2 violation على الإنتاج** — صفر append-only triggers موجودة (audit_logs + stock_ledger + journal_entry_lines قابلة للتعديل/الحذف على مستوى DB لمدة 6 أسابيع) — السبب: migration 0001 يستخدم `stock_ledger_entries` لكن `@@map` يُعيد التسمية لـ `stock_ledger` فيتجاوز IF EXISTS | 🔴 حرج | Wave 1 | Backend/Security | ✅ **مغلق** (2026-04-26) — migration `0008_fix_append_only_triggers` تُضيف الثلاثة بأسماء صحيحة + CI يفحص وجودها |
+| I022 | **🚨 F2 violation على الإنتاج** — صفر append-only triggers لمدة 6 أسابيع | 🔴 حرج | Wave 1 | Backend/Security | ✅ **مغلق** (2026-04-26) — راجع §I022 (3 طبقات متراكبة) |
+| I019 | 8 e2e tests فردية فيها bugs (FK, type, calc) | 🟡 مهم | Wave 1 | Backend/QA | ✅ **مغلق** (2026-04-26) — 19/19 suites pass · 35/36 tests pass (1 .skip) في commit `a245467` |
+| I023 | Deploy workflow كان يستخدم `bash -s < script` فيستهلك docker-compose-exec الـ stdin → كل خطوات بعد أول exec تُتجاوز صامتاً (السبب الفعلي لـ I022) | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — تحويل لـ `scp + ssh exec` (commit `bc764ac`) |
 | I013 | nginx Docker DNS cache — كل web rebuild يحتاج `docker restart nginx` يدوياً | 🟡 مهم | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — resolver 127.0.0.11 + variable upstreams + nginx -s reload في deploy workflow |
 | I014 | GitHub Actions Deploy to VPS فاشل في كل push منذ 2026-04-25 — 4 جذور متراكبة | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — راجع §I014 |
 | I015 | Self-Healing Loop — auto-diagnose + auto-issue على أي CI failure | 🟢 تحسين | Wave 1 | DevOps | ✅ **بُني** (2026-04-26) — `.github/workflows/auto-diagnose.yml` + `scripts/diagnose-ci.sh` + `scripts/open-ci-issue.sh` |
@@ -79,6 +81,47 @@
 | # | المشكلة | القرار | التاريخ |
 |---|---|---|---|
 | — | — | — | — |
+
+---
+
+## §I022 — F2 (append-only) triggers مفقودة على الإنتاج (✅ مغلق 2026-04-26، 3 طبقات)
+
+**المخاطر:** `audit_logs`, `stock_ledger`, `journal_entry_lines` كانت قابلة للـ UPDATE/DELETE على مستوى DB لمدة 6 أسابيع. F2 violation كاملة.
+
+**اكتُشف:** اختبارا `inventory-mwa` و `audit-append-only` نجحا في رفض UPDATE/DELETE في CI بعد إصلاح migrations setup. أصبح بإمكاننا فحص الإنتاج:
+```sql
+SELECT trigger_name FROM information_schema.triggers WHERE trigger_name LIKE 'no_update%';
+→ 0 rows
+```
+
+**الجذور الـ 3:**
+
+1. **schema mismatch** — migration 0001 يستخدم `stock_ledger_entries` (جمع) لكن schema.prisma `@@map("stock_ledger")` (مفرد). الـ IF EXISTS guard في 0001 يبحث عن الاسم الخطأ → يتجاوز CREATE TRIGGER صامتاً.
+
+2. **production bootstrap عبر `db push`** — `_prisma_migrations` table فارغ! كل migrations 0001-0007 لم تُسجَّل كمُطبَّقة. الجداول موجودة (db push أنشأها) لكن SQL داخل migrations لم يُنفَّذ — يعني triggers و functions و RLS لم تُطبَّق أبداً. أُصلح بـ `prisma migrate resolve --applied` لكل migration.
+
+3. **deploy script bug خفي (I023 الجديد)** — `ssh ... bash -s < script.sh` + `docker compose exec -T` يستهلك stdin (= السكريبت). أول exec يبتلع باقي السكريبت → bash يقرأ EOF ويخرج صامتاً بـ exit 0. كل deploy منذ 6 أسابيع كان يقفز فوق `migrate deploy`. أُصلح بـ scp + ssh exec كملف منفصل.
+
+**الإصلاح المُطبَّق:**
+- `migrations/0008_fix_append_only_triggers/migration.sql` — مستقل (يحوي تعريف function أيضاً)
+- `infra/scripts/deploy-on-vps.sh` — إصلاح `cd /app/apps/api` + استخدام local prisma binary + fail loudly
+- `.github/workflows/deploy-vps.yml` — scp + ssh exec بدل stdin pipe
+- `.github/workflows/ci.yml` — verification step يفحص الـ 3 triggers (يمنع regression)
+
+**نتيجة على الإنتاج (متحقَّقة):**
+```
+trigger_name           | event_object_table
+-----------------------+---------------------
+no_update_audit_logs   | audit_logs
+no_update_je_lines     | journal_entry_lines
+no_update_stock_ledger | stock_ledger
+```
+
+**الدروس:**
+- اختبار قبول واحد كشف 6 أسابيع من violation صامت
+- "Deploy success" في CI لا يعني "migration ran"
+- ينبغي أن يفشل deploy بصوت إذا أي خطوة لم تُنفَّذ
+- `bash -s < script` خطر مع `docker compose exec -T`
 
 ---
 
