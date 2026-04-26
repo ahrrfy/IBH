@@ -35,11 +35,9 @@ export class NlQueryService {
     return this.config.get<string>('AI_BRAIN_API_KEY');
   }
 
-  /**
-   * Extract table identifiers that follow FROM or JOIN clauses.
-   * Comments and string literals are stripped first so a payload like
-   * `SELECT '/* FROM users */ FROM sales_invoices` can't smuggle table names.
-   */
+  // Extract table identifiers that follow FROM or JOIN clauses.
+  // Comments and string literals are stripped first so a payload that hides
+  // a table name inside a SQL block comment can't smuggle it past the check.
   private extractTables(sql: string): string[] {
     const stripped = sql
       .replace(/'(?:[^']|'')*'/g, "''")              // single-quoted strings
