@@ -478,6 +478,43 @@ export class InventoryService {
     return transfer;
   }
 
+  async listTransfers(
+    companyId: string,
+    opts: { status?: string; limit?: number },
+  ) {
+    return this.prisma.stockTransfer.findMany({
+      where: {
+        companyId,
+        ...(opts.status ? { status: opts.status as any } : {}),
+      },
+      include: {
+        fromWarehouse: { select: { id: true, code: true, nameAr: true } },
+        toWarehouse:   { select: { id: true, code: true, nameAr: true } },
+        lines:         { select: { id: true, qtyRequested: true, qtyReceived: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: opts.limit ?? 50,
+    });
+  }
+
+  async getTransferById(id: string, companyId: string) {
+    const transfer = await this.prisma.stockTransfer.findFirst({
+      where: { id, companyId },
+      include: {
+        fromWarehouse: { select: { id: true, code: true, nameAr: true } },
+        toWarehouse:   { select: { id: true, code: true, nameAr: true } },
+        lines: true,
+      },
+    });
+    if (!transfer) {
+      throw new NotFoundException({
+        code: 'NOT_FOUND',
+        messageAr: 'طلب التحويل غير موجود',
+      });
+    }
+    return transfer;
+  }
+
   async approveTransfer(
     transferId: string,
     companyId:  string,

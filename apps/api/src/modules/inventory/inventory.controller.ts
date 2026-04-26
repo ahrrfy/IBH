@@ -112,6 +112,28 @@ export class InventoryController {
 
   // ─── Stock Transfers ──────────────────────────────────────────────────────
 
+  @Get('transfers')
+  @RequirePermission('Inventory', 'read')
+  async listTransfers(
+    @CurrentUser() user: UserSession,
+    @Query('status') status?: string,
+    @Query('limit')  limit?: string,
+  ) {
+    return this.inventoryService.listTransfers(user.companyId, {
+      status,
+      limit: limit ? parseInt(limit, 10) : 50,
+    });
+  }
+
+  @Get('transfers/:id')
+  @RequirePermission('Inventory', 'read')
+  async getTransfer(
+    @Param('id') id: string,
+    @CurrentUser() user: UserSession,
+  ) {
+    return this.inventoryService.getTransferById(id, user.companyId);
+  }
+
   @Post('transfers')
   @RequirePermission('Inventory', 'create')
   async createTransfer(
