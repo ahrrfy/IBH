@@ -399,16 +399,19 @@
 ### المرحلة 4 — التطبيقات المساعدة (T25-T28)
 
 #### T25 — Storefront Public Deployment
-- **Status:** ⏳ TODO
+- **Status:** 🔄 IN_PROGRESS
 - **Deps:** []
 - **Branch:** `feat/t25-storefront-deploy`
 - **File scope:**
   - `apps/storefront/Dockerfile` (new)
+  - `apps/storefront/next.config.js` (add `output: 'standalone'`)
   - `infra/docker-compose.bootstrap.yml` (add storefront service)
   - `infra/nginx/conf.d/bootstrap.conf` (add shop. server block)
   - `infra/nginx/host-vhost-shop.conf` (host SSL — manual on VPS)
-- **Owner:** *(unclaimed)*
+- **Owner:** claude-opus-4-7-20260426-3
+- **Started:** 2026-04-26T19:00:00Z
 - **Estimate:** 180min
+- **Manual VPS steps still required after merge:** DNS A record for shop.ibherp.cloud, host nginx symlink, certbot --nginx -d shop.ibherp.cloud.
 - **Real state:** scaffold UI موجود. ناقص: Dockerfile + compose + subdomain + DNS + SSL.
 
 ---
