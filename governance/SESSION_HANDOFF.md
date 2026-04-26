@@ -1,54 +1,57 @@
 # SESSION_HANDOFF.md
 
-# Session Handoff — 2026-04-26 (claude-opus-4-7-20260426 — mass execution + merge)
+# Session Handoff — 2026-04-26 (FINAL — all T-tasks + bonus ops work complete)
 
 ## Branch
 `main` (all work merged)
 
 ## Latest Commit
-`df39a3f` — docs(governance): sync TASK_QUEUE — all 30 tasks marked ✅ DONE
+`871b4b3` — feat(ops): Backblaze B2 offsite mirror — closes DR §8 limit (#43)
 
-## Completed This Session
-- ✅ T11 — Sales Order → Invoice convert button (8c4f4ca)
-- ✅ T12 — GRN UI list + new + detail + sidebar (f7d3a16, PR #21)
-- ✅ T28 — Mobile EAS scaffold eas.json + release workflow (05644b1, PR #25)
-- ✅ Merged 7 open PRs from parallel sessions:
-  - PR #18 (T16 bank reconciliation) → fd0183f
-  - PR #20 (T06 CoA CRUD) → d19a881
-  - PR #28 (T25 storefront deploy) → f4f358d
-  - PR #35 (sidebar profile link fix) → 6b796a4
-  - PR #37 (settings audit card fix) → 5f2bdd1
-  - PR #38 (W3 GRN→inventory e2e) → e27671f
-  - PR #39 (healthcheck.io alerting) → 7a138ea
-- ✅ Synced TASK_QUEUE.md: all 30/30 tasks marked ✅ DONE (df39a3f)
+## Completed This Session (full picture)
+**30 T-tasks** — all merged to main (see TASK_QUEUE.md for full commit list)
+
+**Post-T-tasks bonus ops PRs also merged:**
+- PR #39 (healthcheck.io alerting for backup + SSL crons) → `7a138ea`
+- PR #40 (proactive SSL notAfter monitor `ssl-expiry-check.sh`) → `a789ada`
+- PR #41 (fix `update_updated_at()` trigger camelCase column) → `a56b6a5`
+- PR #42 (W6 lead→customer conversion e2e, rebased) → `20cc387`
+- PR #43 (Backblaze B2 offsite mirror — completes 3-2-1-1 DR strategy) → `871b4b3`
+- PR #44 (fix CRM: Customer.code via SequenceService on lead conversion) → `b62f76a`
+- PR #45 (fix sequence: handle null branchId in compound-key read-back) → `9f12d42`
 
 ## State of main
-All 30 tasks complete. No open PRs. No IN_PROGRESS tasks.
-git log --oneline origin/main | head -10 shows clean history.
+**Zero open PRs. Zero IN_PROGRESS tasks. Zero TODO tasks.**
+All 30 T-tasks done + 7 bonus ops/bugfix PRs merged.
+Latest commit on main: `871b4b3` (2026-04-26)
 
 ## Tasks Left
-**None** — the entire 30-task backlog is merged and closed.
+**None** — the entire 30-task backlog + all bonus ops work is closed.
 
 ## Manual VPS Steps Still Required (not automatable via git)
-1. **Backup cron**: `ssh root@vps 'bash /opt/al-ruya-erp/infra/scripts/install-cron.sh'`
-2. **SSL renewal cron**: same install-cron.sh now adds SSL entry at 05:00 twice daily
-3. **Storefront subdomain**: DNS A record shop.ibherp.cloud → VPS IP, then `certbot --nginx -d shop.ibherp.cloud`
-4. **WhatsApp Bridge**: set `WHATSAPP_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` in `.env` on VPS
+1. **All crons**: `ssh root@vps 'bash /opt/al-ruya-erp/infra/scripts/install-cron.sh'`
+   - Installs: backup (02:00), backup-offsite (02:30), ssl-renew (03:17 + 15:17), ssl-expiry-check (04:42)
+2. **Storefront subdomain**: DNS A record `shop.ibherp.cloud` → VPS IP, then `certbot --nginx -d shop.ibherp.cloud`
+3. **WhatsApp Bridge**: set `WHATSAPP_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` in VPS `.env`
+4. **B2 offsite backup**: set `RESTIC_B2_REPOSITORY` + `B2_ACCOUNT_ID` + `B2_ACCOUNT_KEY` in VPS `.env`
 5. **Mobile EAS**: `EXPO_TOKEN` GitHub secret + `eas init` locally + Apple/Google credentials
+6. **DR drill**: `restic restore latest --target /tmp/restore-test` → verify md5 matches live DB
 
 ## Risks
 - Pre-existing React 19 type errors in `login/layout.tsx`, `app-shell.tsx`, `data-table.tsx` — not caused by this session; `next build` may warn but pages function
-- PR #36 (W6 lead→customer e2e) was CLOSED (not merged) — CI was UNSTABLE; the e2e test may need a rewrite
 - `as any` appears 258× in API source — tech debt, not blocking
-- POS and storefront local builds still fail without full `pnpm install` — use Docker for VPS
+- POS local build requires full `pnpm install` + Rust toolchain — use Docker for VPS builds
+- B2 offsite backup is wired but NOT active until B2 credentials are set in VPS `.env`
 
 ## Next Safest Step (new session)
 ```bash
-# Verify nothing is open
-gh pr list --state open
-# Verify main health
-cd D:/al-ruya-erp && git pull && git log --oneline -5
-# If starting Wave 2 work, read MASTER_SCOPE.md for Wave 2 scope definition
+# Confirm clean state
+gh pr list --state open        # should be empty
+git log --oneline origin/main -5
+
+# Next work: Wave 2 features (read MASTER_SCOPE.md §Wave-2)
+# OR: VPS manual steps above
+# OR: UAT using governance/UAT_PLAYBOOK.md
 ```
 
 ---
