@@ -8,20 +8,22 @@
 
 ---
 
-## 📊 نظرة عامة — 2026-04-24
+## 📊 نظرة عامة — 2026-04-26 (آخر تحديث)
 
 | المقياس | القيمة |
 |---|---|
 | Waves مكتملة (كود) | **6 / 6** |
-| Modules مكتملة (كود) | **17 / 18** (M15 E-commerce pending) |
-| Migrations | 6 |
-| Prisma Models | ~75 |
-| TypeScript files | ~95+ |
-| Lines of code | ~16,000+ |
-| Acceptance tests (written) | **20** (10 كامل + 3 جزئي من 17 متطلب W1-W6 = ~70%) |
-| Acceptance tests (executed) | 0 (يحتاج Docker setup) |
-| Production HTTP 200 | ✅ مؤكد 2026-04-25 — bundle جديد منشور بإصلاح cookie |
-| Production deployment | Not yet |
+| Modules مكتملة (كود) | **18 / 18** ✅ |
+| T-tasks مكتملة | **30 / 30** ✅ |
+| Migrations | 9 |
+| Prisma Models | ~86 |
+| TypeScript files | ~120+ |
+| Lines of code | ~20,000+ |
+| Acceptance tests (written) | **38+** (e2e suites مدموجة: W1, W3, W6) |
+| Acceptance tests (passing) | 35/36 في CI (1 .skip في pos-session) |
+| Production HTTP 200 | ✅ مؤكد 2026-04-26 |
+| Open PRs | **0** ✅ |
+| Open T-tasks | **0** ✅ |
 
 ---
 
@@ -98,16 +100,21 @@
 
 ---
 
+## ✅ مكتملة البنية (scaffold + deploy pipeline جاهز)
+
+| الوحدة | الحالة | Task | ملاحظات |
+|---|---|---|---|
+| Frontend Admin Web (Next.js 15) | 🟢 | T02-T19 merged | جميع صفحات CRUD + workflows مكتملة |
+| M15 Storefront (E-commerce) | 🟢 | T25 merged | Dockerfile + compose + nginx vhost shop.ibherp.cloud · يحتاج DNS + certbot على VPS |
+| POS Desktop (Tauri) | 🟡 scaffold | T27 merged | GitHub release workflow جاهز · يحتاج signing + SQLCipher activation |
+| Mobile apps (React Native Expo) | 🟡 scaffold | T28 merged | EAS workflow جاهز · يحتاج EXPO_TOKEN + Apple/Google credentials |
+| WhatsApp Bridge (Fastify) | 🟢 | T26 merged | مدمج في docker-compose · يحتاج WHATSAPP_TOKEN في .env على VPS |
+
 ## 🚧 لم يبدأ بعد
 
 | الوحدة | الموجة | ملاحظات |
 |---|---|---|
-| M15 E-commerce (Storefront) | Wave 3+6 | Next.js app (UI — ليس API) |
-| Frontend Admin Web | — | Next.js 15 app |
-| POS Desktop (Tauri) | — | |
-| Mobile apps | — | React Native (sales rep + employee) |
-| AI Brain (Python FastAPI) | Wave 6 | Ollama + Qwen 7B + PyOD + Prophet |
-| WhatsApp Bridge | — | whatsapp-web.js |
+| AI Brain (Python FastAPI) | Wave 6 | Ollama + Qwen 7B + PyOD + Prophet — بعد 6 أشهر تشغيل حقيقي |
 
 ---
 
