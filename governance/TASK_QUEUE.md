@@ -187,14 +187,17 @@
 ---
 
 #### T07 — Products + Variants CRUD UI (FE only)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE (merged in commit c8a65f2)
 - **Deps:** []
 - **Branch:** `feat/t07-products-fe`
 - **File scope:**
   - `apps/web/src/app/(app)/inventory/products/new/page.tsx`
   - `apps/web/src/app/(app)/inventory/products/[id]/edit/page.tsx`
   - `apps/web/src/app/(app)/inventory/products/[id]/variants/page.tsx`
-- **Owner:** *(unclaimed)*
+- **Owner:** claude-opus-4-7-20260426-2 (closed)
+- **Started:** 2026-04-26T15:30:00Z
+- **Completed:** 2026-04-26T15:55:00Z
+- **Commit:** c8a65f2
 - **Estimate:** 150min
 - **Real state:** Backend مكتمل (templates + variants + price lists). فقط UI ناقص.
 
