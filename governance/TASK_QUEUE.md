@@ -241,7 +241,7 @@
 ---
 
 #### T12 — GRN UI (Goods Receipt) (FE only)
-- **Status:** ⏳ TODO
+- **Status:** 🔄 IN_PROGRESS
 - **Deps:** []
 - **Branch:** `feat/t12-grn-fe`
 - **File scope:**
@@ -249,7 +249,8 @@
   - `apps/web/src/app/(app)/purchases/grn/new/page.tsx`
   - `apps/web/src/app/(app)/purchases/grn/[id]/page.tsx`
   - `apps/web/src/components/sidebar.tsx` (add link)
-- **Owner:** *(unclaimed)*
+- **Owner:** claude-opus-4-7-20260426-6
+- **Started:** 2026-04-26T19:30:00Z
 - **Estimate:** 150min
 - **Real state:** Backend مكتمل (POST + approveQuality + reject). UI مفقود كلياً.
 
