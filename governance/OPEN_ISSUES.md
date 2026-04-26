@@ -30,7 +30,8 @@
 | I010 | Build فشل (14 errors) — Prisma Client stale (schema حديث، Client قديم) | 🔴 حرج | Wave 1 | Backend | ✅ **مغلق** (2026-04-25, commit `a239255`) |
 | I011 | Login error not displayed in UI (Console only) — UX bug | 🟢 تحسين | Wave 1 | Frontend | مفتوح — منخفض الأولوية بعد إغلاق I007 |
 | I012 | infra-web-1 و infra-api-1 يظهرون unhealthy رغم أنهم يعملون — healthcheck endpoints مفقودة/خاطئة | 🟡 مهم | Wave 1 | DevOps | مفتوح (2026-04-25) |
-| I013 | nginx Docker DNS cache — كل web rebuild يحتاج `docker restart nginx` يدوياً | 🟡 مهم | Wave 1 | DevOps | مفتوح (2026-04-25) — راجع §I013 |
+| I013 | nginx Docker DNS cache — كل web rebuild يحتاج `docker restart nginx` يدوياً | 🟡 مهم | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — resolver 127.0.0.11 + variable upstreams + nginx -s reload في deploy workflow |
+| I014 | GitHub Actions Deploy to VPS فاشل في كل push منذ 2026-04-25 — `ssh-keyscan` صامت في `deploy-vps.yml:27` يُنتج known_hosts فارغاً → Host key verification failed | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — أُضيف `-t rsa,ecdsa,ed25519` + `test -s` guard + force-recreate + nginx reload + retry loop للـ health |
 
 ---
 
