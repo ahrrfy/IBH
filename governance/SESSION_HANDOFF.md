@@ -185,7 +185,7 @@
 - بنية commits اليوم: `c7e0d97` → `12e813c` (15 commit)
 
 ## الخطوة التالية بالضبط
-1. **أكّد UAT (دقيقة واحدة):** افتح `https://ibherp.cloud/login`، Ctrl+Shift+R، login بـ `ahrrfy/Ahrrfy6399137@` → يجب الوصول لـ `/dashboard`. أرسل screenshot
+1. **أكّد UAT (دقيقة واحدة):** افتح `https://ibherp.cloud/login`، Ctrl+Shift+R، login بـ `<OWNER_USERNAME>/<OWNER_PASSWORD>` (انظر `/opt/al-ruya-erp/infra/.env` على VPS — chmod 600) → يجب الوصول لـ `/dashboard`. أرسل screenshot
 2. **إصلاح I013 (دقائق):** أضف `resolver 127.0.0.11 valid=10s;` لـ `infra/nginx/conf.d/bootstrap.conf` + استبدل `proxy_pass http://web:3001` بـ `set $upstream_web web; proxy_pass http://$upstream_web:3001` — يمنع حاجة restart nginx مع كل rebuild
 3. **تشغيل e2e tests:** docker compose up -d postgres + `pnpm --filter api test:e2e` — تحقق من 19 test
 4. **اختبار 2FA UI:** بعد UAT الأول — يُغلق I009

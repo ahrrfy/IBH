@@ -49,7 +49,7 @@ export class AnomalyDetectionService {
     try {
       const rows: any[] = await this.prisma.$queryRawUnsafe(
         `SELECT "customerId", COUNT(*)::int AS return_count
-         FROM "SalesReturn" WHERE "companyId" = $1
+         FROM "sales_returns" WHERE "companyId" = $1
          GROUP BY "customerId" HAVING COUNT(*) > 0`,
         companyId,
       );
@@ -80,8 +80,8 @@ export class AnomalyDetectionService {
       const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
       const rows: any[] = await this.prisma.$queryRawUnsafe(
         `SELECT pil."variantId", pil."unitPriceIqd"::float AS price, pi."invoiceDate"
-         FROM "PurchaseInvoiceLine" pil
-         JOIN "PurchaseInvoice" pi ON pi.id = pil."purchaseInvoiceId"
+         FROM "vendor_invoice_lines" pil
+         JOIN "vendor_invoices" pi ON pi.id = pil."invoiceId"
          WHERE pi."companyId" = $1 AND pi."invoiceDate" >= $2
          ORDER BY pil."variantId", pi."invoiceDate" DESC`,
         companyId,
@@ -122,8 +122,8 @@ export class AnomalyDetectionService {
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const sales: any[] = await this.prisma.$queryRawUnsafe(
         `SELECT sil."variantId", SUM(sil."qty")::float AS sold
-         FROM "SalesInvoiceLine" sil
-         JOIN "SalesInvoice" si ON si.id = sil."salesInvoiceId"
+         FROM "sales_invoice_lines" sil
+         JOIN "sales_invoices" si ON si.id = sil."invoiceId"
          WHERE si."companyId" = $1 AND si."invoiceDate" >= $2
          GROUP BY sil."variantId"`,
         companyId,
@@ -131,7 +131,7 @@ export class AnomalyDetectionService {
       );
       const balances: any[] = await this.prisma.$queryRawUnsafe(
         `SELECT "variantId", SUM("qtyOnHand")::float AS on_hand
-         FROM "InventoryBalance" WHERE "companyId" = $1 GROUP BY "variantId"`,
+         FROM "inventory_balances" WHERE "companyId" = $1 GROUP BY "variantId"`,
         companyId,
       );
       const onHandMap = new Map(balances.map((b) => [b.variantId, Number(b.on_hand)]));

@@ -1,0 +1,34 @@
+name: Security Scan (gitleaks)
+
+# Runs on every push and PR. Blocks merges if any committed file contains
+# something matching a credential pattern. Discovered I024: a production
+# password landed in governance/SESSION_HANDOFF.md without anything catching
+# it. This guards against repeat — and against the broader category.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: gitleaks scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history needed so we scan ALL commits, not just the latest tree.
+          # Catches secrets that landed in older commits even if they were
+          # deleted from the current tree.
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          # Default config covers ~150 secret patterns (AWS, Stripe, Google,
+          # JWT, private keys, SSH keys, passwords). Custom patterns added
+          # via .gitleaks.toml at repo root if/when needed.
+          GITLEAKS_NOTIFY_USER_LIST: '@ahrrfy'

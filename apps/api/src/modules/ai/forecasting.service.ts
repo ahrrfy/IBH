@@ -25,8 +25,8 @@ export class ForecastingService {
     try {
       historical = (await this.prisma.$queryRawUnsafe(
         `SELECT DATE(si."invoiceDate") AS day, SUM(sil."qty")::float AS qty, SUM(sil."lineTotalIqd")::float AS revenue
-         FROM "SalesInvoiceLine" sil
-         JOIN "SalesInvoice" si ON si.id = sil."salesInvoiceId"
+         FROM "sales_invoice_lines" sil
+         JOIN "sales_invoices" si ON si.id = sil."invoiceId"
          WHERE si."companyId" = $1 AND si."invoiceDate" >= $2
          ${params.variantId ? `AND sil."variantId" = '${params.variantId}'` : ''}
          GROUP BY DATE(si."invoiceDate") ORDER BY day ASC`,
@@ -86,8 +86,8 @@ export class ForecastingService {
     try {
       const rows: any[] = await this.prisma.$queryRawUnsafe(
         `SELECT DATE(si."invoiceDate") AS day, SUM(sil."qty")::float AS qty
-         FROM "SalesInvoiceLine" sil
-         JOIN "SalesInvoice" si ON si.id = sil."salesInvoiceId"
+         FROM "sales_invoice_lines" sil
+         JOIN "sales_invoices" si ON si.id = sil."invoiceId"
          WHERE si."companyId" = $1 AND sil."variantId" = $2 AND si."invoiceDate" >= $3
          GROUP BY DATE(si."invoiceDate")`,
         companyId,
@@ -111,7 +111,7 @@ export class ForecastingService {
     let onHand = 0;
     try {
       const bal: any[] = await this.prisma.$queryRawUnsafe(
-        `SELECT SUM("qtyOnHand")::float AS on_hand FROM "InventoryBalance"
+        `SELECT SUM("qtyOnHand")::float AS on_hand FROM "inventory_balances"
          WHERE "companyId" = $1 AND "variantId" = $2`,
         companyId,
         variantId,
