@@ -200,26 +200,30 @@
 > **ملاحظة:** T08 (Customers) و T09 (Suppliers) **مكتملتان فعلياً** — أُسقطتا من القائمة.
 
 #### T10 — Sales Invoice Cancel/Reverse Buttons (FE only)
-- **Status:** 🔄 IN_PROGRESS
+- **Status:** ✅ DONE
 - **Deps:** []
-- **Branch:** `feat/t10-invoice-cancel-fe`
+- **Branch:** `feat/t10-invoice-cancel-fe` (merged)
 - **File scope:**
   - `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx` (add buttons)
   - `apps/web/src/components/reason-modal.tsx` (new shared)
 - **Owner:** claude-opus-4-7-20260426-4
 - **Started:** 2026-04-26T16:10:00Z
+- **Completed:** 2026-04-26T15:32:26Z
+- **Commit:** `3473307` (PR #11 merged)
 - **Estimate:** 60min
 - **Real state:** `POST /sales/invoices/:id/reverse` موجود. الناقص: زر + modal.
 
 ---
 
 #### T11 — Sales Order → Invoice Convert Button (FE only)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** []
-- **Branch:** `feat/t11-order-convert-fe`
+- **Branch:** `feat/t11-order-convert-fe` (merged direct to main)
 - **File scope:**
   - `apps/web/src/app/(app)/sales/orders/[id]/page.tsx` (add button)
-- **Owner:** *(unclaimed)*
+- **Owner:** claude-opus-4-7-20260426 (this session)
+- **Completed:** 2026-04-26T15:17:05Z
+- **Commit:** `8c4f4ca`
 - **Estimate:** 30min
 - **Real state:** `POST /sales/invoices/from-order/:orderId` موجود. زر فقط.
 
