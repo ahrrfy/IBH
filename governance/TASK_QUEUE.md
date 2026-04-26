@@ -306,14 +306,15 @@
 ---
 
 #### T16 — Bank Reconciliation UI (FE only)
-- **Status:** ⏳ TODO
+- **Status:** 🔄 IN_PROGRESS
 - **Deps:** []
 - **Branch:** `feat/t16-bank-recon-fe`
 - **File scope:**
-  - `apps/web/src/app/(app)/finance/banks/page.tsx`
-  - `apps/web/src/app/(app)/finance/banks/[id]/reconcile/page.tsx`
+  - `apps/web/src/app/(app)/finance/banks/page.tsx` (new)
+  - `apps/web/src/app/(app)/finance/banks/[id]/reconcile/page.tsx` (new — landing + workspace)
+- **Owner:** claude-opus-4-7-20260426-3
+- **Started:** 2026-04-26T18:00:00Z
 - **Estimate:** 180min
-- **Real state:** Backend مكتمل (start + match/unmatch + addAdjustment + complete). UI مفقود.
 
 ---
 
