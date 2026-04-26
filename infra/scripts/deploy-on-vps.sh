@@ -52,9 +52,17 @@ else
 fi
 
 echo "→ run any new prisma migrations"
-$COMPOSE exec -T api sh -c 'cd /app && npx prisma migrate deploy --schema=prisma/schema.prisma' || {
-  echo "   ⚠️  migrate deploy returned non-zero — continuing (may be no-op)"
-}
+# Two bugs were here for ~6 weeks (silently, causing missing F2 triggers — I022):
+#   1. cd /app — schema is at /app/apps/api/prisma/schema.prisma, not /app
+#   2. npx prisma — npx fetches the LATEST prisma (currently v7) which has
+#      breaking changes vs the v6 client baked into our image. Use the local
+#      binary at node_modules/.bin/prisma directly.
+# We also fail loudly now: a silently-skipped migration is what hid the bug
+# in the first place. If migrate deploy fails, abort the deploy.
+if ! $COMPOSE exec -T api sh -c 'cd /app/apps/api && ./node_modules/.bin/prisma migrate deploy'; then
+  echo "   ❌ prisma migrate deploy failed — aborting"
+  exit 1
+fi
 
 echo "→ probe $HEALTH_URL (6 × 5s)"
 for i in 1 2 3 4 5 6; do
