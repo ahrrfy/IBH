@@ -18,14 +18,22 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
+          set -x
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -t rsa,ecdsa,ed25519 -H "${{ secrets.VPS_HOST }}" > ~/.ssh/known_hosts 2>/dev/null
+          # Sanity: header + length should match an ed25519 OpenSSH key
+          head -1 ~/.ssh/id_ed25519
+          wc -l < ~/.ssh/id_ed25519
+          # Scan host keys (suppress stderr noise but capture exit code)
+          ssh-keyscan -T 5 -t rsa,ecdsa,ed25519 -H "$VPS_HOST" > ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
-          test -s ~/.ssh/known_hosts || { echo "ssh-keyscan empty for '${{ secrets.VPS_HOST }}'"; exit 1; }
-          echo "known_hosts populated ($(wc -l < ~/.ssh/known_hosts) entries)"
+          wc -l < ~/.ssh/known_hosts
+          test -s ~/.ssh/known_hosts
 
       - name: Verify SSH connectivity
         run: ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes "root@${{ secrets.VPS_HOST }}" 'whoami; hostname -f; uptime'
