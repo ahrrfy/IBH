@@ -96,8 +96,12 @@ jobs:
           psql -h localhost -U erp -d alruya_erp_test -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
       - name: Generate Prisma client
         run: pnpm --filter api exec prisma generate
-      - name: Apply migrations
-        run: pnpm --filter api exec prisma migrate deploy
+      - name: Sync schema to test DB (prisma db push)
+        # Migrations 0001-0007 are partial snapshots; they don't actually CREATE
+        # all tables — production DB was bootstrapped with `db push` then
+        # migrations were saved for incremental changes only. For CI's ephemeral
+        # DB we sync directly from schema.prisma. Safe — DB is throwaway.
+        run: pnpm --filter api exec prisma db push --skip-generate --accept-data-loss
       - name: Seed bootstrap data (companies, roles, admin user, Iraqi CoA)
         # Many tests reference companies/users from seed via prisma.company.findFirst().
         # Without this they fail with PrismaClientKnownRequestError on null records.
