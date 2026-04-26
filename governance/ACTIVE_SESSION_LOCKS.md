@@ -74,5 +74,6 @@ Before marking a session closed:
 ## Active Locks (live)
 
 - **T13** | session: `claude-opus-4-7-20260426-3` | branch: `feat/t13-transfers-fe` | files: `apps/api/src/modules/inventory/inventory.{controller,service}.ts`, `apps/web/src/app/(app)/inventory/transfers/**` | started: 2026-04-26T16:30:00Z
+- **T30** | session: `claude-opus-4-7-20260426-3` | branch: `docs/t30-onboarding` | files: `governance/CUSTOMER_ONBOARDING.md`, `docs/training/*.md` | started: 2026-04-26T19:30:00Z
 
 _(T01 closed 2026-04-26T15:08:04Z via PR #6 — fa3aeee)_

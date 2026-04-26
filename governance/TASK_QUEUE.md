@@ -458,13 +458,19 @@
 ---
 
 #### T30 — Customer Onboarding Materials
-- **Status:** ⏳ TODO
-- **Deps:** [T29]
+- **Status:** 🔄 IN_PROGRESS
+- **Deps:** [T29] (drafted in parallel — references T29 doc by path)
 - **Branch:** `docs/t30-onboarding`
 - **File scope:**
-  - `governance/CUSTOMER_ONBOARDING.md` (new)
-  - `docs/training/*` (4 PDF or video links)
+  - `governance/CUSTOMER_ONBOARDING.md` (new — full onboarding playbook)
+  - `docs/training/01-orientation.md` (new)
+  - `docs/training/02-sales-pos.md` (new)
+  - `docs/training/03-inventory-purchasing.md` (new)
+  - `docs/training/04-finance-close.md` (new)
+- **Owner:** claude-opus-4-7-20260426-3
+- **Started:** 2026-04-26T19:30:00Z
 - **Estimate:** 240min
+- **Note:** docs are markdown-first (4 sessions, ~90min each). The "PDF or video links" in the original spec are deferred — videos get recorded during the first real onboarding and linked back into these markdown files.
 
 ---
 
