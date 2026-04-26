@@ -42,6 +42,7 @@ claims them.
 | claude-opus-4-7-20260426-1 | Claude Code (Opus 4.7) | `feat/t01-backup-cron` | T01 — Backup cron schedule + DR runbook | `infra/scripts/backup-cron.sh`, `infra/scripts/install-cron.sh`, `governance/DR_RUNBOOK.md`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, frontend pages | Closed (merged in PR #6 / fa3aeee on 2026-04-26T15:08:04Z) |
 | claude-opus-4-7-20260426-4 | Claude Code (Opus 4.7) | `feat/t10-invoice-cancel-fe` | T10 — Sales invoice reverse button (FE) | `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx`, `apps/web/src/components/reason-modal.tsx`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, other frontend pages | Closed (merged in PR #11 / 3473307 on 2026-04-26T15:32:26Z) |
 | claude-opus-4-7-20260426-3 | Claude Code (Opus 4.7) | `feat/t04-branches-fe` | T04 — Branches Detail + Edit (FE only) | `apps/web/src/app/(app)/settings/branches/[id]/**`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, infra scripts, T24's files | Active |
+| claude-opus-4-7-20260426-5 | Claude Code (Opus 4.7) | `feat/t15-returns-fe` | T15 — Sales returns UI (list + new + detail) | `apps/web/src/app/(app)/sales/returns/**`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, other frontend pages | Active |
 
 ## Integration Owner
 
