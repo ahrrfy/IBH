@@ -40,7 +40,7 @@ jobs:
         run: test -f apps/api/dist/main.js
 
   e2e-tests:
-    name: E2E acceptance tests (Postgres + Prisma)
+    name: E2E acceptance tests (Postgres + Redis)
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -55,8 +55,19 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     env:
       DATABASE_URL: postgresql://erp:testpass@localhost:5432/alruya_erp_test?schema=public
+      REDIS_URL: redis://localhost:6379
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
       JWT_SECRET: ci-test-secret-not-for-production
       NODE_ENV: test
     steps:
