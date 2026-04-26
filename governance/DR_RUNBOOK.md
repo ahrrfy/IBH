@@ -193,7 +193,31 @@ md5sum "$DUMP"
 
 ---
 
-## 9. مراجع
+## 9. متطلبات .env (للـ VPS)
+
+`infra/.env` يجب يحوي **كلها** قبل تشغيل `backup-cron.sh`:
+
+```bash
+POSTGRES_DB=alruya_erp           # mirror docker-compose
+POSTGRES_USER=erp_app            # mirror docker-compose
+POSTGRES_PASSWORD=<متطابق>       # موجود أصلاً
+RESTIC_REPOSITORY=/backups/restic-repo
+RESTIC_PASSWORD=<قوي 32 حرف>
+RETENTION_DAILY=7      # اختياري (default 7)
+RETENTION_WEEKLY=4     # اختياري (default 4)
+RETENTION_MONTHLY=3    # اختياري (default 3)
+```
+
+تحقّق سريع (لا يكشف القيم):
+```bash
+ssh root@vps 'grep -E "^(POSTGRES_DB|POSTGRES_USER|RESTIC_REPOSITORY)=" /opt/al-ruya-erp/infra/.env'
+```
+
+> ⚠️ لو POSTGRES_DB مفقود، سيخرج الـ wrapper بـ exit 10 + رسالة `missing in $ENV_FILE`.
+
+---
+
+## 10. مراجع
 
 - `infra/scripts/backup.sh` — Restic engine
 - `infra/scripts/backup-cron.sh` — wrapper (env load + lock + logging)
