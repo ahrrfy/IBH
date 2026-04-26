@@ -439,15 +439,17 @@
 ---
 
 #### T28 — Mobile Expo EAS Setup
-- **Status:** ⏳ TODO
+- **Status:** 🔄 IN_PROGRESS
 - **Deps:** []
 - **Branch:** `feat/t28-mobile-eas`
 - **File scope:**
   - `apps/mobile/eas.json` (new)
   - `.github/workflows/mobile-release.yml` (new)
-- **Owner:** *(unclaimed)*
+- **Owner:** claude-opus-4-7-20260426-6
+- **Started:** 2026-04-26T19:55:00Z
 - **Estimate:** 180min
 - **Real state:** Expo + RN + WatermelonDB ready. ناقص: eas.json + EAS account credentials + workflow.
+- **Note:** هذا الـ scaffold لا يقدر ينفّذ build فعلي بدون: (1) `EXPO_TOKEN` GitHub secret؛ (2) `eas init` محلياً لربط projectId في app.json؛ (3) Apple/Google credentials على Expo dashboard. الـ workflow صامت في غياب التاج/الـ trigger، فلا يكسر CI.
 
 ---
 
