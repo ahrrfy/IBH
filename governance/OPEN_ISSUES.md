@@ -29,9 +29,10 @@
 | I009 | 2FA UI مكتمل لكن لم يُختبَر — يتطلب دخول ناجح من المتصفح أولاً | 🟡 مهم | Wave 1 | QA | مفتوح |
 | I010 | Build فشل (14 errors) — Prisma Client stale (schema حديث، Client قديم) | 🔴 حرج | Wave 1 | Backend | ✅ **مغلق** (2026-04-25, commit `a239255`) |
 | I011 | Login error not displayed in UI (Console only) — UX bug | 🟢 تحسين | Wave 1 | Frontend | مفتوح — منخفض الأولوية بعد إغلاق I007 |
-| I012 | infra-web-1 و infra-api-1 يظهرون unhealthy رغم أنهم يعملون — healthcheck endpoints مفقودة/خاطئة | 🟡 مهم | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — api: `/health` → `/api/health` (globalPrefix). web: `/` → `/login` + `--spider` |
-| I016 | NL Query في `nl-query.service.ts` يستخدم `$queryRawUnsafe(generatedSql)` بدون validation للجداول ولا READ ONLY tx → SQL injection ممكن من AI Brain | 🔴 حرج | Wave 6 | Security | ✅ **مغلق** (2026-04-26) — أُضيف table parser + READ ONLY tx + multi-statement guard + 5K row cap |
-| I017 | `ci.yml` مفقود (تم حذفه في `d1b39b3` ضمن workflow cleanup) → لا حماية من بناء فاشل قبل الـ deploy | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — أُعيد بناؤه بـ ترتيب pnpm/setup-node صحيح + e2e job + Postgres service |
+| I012 | api + web containers `unhealthy` — healthcheck path/protocol خاطئ في 4 مواضع | 🟡 مهم | Wave 1 | DevOps | ✅ **مغلق نهائياً** (2026-04-26) — راجع §I012 (4 جذور متراكبة) |
+| I016 | NL Query في `nl-query.service.ts` يستخدم `$queryRawUnsafe(generatedSql)` بدون validation للجداول ولا READ ONLY tx → SQL injection ممكن من AI Brain | 🔴 حرج | Wave 6 | Security | ✅ **مغلق** (2026-04-26) — table parser + READ ONLY tx + multi-statement guard + 5K row cap (commit `4586252` + JSDoc fix `39f3751`) |
+| I017 | `ci.yml` مفقود (تم حذفه في `d1b39b3`) → لا حماية من بناء فاشل قبل deploy | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — `ci.yml` مُعاد بناؤه: 3 jobs (typecheck-build ✅ · standalone ✅ · e2e ⚠️ يكشف bugs قائمة) |
+| I018 | 14+ من الـ 19 e2e tests تفشل بـ PrismaClientKnownRequestError و TypeError: request is not a function — لم تُشغَّل من قبل | 🟡 مهم | Wave 1 | QA | جديد (2026-04-26) — مكشوفة بـ I017 الجديد. تحتاج: seed setup + إصلاح imports |
 | I013 | nginx Docker DNS cache — كل web rebuild يحتاج `docker restart nginx` يدوياً | 🟡 مهم | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — resolver 127.0.0.11 + variable upstreams + nginx -s reload في deploy workflow |
 | I014 | GitHub Actions Deploy to VPS فاشل في كل push منذ 2026-04-25 — 4 جذور متراكبة | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — راجع §I014 |
 | I015 | Self-Healing Loop — auto-diagnose + auto-issue على أي CI failure | 🟢 تحسين | Wave 1 | DevOps | ✅ **بُني** (2026-04-26) — `.github/workflows/auto-diagnose.yml` + `scripts/diagnose-ci.sh` + `scripts/open-ci-issue.sh` |
@@ -74,6 +75,25 @@
 | # | المشكلة | القرار | التاريخ |
 |---|---|---|---|
 | — | — | — | — |
+
+---
+
+## §I012 — api + web unhealthy في 4 طبقات متراكبة (✅ مغلق 2026-04-26)
+
+استمر `unhealthy` لأربع جلسات. كل ما نصلح طبقة، تظهر اللي تحتها:
+
+1. **api Dockerfile path خطأ** — `/health` بدل `/api/health` (NestJS `setGlobalPrefix('api')`)
+2. **web Dockerfile redirect** — `/` → 307 لـ `/login`، busybox wget يعتبره فشل. غيّرنا لـ `/login` مباشرة + `--spider`
+3. **Alpine localhost = ::1** — wget يحاول IPv6 لكن Nest/Next على 0.0.0.0 (IPv4 only) → `Connection refused`. تصحيح: `127.0.0.1` صراحة
+4. **api URI versioning** — main.ts فيها `enableVersioning({type: URI, defaultVersion: '1'})` فالمسار الفعلي `/api/v1/health` (مو `/api/health`). gotten via `wget http://127.0.0.1:3000/api/v1/health` → 200 ✅
+5. **compose override يلغي Dockerfile** — `infra/docker-compose.bootstrap.yml:171` كان فيه healthcheck stanza للـ api يُعيد كتابة الـ HEALTHCHECK في الـ Dockerfile. كل تعديلاتي على الـ Dockerfile تجاهلتها compose. الإصلاح النهائي: محاذاة compose مع Dockerfile.
+
+**النتيجة:** كل الـ 5 containers `(healthy)` لأول مرة في تاريخ المشروع (2026-04-26 10:37).
+
+**الدروس:**
+- اقرأ compose **و** Dockerfile قبل افتراض من يحكم
+- `localhost` في containers = trap على Alpine (استخدم `127.0.0.1`)
+- Probe باستعمال `--spider` بدل `-qO-` عشان لا يعتمد على parsing body
 
 ---
 
