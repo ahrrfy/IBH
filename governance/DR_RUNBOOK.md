@@ -193,9 +193,68 @@ md5sum "$DUMP"
 
 ---
 
-## 9. مراجع
+## 9. SSL Certificate Auto-Renewal (T24)
+
+> **Scope:** Let's Encrypt cert لـ `ibherp.cloud` و `www.ibherp.cloud`
+> صادر من `vps-deploy.sh` خطوة 8. صلاحية الشهادة 90 يوماً، يُجدَّد آلياً
+> عند بقاء < 30 يوماً.
+
+### 9.1. كيف يعمل
+
+| المكوّن | الوصف |
+|---|---|
+| `certbot renew` | يفحص كل الشهادات على VPS، يُجدِّد فقط ما يقترب من الانتهاء |
+| `infra/scripts/ssl-renew.sh` | wrapper — flock + log + deploy-hook |
+| Deploy hook | عند نجاح التجديد: reload host nginx **ثم** `infra-nginx-1` (cert يُقرَأ من `/etc/letsencrypt` بواسطة host nginx) |
+| Cron | مرتان يومياً (03:17 + 15:17) — Let's Encrypt توصي بتوقيت عشوائي |
+| Logs | `/var/log/al-ruya-erp/ssl-renew-YYYYMMDD.log` |
+
+### 9.2. تثبيت Cron
+
+```bash
+# على VPS كـ root (نفس install-cron.sh الذي ركّب backup):
+bash /opt/al-ruya-erp/infra/scripts/install-cron.sh
+crontab -l | grep -E 'al-ruya-erp|ssl-renew'
+```
+
+### 9.3. اختبار يدوي (آمن — لا يُغيّر الشهادة الحقيقية)
+
+```bash
+# Dry run — يحاكي التجديد بدون استبدال الشهادة
+certbot renew --dry-run
+
+# Run الفعلي (بدون cron):
+bash /opt/al-ruya-erp/infra/scripts/ssl-renew.sh
+echo "exit=$?"
+tail -20 /var/log/al-ruya-erp/ssl-renew-$(date +%Y%m%d).log
+
+# تحقّق من تاريخ انتهاء الشهادة
+echo | openssl s_client -servername ibherp.cloud -connect ibherp.cloud:443 2>/dev/null \
+  | openssl x509 -noout -dates
+```
+
+### 9.4. أعطال SSL شائعة
+
+| الخطأ | السبب | العلاج |
+|---|---|---|
+| `Failed authorization procedure` | DNS لا يشير لـ VPS أو port 80 محجوب | `dig ibherp.cloud` + `iptables -L` |
+| `Could not bind to IPv4 or IPv6` | host nginx ماسك port 80 | استخدم `--webroot -w /var/www/certbot` (الـ vps-deploy يفعل ذلك) |
+| Cert renewed لكن المتصفح يعرض القديم | nginx ما عمل reload | `nginx -s reload` على host **و** داخل `infra-nginx-1` |
+| `another renewal is already running` | lock عالق | `rm -f /var/run/al-ruya-erp-ssl-renew.lock` |
+| Exit 21 (nginx -t failed) | config درفت بين النشرات | راجع آخر deploy، لا تعتمد على renew لإصلاح nginx |
+
+### 9.5. حدود معروفة
+
+- 🟡 لا monitoring لتاريخ انتهاء الشهادة. **TODO:** أضف healthcheck يومي يفحص `notAfter` ويُنبّه قبل 14 يوماً
+- 🟡 لو كل من host و dockerized nginx فشلا في الـ reload، الموقع قد يبقى على القديم حتى انتهائه (ثم HTTPS down) — exit 21 يكشف هذا لكن لا alerting
+
+---
+
+## 10. مراجع
 
 - `infra/scripts/backup.sh` — Restic engine
-- `infra/scripts/backup-cron.sh` — wrapper (env load + lock + logging)
-- `infra/scripts/install-cron.sh` — مثبّت crontab
+- `infra/scripts/backup-cron.sh` — backup wrapper (env load + lock + logging)
+- `infra/scripts/ssl-renew.sh` — SSL renewal wrapper
+- `infra/scripts/install-cron.sh` — مثبّت crontab (backup + SSL)
+- `infra/scripts/vps-deploy.sh` — bootstrap الذي أصدر الشهادة الأولى
 - `governance/OPEN_ISSUES.md` — I022 (F2 append-only triggers)
