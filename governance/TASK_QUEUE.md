@@ -133,14 +133,16 @@
 ---
 
 #### T04 — Branches Detail + Edit (FE only)
-- **Status:** 🔄 IN_PROGRESS
+- **Status:** ✅ DONE
 - **Deps:** []
-- **Branch:** `feat/t04-branches-fe`
+- **Branch:** `feat/t04-branches-fe` (merged)
 - **File scope:**
   - `apps/web/src/app/(app)/settings/branches/[id]/page.tsx` (new)
   - `apps/web/src/app/(app)/settings/branches/[id]/edit/page.tsx` (new)
 - **Owner:** claude-opus-4-7-20260426-3
 - **Started:** 2026-04-26T15:35:00Z
+- **Completed:** 2026-04-26T15:41:44Z
+- **Commit:** `2690855` (PR #9 merged)
 - **Estimate:** 60min
 - **Real state:** PUT /company/branches/:id موجود. الناقص: صفحات UI.
 
