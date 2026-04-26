@@ -149,13 +149,16 @@
 ---
 
 #### T05 — Roles Permission Matrix UI (FE only)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** []
-- **Branch:** `feat/t05-roles-matrix`
+- **Branch:** `feat/t05-roles-matrix` (merged)
 - **File scope:**
   - `apps/web/src/app/(app)/settings/roles/[id]/page.tsx` (new — matrix grid)
+  - `apps/web/src/app/(app)/settings/roles/[id]/permission-matrix.tsx` (new — bitmask editor)
   - `apps/web/src/app/(app)/settings/roles/new/page.tsx` (new)
-- **Owner:** *(unclaimed)*
+- **Owner:** parallel session
+- **Completed:** 2026-04-26T15:48:57Z
+- **Commit:** `19afb42` (PR #12 merged after rebase)
 - **Estimate:** 120min
 - **Real state:** PUT /company/roles/:id/permissions موجود. الـ shape: `Record<string, number>` (bitmask). UI مفقود.
 - **Deliverables:**
