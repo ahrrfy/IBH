@@ -18,24 +18,24 @@
 
 | # | المشكلة | الأولوية | الموجة | المسؤول | الحالة |
 |---|---|---|---|---|---|
-| I001 | تحديد schema كامل لـ PostgreSQL (Prisma) قبل M01 | 🔴 حرج | Wave 1 | Tech Lead | مفتوح |
-| I002 | اختيار مكتبة ULID للـ NestJS (ulid vs @paralleldrive/cuid2) | 🟡 مهم | Wave 1 | Tech Lead | مفتوح |
-| I003 | تحديد strategy لـ POS conflict resolution عند الـ sync | 🟡 مهم | Wave 2 | Tech Lead | مفتوح |
-| I004 | VPS: تثبيت Docker + Nginx + SSL (يحتاج SSH access) | 🔴 حرج | Wave 1 | DevOps | مفتوح |
-| I005 | اختيار TOTP library للـ 2FA (otplib vs speakeasy) | 🟢 تحسين | Wave 1 | Tech Lead | مفتوح |
-| I006 | تحديد Gitea URL و Woodpecker CI configuration | 🟡 مهم | Wave 1 | DevOps | مفتوح |
+| I001 | تحديد schema كامل لـ PostgreSQL (Prisma) قبل M01 | 🔴 حرج | Wave 1 | Tech Lead | ✅ **مغلق** — 86 جدول في schema.prisma + migrations 0001-0008 مُطبَّقة. راجع I027 (seed كامل نجح). |
+| I002 | اختيار مكتبة ULID للـ NestJS (ulid vs @paralleldrive/cuid2) | 🟡 مهم | Wave 1 | Tech Lead | ✅ **مغلق** — `ulid@^2.3.0` مُختاَر ومُستخدَم في `apps/api/package.json`. `gen_ulid()` PostgreSQL function في migration 0007. |
+| I003 | تحديد strategy لـ POS conflict resolution عند الـ sync | 🟡 مهم | Wave 2 | Tech Lead | مفتوح — لم يُنفَّذ POS sync بعد (Wave 2 للإنتاج). clientUlid idempotency مُطبَّقة على POS receipts كـ first layer. |
+| I004 | VPS: تثبيت Docker + Nginx + SSL (يحتاج SSH access) | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** — راجع I028: كل الـ 8 services healthy. deploy-on-vps.sh ينشر تلقائياً. Let's Encrypt SSL فعّال على ibherp.cloud. |
+| I005 | اختيار TOTP library للـ 2FA (otplib vs speakeasy) | 🟢 تحسين | Wave 1 | Tech Lead | ✅ **مغلق** — `otplib@^12.0.1` مُختاَر + `TotpService` مُطبَّق في `apps/api/src/engines/auth/totp.service.ts`. |
+| I006 | تحديد Gitea URL و Woodpecker CI configuration | 🟡 مهم | Wave 1 | DevOps | ✅ **مغلق** — تم الاستعاضة بـ GitHub Actions (`ci.yml` + `deploy-vps.yml` + `security-scan.yml`). لا حاجة لـ self-hosted CI في المرحلة الحالية. |
 | I007 | زر "تسجيل الدخول" — الجذر الفعلي: token في localStorage فقط، middleware يبحث في cookie | 🔴 حرج | Wave 1 | Frontend | ✅ **مغلق** (2026-04-25, commit `d2073a5`) — يحتاج VPS rebuild |
-| I008 | full seed.ts لم يُختبَر — Iraqi CoA + roles + policies لم تُسلَّم | 🟡 مهم | Wave 1 | Backend | مفتوح |
-| I009 | 2FA UI مكتمل لكن لم يُختبَر — يتطلب دخول ناجح من المتصفح أولاً | 🟡 مهم | Wave 1 | QA | مفتوح |
+| I008 | full seed.ts لم يُختبَر — Iraqi CoA + roles + policies لم تُسلَّم | 🟡 مهم | Wave 1 | Backend | ✅ **مغلق** — راجع I027: seed.ts نجح بالكامل (98 CoA + 10 roles + 11 policies + 6 warehouses + 12 periods). |
+| I009 | 2FA UI مكتمل لكن لم يُختبَر — يتطلب دخول ناجح من المتصفح أولاً | 🟡 مهم | Wave 1 | QA | مفتوح — يحتاج اختبار يدوي في المتصفح. الكود مكتمل (`totp.service.ts` + login page step === 'mfa'). |
 | I010 | Build فشل (14 errors) — Prisma Client stale (schema حديث، Client قديم) | 🔴 حرج | Wave 1 | Backend | ✅ **مغلق** (2026-04-25, commit `a239255`) |
-| I011 | Login error not displayed in UI (Console only) — UX bug | 🟢 تحسين | Wave 1 | Frontend | مفتوح — منخفض الأولوية بعد إغلاق I007 |
+| I011 | Login error not displayed in UI (Console only) — UX bug | 🟢 تحسين | Wave 1 | Frontend | ✅ **مغلق** — راجع `apps/web/src/app/login/page.tsx:119-123,197-201` (errors render in red banner عبر `setError`). أُضيف `role="alert" + aria-live="assertive"` لإعلام screen readers (a11y) |
 | I012 | api + web containers `unhealthy` — healthcheck path/protocol خاطئ في 4 مواضع | 🟡 مهم | Wave 1 | DevOps | ✅ **مغلق نهائياً** (2026-04-26) — راجع §I012 (4 جذور متراكبة) |
 | I016 | NL Query في `nl-query.service.ts` يستخدم `$queryRawUnsafe(generatedSql)` بدون validation للجداول ولا READ ONLY tx → SQL injection ممكن من AI Brain | 🔴 حرج | Wave 6 | Security | ✅ **مغلق** (2026-04-26) — table parser + READ ONLY tx + multi-statement guard + 5K row cap (commit `4586252` + JSDoc fix `39f3751`) |
 | I017 | `ci.yml` مفقود (تم حذفه في `d1b39b3`) → لا حماية من بناء فاشل قبل deploy | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — `ci.yml` مُعاد بناؤه: 3 jobs (typecheck-build ✅ · standalone ✅ · e2e ⚠️ يكشف bugs قائمة) |
 | I018 | البنية التحتية لـ e2e tests في CI لم تكن قابلة للتشغيل — 12 ملف يفشل بأخطاء infra | 🟡 مهم | Wave 1 | QA | ✅ **مغلق** (2026-04-26) — راجع §I018 (6 طبقات infra) |
-| I019 | 8 e2e tests فردية فيها bugs (FK setup, type errors, calc mismatch) — مكشوفة بعد إصلاح I018 | 🟡 مهم | Wave 1 | Backend/QA | 🔄 جزئي — 3 مغلقة في main (2026-04-26) · 5 في PR #5 (feat/e2e-i019) تنتظر merge |
-| I020 | جلسات متعددة تعمل على main مباشرة — تتعارض مع بعضها وتُعيد تغييرات بعضها | 🟡 مهم | Wave 1 | DevOps | جديد (2026-04-26) — استراتيجية فروع مُنشأة (feat/*) لكن الجلسات الأخرى تتجاهلها وتدفع لـ main مباشرة |
-| I021 | PR #5 (feat/e2e-i019) يحتاج rebase على main الحالي قبل الدمج | 🟢 تحسين | Wave 1 | DevOps | جديد (2026-04-26) — main تقدّم بـ 3 commits بعد نشأة الفرع |
+| I019 | 8 e2e tests فردية فيها bugs (FK setup, type errors, calc mismatch) — مكشوفة بعد إصلاح I018 | 🟡 مهم | Wave 1 | Backend/QA | ✅ **مغلق** (2026-04-26) — PR #5 (feat/e2e-i019) مدموج؛ 19/19 suites pass · 35/36 tests pass (1 .skip في `pos-session.e2e-spec.ts`) |
+| I020 | جلسات متعددة تعمل على main مباشرة — تتعارض مع بعضها وتُعيد تغييرات بعضها | 🟡 مهم | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — `ACTIVE_SESSION_LOCKS.md` + فروع feat/* + PR-only merge مُنفَّذ لكل المهام T01-T30. لا جلسات متوازية نشطة. |
+| I021 | PR #5 (feat/e2e-i019) يحتاج rebase على main الحالي قبل الدمج | 🟢 تحسين | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — PR #5 مدموج بعد rebase ناجح |
 | I022 | **🚨 F2 violation على الإنتاج** — صفر append-only triggers لمدة 6 أسابيع | 🔴 حرج | Wave 1 | Backend/Security | ✅ **مغلق** (2026-04-26) — راجع §I022 (3 طبقات متراكبة) |
 | I019 | 8 e2e tests فردية فيها bugs (FK, type, calc) | 🟡 مهم | Wave 1 | Backend/QA | ✅ **مغلق** (2026-04-26) — 19/19 suites pass · 35/36 tests pass (1 .skip) في commit `a245467` |
 | I023 | Deploy workflow كان يستخدم `bash -s < script` فيستهلك docker-compose-exec الـ stdin → كل خطوات بعد أول exec تُتجاوز صامتاً (السبب الفعلي لـ I022) | 🔴 حرج | Wave 1 | DevOps | ✅ **مغلق** (2026-04-26) — تحويل لـ `scp + ssh exec` (commit `bc764ac`) |
