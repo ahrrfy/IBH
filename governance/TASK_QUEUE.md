@@ -275,16 +275,19 @@
 
 ---
 
-#### T14 — Stocktaking UI (FE only)
-- **Status:** ⏳ TODO
+#### T14 — Stocktaking UI + GET endpoints
+- **Status:** 🔄 IN_PROGRESS
 - **Deps:** []
 - **Branch:** `feat/t14-stocktaking-fe`
 - **File scope:**
-  - `apps/web/src/app/(app)/inventory/stocktaking/page.tsx`
-  - `apps/web/src/app/(app)/inventory/stocktaking/new/page.tsx`
-  - `apps/web/src/app/(app)/inventory/stocktaking/[id]/page.tsx`
+  - `apps/api/src/modules/inventory/inventory.controller.ts` (extend) — GET /inventory/stocktaking + /:id
+  - `apps/api/src/modules/inventory/inventory.service.ts` (extend) — list/get
+  - `apps/web/src/app/(app)/inventory/stocktaking/page.tsx` (new)
+  - `apps/web/src/app/(app)/inventory/stocktaking/new/page.tsx` (new)
+  - `apps/web/src/app/(app)/inventory/stocktaking/[id]/page.tsx` (new)
+- **Owner:** claude-opus-4-7-20260426-3
+- **Started:** 2026-04-26T17:30:00Z
 - **Estimate:** 150min
-- **Real state:** Backend مكتمل (createSession + submitCount + approve). UI مفقود.
 
 ---
 
