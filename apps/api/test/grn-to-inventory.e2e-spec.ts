@@ -61,9 +61,13 @@ describe('Purchases — GRN → Inventory ledger link (e2e)', () => {
         });
 
         // At least one IN entry for this line; sum equals the accepted qty.
-        const inEntries = ledgerEntries.filter((e) => e.direction === 'in');
+        // StockLedgerEntry encodes direction in the sign of qtyChange:
+        //   qtyChange > 0  → in
+        //   qtyChange < 0  → out
+        // (No separate `direction` column — see schema.prisma.)
+        const inEntries = ledgerEntries.filter((e) => Number(e.qtyChange) > 0);
         expect(inEntries.length).toBeGreaterThan(0);
-        const totalIn = inEntries.reduce((s, e) => s + Number(e.qty), 0);
+        const totalIn = inEntries.reduce((s, e) => s + Number(e.qtyChange), 0);
         expect(totalIn).toBeCloseTo(qAcc, 4);
 
         // Cost flows through unchanged. Allow tiny FP drift on conversion.
