@@ -73,7 +73,7 @@ Before marking a session closed:
 
 ## Active Locks (live)
 
-- **T13** | session: `claude-opus-4-7-20260426-3` | branch: `feat/t13-transfers-fe` | files: `apps/api/src/modules/inventory/inventory.{controller,service}.ts`, `apps/web/src/app/(app)/inventory/transfers/**` | started: 2026-04-26T16:30:00Z
-- **T25** | session: `claude-opus-4-7-20260426-3` | branch: `feat/t25-storefront-deploy` | files: `apps/storefront/Dockerfile`, `apps/storefront/next.config.js`, `infra/docker-compose.bootstrap.yml`, `infra/nginx/conf.d/bootstrap.conf`, `infra/nginx/host-vhost-shop.conf` | started: 2026-04-26T19:00:00Z
+**لا قفول نشطة — جميع T-tasks مغلقة. الريبو نظيف.**
 
-_(T01 closed 2026-04-26T15:08:04Z via PR #6 — fa3aeee)_
+_(T01 closed PR#6 fa3aeee · T13 closed PR#13 58d9d30 · T25 closed PR#28 f4f358d)_
+_(All 30 T-tasks closed 2026-04-26 — full history in TASK_QUEUE.md)_

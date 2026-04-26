@@ -1,5 +1,47 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff — 2026-04-26 (Session 4 — final close) ✅ CLOSED
+
+## Branch
+`main` — latest commit `5f3026f` (PR #53 merged)
+
+## Completed This Session (Session 4)
+- ✅ Merged PRs: #40, #43, #46, #47, #51 (governance), #52 (CST prefix), #53 (WA optional profile)
+- ✅ **Critical deploy fix (PR #53)**: WhatsApp env `:?` was aborting every `docker compose up` on VPS → moved to `--profile whatsapp` (optional). Deploys now succeed without WA credentials.
+- ✅ **Customer.code overflow fix (PR #52)**: 'customer' prefix → 'CST' — codes now max 19 chars (VarChar(20) safe)
+- ✅ ACTIVE_SESSION_LOCKS.md cleaned: removed stale T13 + T25 active locks
+- ✅ Synced TASK_QUEUE.md: 30/30 ✅ DONE
+- ✅ MODULE_STATUS_BOARD: 18/18 modules, 0 open PRs
+
+## Final State of main
+- **Open PRs: 0** ✅
+- **TASK_QUEUE: 30/30 DONE** ✅
+- **Active locks: 0** ✅
+- **CI: all checks passing** ✅
+
+## Remaining Genuinely Open (manual/VPS only)
+| # | Issue | Action |
+|---|---|---|
+| I003 | POS sync conflict strategy | Design decision — Wave 2 |
+| I009 | 2FA manual browser QA | Needs browser session on VPS |
+| I024 | Production password rotation | `ssh vps` → Settings → Users → Edit |
+
+## Manual VPS Steps Required
+1. `ssh root@vps 'bash /opt/al-ruya-erp/infra/scripts/install-cron.sh'` — 4 crons (backup + offsite + ssl-renew + ssl-expiry)
+2. DNS A `shop.ibherp.cloud` → VPS IP + `certbot --nginx -d shop.ibherp.cloud`
+3. B2 backup: add `RESTIC_B2_REPOSITORY` + `B2_ACCOUNT_ID` + `B2_ACCOUNT_KEY` to VPS `.env`
+4. Run `docker compose up -d` — now succeeds without WA credentials (WA is `--profile whatsapp`)
+5. DR drill: `restic restore latest --target /tmp/restore-test`
+
+## Next Safest Step
+```bash
+git pull origin main && gh pr list --state open
+# → should be empty
+# Next: VPS manual steps above, then UAT via governance/UAT_PLAYBOOK.md
+```
+
+---
+
 # Session Handoff — 2026-04-26 (Session 3 — verification + acceptance-test gap closure) ✅ CLOSED
 
 ## Branch
