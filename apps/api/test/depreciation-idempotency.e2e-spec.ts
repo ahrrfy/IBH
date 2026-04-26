@@ -32,6 +32,16 @@ describe('AssetDepreciation — period idempotency (e2e)', () => {
     await app?.close();
   });
 
+  // asset_depreciation.assetId is an FK to fixed_assets.id. The test targets
+  // the @@unique index, not the FK chain. Disable FK triggers so synthetic
+  // assetId values can be inserted without seeding a full fixed_asset row.
+  beforeAll(async () => {
+    await prisma.$executeRawUnsafe(`SET session_replication_role = 'replica'`);
+  });
+  afterAll(async () => {
+    await prisma.$executeRawUnsafe(`SET session_replication_role = 'origin'`);
+  });
+
   it('DB unique index rejects a second depreciation row for the same asset+year+month', async () => {
     const assetId = 'TESTASSETDEPRECIATION0000A';
     const year = 2099;

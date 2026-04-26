@@ -14,6 +14,9 @@ describe('SequenceService — Uniqueness (e2e)', () => {
   let prisma: PrismaService;
   let sequence: SequenceService;
   const companyId = '01HZZZZZZZZZZZZZZZZZZZZZZZ';
+  // NULL branchId breaks ON CONFLICT in PostgreSQL (NULL != NULL in unique indexes).
+  // Use a fixed sentinel branchId so the upsert correctly increments lastValue.
+  const branchId = 'TESTBRANCH00000000000000A';
 
   beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
@@ -26,14 +29,14 @@ describe('SequenceService — Uniqueness (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prisma.documentSequence.deleteMany({ where: { companyId, prefix: 'TEST' } });
+    await prisma.documentSequence.deleteMany({ where: { companyId, branchId, prefix: 'TEST' } });
     await app?.close();
   });
 
   it('produces unique numbers under concurrency', async () => {
     const N = 50;
     const results = await Promise.all(
-      Array.from({ length: N }, () => sequence.next(companyId, 'TEST')),
+      Array.from({ length: N }, () => sequence.next(companyId, 'TEST', branchId)),
     );
     const unique = new Set(results);
     expect(unique.size).toBe(N);
