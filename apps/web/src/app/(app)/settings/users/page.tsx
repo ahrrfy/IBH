@@ -12,7 +12,7 @@ import { ROLE_LABELS_AR } from '@/lib/permissions';
 export default function UsersListPage() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['users'],
-    queryFn: () => api<any>('/admin/users'),
+    queryFn: () => api<any>('/users'),
   });
   const rows: any[] = Array.isArray(data) ? data : data?.items ?? [];
 

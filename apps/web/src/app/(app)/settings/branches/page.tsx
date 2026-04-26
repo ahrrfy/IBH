@@ -10,7 +10,7 @@ import { Plus, Building2, Phone } from 'lucide-react';
 export default function BranchesListPage() {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['branches'],
-    queryFn: () => api<any>('/admin/branches'),
+    queryFn: () => api<any>('/company/branches'),
   });
   const rows: any[] = Array.isArray(data) ? data : data?.items ?? [];
 

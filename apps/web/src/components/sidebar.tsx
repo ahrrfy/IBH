@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -38,7 +38,15 @@ const NAV = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout } = useAuth();
+  const isOwner = Boolean((user as any)?.isSystemOwner);
+  const displayName = (user as any)?.nameAr ?? (user as any)?.name ?? (user as any)?.email?.split('@')[0] ?? 'مستخدم';
+  const roleLabel = isOwner ? 'مالك النظام' : null;
+  async function handleLogout() {
+    await logout();
+    router.replace('/login');
+  }
 
   return (
     <aside className="fixed inset-y-0 right-0 z-30 flex w-64 flex-col border-l border-slate-200 bg-white">
@@ -80,17 +88,19 @@ export function Sidebar() {
       <div className="border-t border-slate-200 p-3">
         <div className="mb-2 flex items-center gap-3 rounded-lg bg-slate-50 p-2">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-sky-700 text-white text-sm font-bold">
-            {(user?.name || 'م').slice(0, 1)}
+            {displayName.slice(0, 1)}
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold text-slate-900">
-              {user?.name || 'مستخدم'}
+              {displayName}
             </div>
-            <div className="truncate text-xs text-slate-500">{user?.email || ''}</div>
+            <div className="truncate text-xs text-slate-500">
+              {roleLabel ?? user?.email ?? ''}
+            </div>
           </div>
         </div>
         <button
-          onClick={() => logout()}
+          onClick={handleLogout}
           className="flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
         >
           <LogOut className="h-4 w-4" />

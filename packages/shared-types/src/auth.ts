@@ -61,6 +61,9 @@ export interface AuthenticatedUser {
   locale: 'ar' | 'en' | 'ku';
   requires2FA: boolean;
   twoFactorVerified: boolean;
+  // True only for the singleton system owner (isSystemOwner=true in DB).
+  // Frontend uses it to show "مالك النظام" instead of generic "مستخدم".
+  isSystemOwner: boolean;
 }
 
 export interface TwoFactorRequest {

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { ROLE_LABELS_AR } from '@/lib/permissions';
 
@@ -53,6 +53,7 @@ const PATH_LABELS: Record<string, string> = {
 
 export function Topbar() {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const pathname = usePathname() || '';
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -61,9 +62,19 @@ export function Topbar() {
 
   // Build breadcrumb from path
   const segments = pathname.split('/').filter(Boolean);
-  const userRoles: string[] = (user as any)?.roles ?? [(user as any)?.role ?? 'مستخدم'];
-  const primaryRoleLabel = ROLE_LABELS_AR[userRoles[0]] ?? userRoles[0] ?? 'مستخدم';
-  const branchName = (user as any)?.branchName ?? 'بغداد الرئيسي';
+  const userRoles: string[] = (user as any)?.roles ?? [(user as any)?.role].filter(Boolean);
+  // System owner overrides any role label — they're the singleton root user.
+  const primaryRoleLabel = (user as any)?.isSystemOwner
+    ? 'مالك النظام'
+    : (ROLE_LABELS_AR[userRoles[0]] ?? userRoles[0] ?? 'مستخدم');
+  const branchName = (user as any)?.branchNameAr ?? (user as any)?.branchName ?? 'بغداد الرئيسي';
+  const displayName = (user as any)?.nameAr ?? (user as any)?.name ?? (user as any)?.email?.split('@')[0] ?? 'مستخدم';
+
+  async function handleLogout() {
+    await logout();
+    setMenuOpen(false);
+    router.replace('/login');
+  }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -174,10 +185,10 @@ export function Topbar() {
             className="flex items-center gap-2 rounded-lg px-2 h-9 hover:bg-slate-100"
           >
             <div className="h-7 w-7 rounded-full bg-sky-700 text-white grid place-items-center text-xs font-bold">
-              {(user?.name || 'م').slice(0, 1)}
+              {displayName.slice(0, 1)}
             </div>
             <div className="text-start leading-tight hidden lg:block">
-              <div className="text-xs font-semibold text-slate-900 max-w-[100px] truncate">{user?.name || 'مستخدم'}</div>
+              <div className="text-xs font-semibold text-slate-900 max-w-[100px] truncate">{displayName}</div>
               <div className="text-[10px] text-slate-500 max-w-[100px] truncate">{primaryRoleLabel}</div>
             </div>
             <ChevronDown className="h-3 w-3 text-slate-500" />
@@ -187,10 +198,10 @@ export function Topbar() {
               {/* User card */}
               <div className="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-sky-700 text-white grid place-items-center text-sm font-bold">
-                  {(user?.name || 'م').slice(0, 1)}
+                  {displayName.slice(0, 1)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-bold text-slate-900 truncate">{user?.name || 'مستخدم'}</div>
+                  <div className="text-sm font-bold text-slate-900 truncate">{displayName}</div>
                   <div className="text-xs text-slate-500 truncate">{user?.email || ''}</div>
                   <div className="text-[10px] text-sky-700 mt-0.5 font-medium">{primaryRoleLabel}</div>
                 </div>
@@ -211,7 +222,7 @@ export function Topbar() {
               </Link>
               <div className="my-1 h-px bg-slate-200" />
               <button
-                onClick={() => logout()}
+                onClick={handleLogout}
                 className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50"
               >
                 <LogOut className="h-4 w-4" /> تسجيل الخروج
