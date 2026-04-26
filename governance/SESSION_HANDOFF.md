@@ -1,5 +1,37 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff — 2026-04-26 (CI cleanup)
+
+## ما تم إنجازه اليوم
+- حذف 11 workflow معطّل من `.github/workflows/` — أبقينا `deploy-vps.yml` فقط
+- الملفات المحذوفة: `apisec-scan.yml`, `azure-webapps-node.yml`, `ci.yml`, `codescan.yml`, `defender-for-devops.yml`, `nextjs.yml`, `npm-publish.yml`, `nuxtjs.yml`, `python-package.yml`, `sonarcloud.yml`, `summary.yml`
+- Commit `d1b39b3` مدفوع إلى `origin/main`
+
+## ما لم يكتمل
+- لا شيء — مهمة صيانة محددة النطاق
+
+## القرارات الجديدة
+- لا قرارات معمارية (تنظيف CI فقط — لا أثر على Wave أو module)
+
+## الملفات المتأثرة
+- `.github/workflows/*` — 11 ملف محذوف، 733 سطر deletions
+
+## الاختبارات المنفذة
+- ✅ `git push` → نجح (5d60291..d1b39b3)
+- ⏭️ Build/test لم يُشغَّل — التغيير لا يمس كود app إطلاقاً (CI metadata فقط)
+
+## المخاطر المفتوحة
+- لا مخاطر جديدة من هذه الجلسة
+- المخاطر السابقة (I013 nginx DNS، web unhealthy، 19 e2e لم يُشغَّل) لا تزال مفتوحة في السجل أدناه
+
+## ممنوع تغييره في الجلسة القادمة
+- إعادة إضافة أيٍّ من الـ 11 workflow المحذوفة بدون قرار صريح في DECISIONS_LOG
+
+## الخطوة التالية بالضبط
+- استئناف خطوات 2026-04-25 الموثقة أدناه: تأكيد UAT للدخول، إصلاح I013 (nginx resolver)، تشغيل e2e tests، اختبار 2FA UI
+
+---
+
 # Session Handoff — 2026-04-25 (FULL SESSION: governance + I010 + I007 + first UAT)
 
 ## 🎯 الحدث الفارق
