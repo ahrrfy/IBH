@@ -279,13 +279,15 @@
 ---
 
 #### T15 — Sales Returns UI (FE only)
-- **Status:** ⏳ TODO
+- **Status:** 🔄 IN_PROGRESS
 - **Deps:** []
 - **Branch:** `feat/t15-returns-fe`
 - **File scope:**
   - `apps/web/src/app/(app)/sales/returns/page.tsx`
   - `apps/web/src/app/(app)/sales/returns/new/page.tsx`
   - `apps/web/src/app/(app)/sales/returns/[id]/page.tsx`
+- **Owner:** claude-opus-4-7-20260426-5
+- **Started:** 2026-04-26T16:30:00Z
 - **Estimate:** 120min
 
 ---
