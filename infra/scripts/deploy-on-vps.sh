@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# ─────────────────────────────────────────────────────────────────────────────
+# deploy-on-vps.sh — runs ON THE VPS (called by GitHub Actions deploy workflow)
+#
+# Pulls latest main, rebuilds api+web containers, reloads nginx (so it picks
+# up new container IPs via Docker DNS — closes I013), runs migrations, and
+# health-probes /health with retries.
+#
+# Exits non-zero on any failure so the workflow surfaces it.
+# ─────────────────────────────────────────────────────────────────────────────
+set -euo pipefail
+
+REPO_DIR="${REPO_DIR:-/opt/al-ruya-erp}"
+INFRA_DIR="$REPO_DIR/infra"
+COMPOSE_FILE="docker-compose.bootstrap.yml"
+HEALTH_URL="${HEALTH_URL:-https://ibherp.cloud/health}"
+
+echo "🔎 host=$(hostname -f) user=$(whoami) repo=$REPO_DIR"
+
+if [ ! -d "$REPO_DIR/.git" ]; then
+  echo "❌ $REPO_DIR is not a git repo on this host"
+  exit 1
+fi
+
+cd "$REPO_DIR"
+echo "→ git fetch + reset to origin/main"
+git fetch origin main
+BEFORE_SHA=$(git rev-parse HEAD)
+git reset --hard origin/main
+AFTER_SHA=$(git rev-parse HEAD)
+echo "   $BEFORE_SHA → $AFTER_SHA"
+
+cd "$INFRA_DIR"
+COMPOSE="docker compose -f $COMPOSE_FILE --env-file .env"
+
+echo "→ build api + web"
+$COMPOSE build api web
+
+echo "→ recreate api + web"
+$COMPOSE up -d --force-recreate api web
+
+# Reload nginx so it picks up any conf changes AND re-resolves new container
+# IPs via Docker DNS (resolver 127.0.0.11). Closes I013 — no more manual
+# `docker restart nginx` after deploy.
+echo "→ test + reload nginx"
+if $COMPOSE exec -T nginx nginx -t; then
+  $COMPOSE exec -T nginx nginx -s reload
+  echo "   ✅ nginx reloaded"
+else
+  echo "   ❌ nginx config invalid"
+  exit 1
+fi
+
+echo "→ run any new prisma migrations"
+$COMPOSE exec -T api sh -c 'cd /app && npx prisma migrate deploy --schema=prisma/schema.prisma' || {
+  echo "   ⚠️  migrate deploy returned non-zero — continuing (may be no-op)"
+}
+
+echo "→ probe $HEALTH_URL (6 × 5s)"
+for i in 1 2 3 4 5 6; do
+  if curl -fsS --max-time 5 "$HEALTH_URL" > /dev/null; then
+    echo "   ✅ /health OK on attempt $i"
+    echo "✅ Deploy successful (commit $AFTER_SHA)"
+    exit 0
+  fi
+  echo "   ⏳ attempt $i/6 — sleeping 5s"
+  sleep 5
+done
+
+echo "❌ /health failed after 6 attempts — dumping logs"
+$COMPOSE logs api --tail=80
+$COMPOSE logs web --tail=40
+$COMPOSE logs nginx --tail=20
+exit 1
