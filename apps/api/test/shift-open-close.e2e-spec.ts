@@ -61,35 +61,39 @@ describe('Shift open/close — one open shift per device (e2e)', () => {
   it('DB allows a new open shift after the previous one is closed', async () => {
     const deviceId = 'TESTSHIFTDEVICE0000000000B';
 
-    // First batch: insert one open, then close it, then insert another open.
-    // Whole sequence must succeed because the partial unique only counts rows
-    // WHERE status='open'.
-    const result = await prisma.$executeRawUnsafe(`
-      WITH first_open AS (
-        INSERT INTO shifts
-          ("id", "companyId", "branchId", "posDeviceId", "cashierId",
-           "shiftNumber", "openingCashIqd", "status", "openedAt")
-        VALUES
-          (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26),
-           '${deviceId}', gen_ulid()::char(26),
-           'TEST-SHIFT-C', 100000, 'open', NOW())
-        RETURNING "id"
-      ),
-      closed AS (
-        UPDATE shifts SET "status" = 'closed', "closedAt" = NOW()
-        WHERE "id" = (SELECT "id" FROM first_open)
-        RETURNING "id"
-      )
+    // Cannot do this in a single CTE — PostgreSQL CTEs see the snapshot
+    // from before the statement, so an UPDATE in one CTE can't see rows
+    // that an INSERT in another CTE just wrote. Split into 3 statements.
+
+    // 1. Insert first open shift
+    await prisma.$executeRawUnsafe(`
       INSERT INTO shifts
         ("id", "companyId", "branchId", "posDeviceId", "cashierId",
          "shiftNumber", "openingCashIqd", "status", "openedAt")
-      SELECT
-        gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26),
-        '${deviceId}', gen_ulid()::char(26),
-        'TEST-SHIFT-D', 100000, 'open', NOW()
-      FROM closed
+      VALUES
+        (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26),
+         '${deviceId}', gen_ulid()::char(26),
+         'TEST-SHIFT-C', 100000, 'open', NOW())
     `);
 
-    expect(result).toBeGreaterThanOrEqual(1);
+    // 2. Close it
+    await prisma.$executeRawUnsafe(`
+      UPDATE shifts SET "status" = 'closed', "closedAt" = NOW()
+      WHERE "posDeviceId" = '${deviceId}' AND "status" = 'open'
+    `);
+
+    // 3. Insert another open shift on the SAME device — must succeed
+    //    because the partial unique only counts WHERE status='open'.
+    const inserted = await prisma.$executeRawUnsafe(`
+      INSERT INTO shifts
+        ("id", "companyId", "branchId", "posDeviceId", "cashierId",
+         "shiftNumber", "openingCashIqd", "status", "openedAt")
+      VALUES
+        (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26),
+         '${deviceId}', gen_ulid()::char(26),
+         'TEST-SHIFT-D', 100000, 'open', NOW())
+    `);
+
+    expect(inserted).toBeGreaterThanOrEqual(1);
   });
 });
