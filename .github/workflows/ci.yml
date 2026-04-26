@@ -153,10 +153,16 @@ jobs:
             echo "→ $f"
             psql -h localhost -U erp -d alruya_erp_test -v ON_ERROR_STOP=0 -f "$f" >/dev/null 2>&1 || true
           done
-          # Verify the partial unique index that shift-open-close depends on
-          psql -h localhost -U erp -d alruya_erp_test -tAc \
-            "SELECT 1 FROM pg_indexes WHERE indexname = 'shifts_one_open_per_device'" \
+          # Verify what the e2e tests actually depend on:
+          # 1. partial unique index (shift-open-close)
+          PSQL_Q="psql -h localhost -U erp -d alruya_erp_test -tAc"
+          $PSQL_Q "SELECT 1 FROM pg_indexes WHERE indexname = 'shifts_one_open_per_device'" \
             | grep -q 1 || { echo "❌ shifts_one_open_per_device missing"; exit 1; }
+          # 2. append-only triggers (inventory-mwa + audit-append-only)
+          for trg in no_update_audit_logs no_update_stock_ledger no_update_je_lines; do
+            $PSQL_Q "SELECT 1 FROM pg_trigger WHERE tgname = '$trg'" \
+              | grep -q 1 || { echo "❌ trigger $trg missing"; exit 1; }
+          done
           echo "✅ partial indexes + triggers + RLS applied"
       - name: Seed bootstrap data (companies, roles, admin user, Iraqi CoA)
         # Many tests reference companies/users from seed via prisma.company.findFirst().
