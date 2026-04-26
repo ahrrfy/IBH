@@ -1,5 +1,111 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff — 2026-04-26 (Session 6 — GitHub Security self-healing loop) ✅ CLOSED
+
+## Branch
+`feat/security-self-healing-loop` — PR #56 مفتوح ينتظر merge
+آخر commit: `9d1843d`
+
+## ما تم إنجازه اليوم (Session 6)
+
+### تفعيل GitHub Security Stack كامل (D13)
+**الهدف**: تحويل GitHub Security من لوحة تحذيرات سلبية إلى **مولّد مهام تلقائي** يغذّي governance، ويُغلق الحلقة عند الإصلاح — بشكل **فوري + مستمر** بدون جدول ثابت.
+
+### الحلقة المبنية
+```
+حدث (alert/push/PR/workflow) → ثوانٍ
+  → security-bridge.yml يفتح Issue + يحدّث OPEN_ISSUES.md
+  → جلسة Claude → next-task.sh يلتقطها → fix → PR → merge
+  → security-close-hook.yml يغلق Issue + يحدّث OPEN_ISSUES.md ✅
+  → security-sweep.yml يحدّث الـ digest الحي
+الحلقة لا تتوقف حتى total_open = 0
+```
+
+### الملفات المُنشأة (10) + المُحدَّثة (3) في PR #56
+- `.github/workflows/codeql.yml` — JS/TS scan بـ security-extended
+- `.github/dependabot.yml` — تحديثات أسبوعية مجمّعة لـ 6 ecosystems
+- `.github/workflows/security-bridge.yml` — alert → Issue (event-driven: code_scanning/secret_scanning/dependabot)
+- `.github/workflows/security-close-hook.yml` — fix merged → Issue closed → ✅ في OPEN_ISSUES
+- `.github/workflows/security-sweep.yml` — حلقة مستمرة (push/PR/workflow_run/issues + 15min safety net)
+- `.github/workflows/dependabot-automerge.yml` — auto-merge للـ patch/minor/dev
+- `SECURITY.md` — سياسة AR/EN + SLA
+- `scripts/sync-security-issues.sh` — helper يفتح Issue + يحدّث governance
+- `scripts/update-security-digest.sh` — يبني/يحدّث/يغلق digest issue واحد
+- **محدَّث**: `CLAUDE.md` — خطوة 9 جديدة في session-start
+- **محدَّث**: `governance/SESSION_PROTOCOL.md` — نفس الإضافة + شرح
+- **محدَّث**: `governance/DECISIONS_LOG.md` — D13
+
+### تفعيلات يدوية أنجزها المالك (في GitHub UI)
+- ✅ Dependabot alerts
+- ✅ Dependabot security updates
+- ✅ Private vulnerability reporting
+- ⏳ Code scanning + Security policy → سيُفعَّلان تلقائياً بعد merge
+
+## ما لم يكتمل
+- **PR #56 لم يُمرَج بعد** — ينتظر مراجعة المالك ثم merge.
+- **21 ثغرة Dependabot موجودة على main** (12 high + 9 moderate) — ستظهر تلقائياً كـ 21 Issue بـ label `security:auto` بمجرد merge.
+
+## القرارات الجديدة
+- **D13**: تفعيل GitHub Security Stack كامل (CodeQL + Dependabot + Secret Scanning + Private Vuln Reporting) مع جسر تلقائي لـ governance — راجع `governance/DECISIONS_LOG.md`.
+
+## الملفات المتأثرة (13)
+1. `.github/workflows/codeql.yml` (جديد)
+2. `.github/workflows/security-bridge.yml` (جديد)
+3. `.github/workflows/security-close-hook.yml` (جديد)
+4. `.github/workflows/security-sweep.yml` (جديد)
+5. `.github/workflows/dependabot-automerge.yml` (جديد)
+6. `.github/dependabot.yml` (جديد)
+7. `SECURITY.md` (جديد، root)
+8. `scripts/sync-security-issues.sh` (جديد)
+9. `scripts/update-security-digest.sh` (جديد)
+10. `CLAUDE.md` (محدَّث — خطوة 9 في session-start)
+11. `governance/SESSION_PROTOCOL.md` (محدَّث)
+12. `governance/DECISIONS_LOG.md` (محدَّث — D13)
+13. `governance/MODULE_STATUS_BOARD.md` (محدَّث — هذه الجلسة)
+
+## الاختبارات المنفذة
+- ✅ `bash -n scripts/sync-security-issues.sh` — syntax OK
+- ✅ `bash -n scripts/update-security-digest.sh` — syntax OK
+- ✅ Python YAML parse على كل الـ 4 workflows + dependabot.yml — كلها صحيحة
+- ✅ Push نجح، gitleaks pre-commit hook نظيف ("No secrets detected")
+- ⏳ CI الكامل على PR #56 — يعمل الآن (راجع `gh pr checks 56`)
+- ℹ️ لم نشغّل `npm run build/test` — لم نلمس أي كود TS/JS، فقط workflows + scripts + markdown
+
+## المخاطر المفتوحة
+- 🟡 **21 Dependabot vulns على main** — ليست ثغرة جديدة، لكن سيظهرن دفعة واحدة كـ 21 Issue بعد merge. الحل: الجلسة القادمة تفتح branch لكل واحدة (أو تجمعها في PRs مجمّعة بحسب الـ package).
+- 🟢 **bot commits على governance/** — تستخدم `[skip ci]` و branch منفصل، لكن إذا جلسة فاعلة عملت rebase قد تواجه conflict بسيط في `OPEN_ISSUES.md`. التخفيف موجود (auto-merge على bot branches).
+- 🟢 **15-min safety-net cron** — يستهلك ~96 runs/يوم. ضمن الـ free tier بسهولة.
+
+## ممنوع تغييره في الجلسة القادمة
+- D13 مقفل — لا تنقل أو تغيّر النمط الأساسي للحلقة (event-driven + safety net).
+- لا تحوّل `codeql.yml` لـ "Default setup" من GitHub UI — راح يتعارض مع الـ Advanced workflow.
+- لا تشغّل `gh issue close` يدوياً على Issue بـ label `security:auto` قبل دفع الإصلاح.
+
+## الخطوة التالية بالضبط
+
+```bash
+# 1. (المالك) راجع وادمج PR #56
+gh pr view 56 --web
+
+# 2. بعد merge — تأكد أن Code scanning + Security policy صار ✅
+open https://github.com/ahrrfy/IBH/security
+
+# 3. تأكد أن أول CodeQL run بدأ
+gh run list --workflow=codeql.yml --limit 1
+
+# 4. تأكد أن الـ 21 Dependabot alert تحوّلت إلى Issues
+gh issue list --label security:auto --state open
+
+# 5. بداية الجلسة القادمة — اقرأ:
+gh issue list --label security:digest --state open  # الـ digest الحي
+gh issue list --label security:auto --state open --limit 5  # أولى 5 ثغرات
+
+# 6. اختر أعلى أولوية (🔴) → افتح branch → إصلح → PR → merge
+#    الحلقة تغلق Issue تلقائياً عبر security-close-hook.yml
+```
+
+---
+
 # Session Handoff — 2026-04-26 (Session 5 — deploy fixes + useSearchParams) ✅ CLOSED
 
 ## Branch
