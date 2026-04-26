@@ -14,8 +14,21 @@
 -- append-only e2e tests). So no behavior change for legitimate code, but
 -- now data tampering at the DB level is impossible.
 --
--- The function prevent_update_delete() was already created by migration 0001.
+-- The function prevent_update_delete() should have been created by migration
+-- 0001, but in production the original bootstrap was done via 'prisma db push'
+-- (not migrate deploy) so the SQL inside the migration files never ran. We
+-- re-create the function here idempotently so this migration is self-contained.
 -- ─────────────────────────────────────────────────────────────────────────────
+
+CREATE OR REPLACE FUNCTION prevent_update_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'Table % is append-only. Updates and deletes are not permitted.',
+    TG_TABLE_NAME
+    USING ERRCODE = 'restrict_violation';
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
 
 -- audit_logs (immutable audit trail)
 DROP TRIGGER IF EXISTS no_update_audit_logs ON audit_logs;
