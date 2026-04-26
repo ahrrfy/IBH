@@ -89,12 +89,14 @@ jobs:
         run: pnpm --filter api exec prisma generate
       - name: Apply migrations
         run: pnpm --filter api exec prisma migrate deploy
+      - name: Seed bootstrap data (companies, roles, admin user, Iraqi CoA)
+        # Many tests reference companies/users from seed via prisma.company.findFirst().
+        # Without this they fail with PrismaClientKnownRequestError on null records.
+        run: pnpm --filter api exec prisma db seed
       - name: Build workspace packages
         run: pnpm --filter '@erp/shared-types' --filter '@erp/validation-schemas' --filter '@erp/domain-events' build
       - name: Run e2e suite
         run: pnpm --filter api test:e2e
-        # If pnpm script doesn't exist, fall back to running jest directly
-        continue-on-error: false
 
   standalone-services:
     name: Standalone services (license-server + whatsapp-bridge)
