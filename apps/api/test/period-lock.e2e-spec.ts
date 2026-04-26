@@ -32,8 +32,10 @@ describe('Posting — Period Lock (e2e)', () => {
     const company = await prisma.company.findFirst();
     if (!company) return;
 
+    // PeriodStatus enum: open | soft_closed | hard_closed (no plain 'closed').
+    // Posting must be rejected for either soft or hard close.
     const period = await prisma.accountingPeriod.findFirst({
-      where: { companyId: company.id, status: 'closed' },
+      where: { companyId: company.id, status: { in: ['soft_closed', 'hard_closed'] } },
     });
     if (!period) return;
 

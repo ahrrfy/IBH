@@ -77,8 +77,11 @@ jobs:
       # TEST_ADMIN_* (a separate seeded user).
       OWNER_USERNAME: ci-owner
       OWNER_PASSWORD: ci-owner-password-not-for-production
-      SEED_ADMIN_EMAIL: admin@ci.test
-      SEED_ADMIN_PASSWORD: ci-admin-password-not-for-production
+      # Seed reads ADMIN_EMAIL/PASSWORD; auth.e2e-spec reads TEST_ADMIN_*.
+      # Same conceptual user — pin both pairs to identical values so the
+      # test admin is created AND the test logs in as that user.
+      ADMIN_EMAIL: testadmin@ci.test
+      ADMIN_PASSWORD: ci-test-admin-password-not-for-production
       TEST_ADMIN_EMAIL: testadmin@ci.test
       TEST_ADMIN_PASSWORD: ci-test-admin-password-not-for-production
     steps:

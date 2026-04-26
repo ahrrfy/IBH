@@ -29,6 +29,16 @@ describe('Shift open/close — one open shift per device (e2e)', () => {
     await app?.close();
   });
 
+  // Tests target the partial unique index, NOT the FK chain. Disable FK
+  // checks for the duration of these inserts so we don't have to seed
+  // company → branch → cashier → posDevice rows that aren't relevant.
+  beforeAll(async () => {
+    await prisma.$executeRawUnsafe(`SET session_replication_role = 'replica'`);
+  });
+  afterAll(async () => {
+    await prisma.$executeRawUnsafe(`SET session_replication_role = 'origin'`);
+  });
+
   it('DB partial unique index rejects a second open shift on the same device', async () => {
     const deviceId = 'TESTSHIFTDEVICE0000000000A';
 
