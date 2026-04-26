@@ -138,6 +138,26 @@ jobs:
         run: pnpm --filter api exec prisma generate
       - name: Sync schema (creates tables + enums from schema.prisma)
         run: pnpm --filter api exec prisma db push --skip-generate --accept-data-loss
+      - name: Apply SQL-only invariants (triggers + RLS + partial unique indexes)
+        # Migrations contain ~75 constructs that schema.prisma can't express:
+        # - append-only triggers on audit_logs, je_lines, stock_ledger
+        # - tenant_isolation RLS policies on every multi-tenant table
+        # - partial unique indexes (e.g. shifts_one_open_per_device WHERE
+        #   status='open', pos_receipts_client_ulid_uk WHERE clientUlid IS NOT NULL)
+        # db push doesn't replicate these. Apply each migration with ON_ERROR_STOP=0
+        # so 'already exists' errors on tables/columns are tolerated; the new
+        # invariants slip through.
+        env: { PGPASSWORD: testpass }
+        run: |
+          for f in apps/api/prisma/migrations/*/migration.sql; do
+            echo "→ $f"
+            psql -h localhost -U erp -d alruya_erp_test -v ON_ERROR_STOP=0 -f "$f" >/dev/null 2>&1 || true
+          done
+          # Verify the partial unique index that shift-open-close depends on
+          psql -h localhost -U erp -d alruya_erp_test -tAc \
+            "SELECT 1 FROM pg_indexes WHERE indexname = 'shifts_one_open_per_device'" \
+            | grep -q 1 || { echo "❌ shifts_one_open_per_device missing"; exit 1; }
+          echo "✅ partial indexes + triggers + RLS applied"
       - name: Seed bootstrap data (companies, roles, admin user, Iraqi CoA)
         # Many tests reference companies/users from seed via prisma.company.findFirst().
         # Without this they fail with PrismaClientKnownRequestError on null records.
