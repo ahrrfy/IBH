@@ -69,3 +69,7 @@ Before marking a session closed:
 - Any failed verification is documented as a risk.
 - Handoff includes next safest step.
 - Status changes from `Active` to `Closed` or `Blocked`.
+
+## Active Locks (live)
+
+- **T01** | session: `claude-opus-4-7-20260426-1` | branch: `feat/t01-backup-cron` | files: `infra/scripts/backup-cron.sh`, `infra/scripts/install-cron.sh`, `governance/DR_RUNBOOK.md` | started: 2026-04-26T14:50:00Z
