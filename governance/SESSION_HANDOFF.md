@@ -1,57 +1,67 @@
 # SESSION_HANDOFF.md
 
-# Session Handoff — 2026-04-26 (FINAL — all T-tasks + bonus ops work complete)
+# Session Handoff — 2026-04-26 (Session 2 — post-30-tasks cleanup + UX fixes)
 
 ## Branch
-`main` (all work merged)
+`fix/e2e-stock-ledger-fk` (PR #50 open — CI running)
 
-## Latest Commit
-`871b4b3` — feat(ops): Backblaze B2 offsite mirror — closes DR §8 limit (#43)
+## Latest Commit on This Branch
+`5a90759` — fix(test): use interactive tx for SET LOCAL in audit-append-only e2e
 
-## Completed This Session (full picture)
-**30 T-tasks** — all merged to main (see TASK_QUEUE.md for full commit list)
+## Latest Commit on main
+`871b4b3` — feat(ops): Backblaze B2 offsite mirror (PR #43)
 
-**Post-T-tasks bonus ops PRs also merged:**
-- PR #39 (healthcheck.io alerting for backup + SSL crons) → `7a138ea`
-- PR #40 (proactive SSL notAfter monitor `ssl-expiry-check.sh`) → `a789ada`
-- PR #41 (fix `update_updated_at()` trigger camelCase column) → `a56b6a5`
-- PR #42 (W6 lead→customer conversion e2e, rebased) → `20cc387`
-- PR #43 (Backblaze B2 offsite mirror — completes 3-2-1-1 DR strategy) → `871b4b3`
-- PR #44 (fix CRM: Customer.code via SequenceService on lead conversion) → `b62f76a`
-- PR #45 (fix sequence: handle null branchId in compound-key read-back) → `9f12d42`
+## Completed This Session
+- ✅ Closed 3 stale GitHub auto-diagnosed issues (#1, #2, #3) — old commits, fixed
+- ✅ Merged PR #46 (I011 a11y: role=alert on login error banner)
+- ✅ Merged PR #47 (MODULE_STATUS_BOARD update — all 30 T-tasks complete)
+- ✅ Updated OPEN_ISSUES.md — closed I001-I006, I008, I019-I021 (8 issues)
+- ✅ Created PR #50 with 2 changes:
+  - `apps/web/src/app/forgot-password/page.tsx` (new) — closes 404 on login link
+  - `apps/api/test/audit-append-only.e2e-spec.ts` — fix FK bypass race via `$transaction`
 
-## State of main
-**Zero open PRs. Zero IN_PROGRESS tasks. Zero TODO tasks.**
-All 30 T-tasks done + 7 bonus ops/bugfix PRs merged.
-Latest commit on main: `871b4b3` (2026-04-26)
+## PR #50 Status
+CI running — waiting for E2E results. The e2e fix should turn 3 failing tests green.
 
-## Tasks Left
-**None** — the entire 30-task backlog + all bonus ops work is closed.
+## State of main (before PR #50 merges)
+- Open PRs: 1 (#50 — CI pending)
+- TASK_QUEUE: 30/30 ✅ DONE
+- OPEN_ISSUES: I003, I009, I024 remain genuinely open (no code fix possible)
+- All 30 T-tasks merged + ops work (PR #39-#47) merged
 
-## Manual VPS Steps Still Required (not automatable via git)
+## Remaining Genuinely Open Issues
+| # | Issue | Why Open |
+|---|---|---|
+| I003 | POS sync conflict strategy | Design decision, Wave 2 |
+| I009 | 2FA manual browser QA | Needs real browser session |
+| I024 | Production password rotation | Manual VPS SSH needed |
+
+## Manual VPS Steps Still Required
 1. **All crons**: `ssh root@vps 'bash /opt/al-ruya-erp/infra/scripts/install-cron.sh'`
-   - Installs: backup (02:00), backup-offsite (02:30), ssl-renew (03:17 + 15:17), ssl-expiry-check (04:42)
-2. **Storefront subdomain**: DNS A record `shop.ibherp.cloud` → VPS IP, then `certbot --nginx -d shop.ibherp.cloud`
-3. **WhatsApp Bridge**: set `WHATSAPP_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` in VPS `.env`
-4. **B2 offsite backup**: set `RESTIC_B2_REPOSITORY` + `B2_ACCOUNT_ID` + `B2_ACCOUNT_KEY` in VPS `.env`
-5. **Mobile EAS**: `EXPO_TOKEN` GitHub secret + `eas init` locally + Apple/Google credentials
-6. **DR drill**: `restic restore latest --target /tmp/restore-test` → verify md5 matches live DB
+2. **Storefront**: DNS A `shop.ibherp.cloud` → VPS IP + `certbot --nginx -d shop.ibherp.cloud`
+3. **WhatsApp**: set `WHATSAPP_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` in VPS `.env`
+4. **B2 offsite**: set `RESTIC_B2_REPOSITORY` + `B2_ACCOUNT_ID` + `B2_ACCOUNT_KEY` in VPS `.env`
+5. **DR drill**: `restic restore latest --target /tmp/restore-test` → verify md5
+6. **Password rotation** (I024): change system owner password via Settings → Users → Edit
 
 ## Risks
-- Pre-existing React 19 type errors in `login/layout.tsx`, `app-shell.tsx`, `data-table.tsx` — not caused by this session; `next build` may warn but pages function
+- Pre-existing React 19 type mismatch in `apps/web` — `next build` may warn but pages function
 - `as any` appears 258× in API source — tech debt, not blocking
-- POS local build requires full `pnpm install` + Rust toolchain — use Docker for VPS builds
-- B2 offsite backup is wired but NOT active until B2 credentials are set in VPS `.env`
+- B2 offsite backup wired but NOT active until B2 credentials are in VPS `.env`
 
 ## Next Safest Step (new session)
 ```bash
-# Confirm clean state
-gh pr list --state open        # should be empty
-git log --oneline origin/main -5
+# 1. Check if PR #50 merged
+gh pr list --state open
 
-# Next work: Wave 2 features (read MASTER_SCOPE.md §Wave-2)
-# OR: VPS manual steps above
-# OR: UAT using governance/UAT_PLAYBOOK.md
+# 2. If merged, confirm E2E now passes
+git pull origin main
+gh run list --workflow=ci.yml --limit 3
+
+# 3. Next work options (all T-tasks done):
+#    a) VPS manual steps above (I003, I009, I024)
+#    b) UAT testing via governance/UAT_PLAYBOOK.md
+#    c) Wave 2 production hardening (read MASTER_SCOPE.md)
 ```
 
 ---
