@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import {
   Users as UsersIcon, Building2, Shield, KeyRound, Bell, Database,
-  Palette, Globe, Receipt, Briefcase, ChevronLeft,
+  Palette, Globe, Receipt, Briefcase, ChevronLeft, ScrollText,
 } from 'lucide-react';
 
 // Sections with `ready: false` are linked but show "قريباً" badge — they'll be
@@ -29,9 +29,10 @@ const SECTIONS = [
   {
     title: 'النظام',
     items: [
-      { href: '/settings/security', icon: KeyRound, label: 'الأمان والخصوصية', desc: '2FA، الجلسات، السجلات', ready: false },
-      { href: '/settings/backup',   icon: Database, label: 'النسخ الاحتياطي',   desc: 'استعادة + تصدير', ready: false },
-      { href: '/settings/numbering',icon: Receipt,  label: 'ترقيم المستندات',   desc: 'صيغة أرقام الفواتير والقيود', ready: false },
+      { href: '/settings/audit',    icon: ScrollText, label: 'سجل التدقيق',     desc: 'كل عملية حساسة بسلسلة hash لاكتشاف التلاعب' },
+      { href: '/settings/security', icon: KeyRound,   label: 'الأمان والخصوصية', desc: '2FA، الجلسات، السجلات', ready: false },
+      { href: '/settings/backup',   icon: Database,   label: 'النسخ الاحتياطي',  desc: 'استعادة + تصدير', ready: false },
+      { href: '/settings/numbering',icon: Receipt,    label: 'ترقيم المستندات',  desc: 'صيغة أرقام الفواتير والقيود', ready: false },
     ],
   },
 ];
