@@ -82,7 +82,10 @@ export class CustomersService {
   async create(companyId: string, dto: any, session: UserSession) {
     let code = dto.code;
     if (!code) {
-      code = await this.sequence.next(companyId, 'customer');
+      // Customer.code is VarChar(20). The 8-char prefix 'customer' produces
+      // 24-char codes (customer-RUA-2026-000001) that overflow the column.
+      // Use 3-char 'CST' so generated codes stay at ≤20 chars.
+      code = await this.sequence.next(companyId, 'CST');
     } else {
       const exists = await this.prisma.customer.findFirst({
         where: { companyId, code, deletedAt: null },
