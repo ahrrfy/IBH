@@ -103,3 +103,5 @@ coverage/
 # Generated
 apps/api/src/generated/
 packages/*/src/generated/
+apps/web/next-env.d.ts
+apps/web/tsconfig.tsbuildinfo
