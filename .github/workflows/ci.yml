@@ -44,7 +44,9 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16-alpine
+        # pgvector/pgvector:pg16 — schema.prisma requires the vector extension.
+        # Same image production uses, so CI matches prod environment.
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_DB: alruya_erp_test
           POSTGRES_USER: erp
