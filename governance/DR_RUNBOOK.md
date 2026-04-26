@@ -60,8 +60,15 @@ docker compose -f docker-compose.bootstrap.yml stop api web
 ```bash
 set -a; source /opt/al-ruya-erp/infra/.env; set +a
 
+# المسار الافتراضي: من الـ repo المحلي على VPS
 restic snapshots --compact
-# مثال: ID=abc12345 — Tags: erp-backup,db-20260426_020000
+
+# 🚨 حالة فقدان VPS كلياً: استعِد من B2 على آلة جديدة
+# 1. ركّب restic + ثبّت متغيرات .env (RESTIC_B2_REPOSITORY + B2_ACCOUNT_*)
+# 2. شغّل:
+#    restic -r "$RESTIC_B2_REPOSITORY" \
+#      --password-file <(echo "${RESTIC_B2_PASSWORD:-$RESTIC_PASSWORD}") \
+#      snapshots --compact
 SNAPSHOT_ID=latest    # أو ID محدد
 ```
 
@@ -187,7 +194,7 @@ md5sum "$DUMP"
 
 ## 8. حدود معروفة (Limits)
 
-- 🟡 لا offsite remote حالياً — repo محلي فقط على VPS. **TODO:** أضف Backblaze B2 أو SFTP secondary. حتى ذلك الحين فقدان VPS = فقدان البيانات.
+- ✅ **offsite remote**: `infra/scripts/backup-offsite.sh` يُشغَّل يومياً 02:30 (cron) ويعمل `restic copy` للـ snapshots الجديدة من الـ repo المحلي إلى Backblaze B2. اضبط `RESTIC_B2_REPOSITORY` + `B2_ACCOUNT_ID` + `B2_ACCOUNT_KEY` في `.env` لتفعيله. عند فقدان VPS: `restic -r b2:<bucket>:<path> restore latest --target /tmp/restore` (راجع §3.4 للاستعادة الكاملة من B2).
 - 🟡 لا encryption-at-rest خارج Restic (الذي يُشفّر بمفتاح في `.env`). فقدان `.env` = فقدان كل النسخ.
 - ✅ **alerting**: `backup-cron.sh` يدعم `BACKUP_HEALTHCHECK_URL` (healthchecks.io). يُرسل ping عند البدء (`/start`)، عند النجاح (URL مباشر)، وعند الفشل (`/fail-<exit-code>`). الإعداد:
   ```bash
@@ -212,6 +219,12 @@ RESTIC_PASSWORD=<قوي 32 حرف>
 RETENTION_DAILY=7      # اختياري (default 7)
 RETENTION_WEEKLY=4     # اختياري (default 4)
 RETENTION_MONTHLY=3    # اختياري (default 3)
+
+# Backblaze B2 offsite mirror (اختياري — اتركه فارغاً لتعطيل offsite)
+RESTIC_B2_REPOSITORY=b2:al-ruya-backups:erp-repo
+B2_ACCOUNT_ID=<application-key-id>
+B2_ACCOUNT_KEY=<application-key>
+RESTIC_B2_PASSWORD=<32-char optional, defaults to RESTIC_PASSWORD>
 ```
 
 تحقّق سريع (لا يكشف القيم):
