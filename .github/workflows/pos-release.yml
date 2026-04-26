@@ -1,0 +1,120 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Al-Ruya POS — Tauri release pipeline
+#
+# Triggers on a tag push of the form `pos-v*` (e.g. `pos-v1.0.0`).
+# Builds Windows (msi + nsis) artifacts via tauri-apps/tauri-action@v0,
+# attaches them to a GitHub Release, and (when secrets are present) signs
+# the binaries.
+#
+# Why Windows-only:
+#   POS targets retail tablets / counter PCs running Windows. Mac/Linux
+#   builds are intentionally out of scope until there's demand — keeping
+#   the matrix small saves ~6 minutes per release and avoids per-OS
+#   signing key management.
+#
+# Why tag-driven (not branch-driven):
+#   We don't want every push to main to mint an installer. Releases are
+#   intentional, versioned, signed artifacts. Tag the commit you want to
+#   ship: `git tag pos-v1.0.0 && git push origin pos-v1.0.0`.
+#
+# Required secrets (all optional — workflow runs unsigned if absent):
+#   TAURI_PRIVATE_KEY        — generated via `pnpm tauri signer generate`
+#   TAURI_KEY_PASSWORD       — passphrase for the key above
+#   WINDOWS_CERTIFICATE      — base64-encoded .pfx code-signing cert
+#   WINDOWS_CERTIFICATE_PASSWORD — pfx passphrase
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: POS Release (Tauri)
+
+on:
+  push:
+    tags:
+      - 'pos-v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to publish (e.g. pos-v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write  # needed to upload assets to the GitHub Release
+
+jobs:
+  build:
+    name: Build POS (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rust-target: x86_64-pc-windows-msvc
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install pnpm dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
+
+      # Cache the cargo build output keyed by Cargo.lock — saves ~3 min on
+      # incremental releases.
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/pos/src-tauri -> target
+
+      - name: Build + bundle (Tauri Action)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/pos
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: 'Al-Ruya POS ${{ github.event.inputs.tag || github.ref_name }}'
+          releaseBody: |
+            Auto-generated release. See the project changelog for details.
+
+            Installers below are built fresh from `${{ github.sha }}`.
+          releaseDraft: true
+          prerelease: false
+          args: '--target ${{ matrix.rust-target }}'
+
+      # Optional: code-sign the produced installers. Skipped silently when
+      # the certificate secret is absent so first-time setups can ship
+      # unsigned builds for internal QA.
+      - name: Sign Windows installers
+        if: matrix.os == 'windows-latest' && env.WINDOWS_CERTIFICATE != ''
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        shell: pwsh
+        run: |
+          $certPath = "$env:RUNNER_TEMP\cert.pfx"
+          [IO.File]::WriteAllBytes($certPath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $signtool = (Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin\10.*\x64\signtool.exe' | Select-Object -First 1).FullName
+          Get-ChildItem -Recurse -Include *.msi,*.exe apps/pos/src-tauri/target/release/bundle/ |
+            ForEach-Object {
+              & $signtool sign /fd SHA256 /td SHA256 /tr http://timestamp.digicert.com `
+                /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD $_.FullName
+            }
+          Remove-Item $certPath -Force
