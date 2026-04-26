@@ -39,7 +39,19 @@ jobs:
         run: ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes "root@${{ secrets.VPS_HOST }}" 'whoami; hostname -f; uptime'
 
       - name: Run deploy script on VPS
-        run: ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" 'bash -s' < infra/scripts/deploy-on-vps.sh
+        # Why scp + ssh exec instead of 'ssh ... bash -s < script.sh':
+        # The script does `docker compose exec -T <svc> <cmd>` several times.
+        # In -T mode, docker compose forwards the parent shell's stdin to
+        # the container. With 'bash -s < script.sh', the parent shell's
+        # stdin IS the script content — so the FIRST exec slurps the rest
+        # of the script into the container's stdin (where it's discarded).
+        # bash then reads EOF and exits silently, skipping every step after
+        # the first exec. We saw exactly this: deploy stopped right after
+        # the nginx reload exec, never reached migrations. Hid I022 for
+        # 6 weeks. Run the script as a real file instead.
+        run: |
+          scp -i ~/.ssh/id_ed25519 infra/scripts/deploy-on-vps.sh "root@${{ secrets.VPS_HOST }}:/tmp/deploy-on-vps.sh"
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" 'bash /tmp/deploy-on-vps.sh && rm -f /tmp/deploy-on-vps.sh'
 
       - name: Cleanup
         if: always()
