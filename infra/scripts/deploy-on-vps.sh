@@ -33,8 +33,11 @@ echo "   $BEFORE_SHA → $AFTER_SHA"
 cd "$INFRA_DIR"
 COMPOSE="docker compose -f $COMPOSE_FILE --env-file .env"
 
-echo "→ build api + web + license-server + ai-brain + whatsapp-bridge"
-$COMPOSE build api web license-server ai-brain whatsapp-bridge
+echo "→ build api + web + license-server + ai-brain"
+# whatsapp-bridge uses 'profiles: [whatsapp]' — excluded from normal deploys
+# until Meta credentials are set in VPS .env (closes I029).
+# To enable manually: docker compose --profile whatsapp up -d whatsapp-bridge
+$COMPOSE build api web license-server ai-brain
 
 echo "→ ensure storage + cache services are up (postgres/redis/minio)"
 # These don't get recreated normally (their state matters), but `up -d`
@@ -42,8 +45,8 @@ echo "→ ensure storage + cache services are up (postgres/redis/minio)"
 # MinIO was defined in compose but never started after VPS reboot.
 $COMPOSE up -d postgres redis minio minio-init
 
-echo "→ recreate api + web + license-server + ai-brain + whatsapp-bridge"
-$COMPOSE up -d --force-recreate api web license-server ai-brain whatsapp-bridge
+echo "→ recreate api + web + license-server + ai-brain"
+$COMPOSE up -d --force-recreate api web license-server ai-brain
 
 # Reload nginx so it picks up any conf changes AND re-resolves new container
 # IPs via Docker DNS (resolver 127.0.0.11). Closes I013 — no more manual
