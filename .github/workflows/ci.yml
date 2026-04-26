@@ -91,21 +91,49 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Install required Postgres extensions
+      - name: Install Postgres extensions + ULID helper function
+        # Schema.prisma uses gen_ulid() as default for IDs and current_company_id()
+        # for RLS. These come from migration 0001 — but we use db push (not
+        # migrate deploy) since migrations are partial. So pre-create the
+        # functions here, then let db push handle tables + enums.
         env: { PGPASSWORD: testpass }
         run: |
-          psql -h localhost -U erp -d alruya_erp_test -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
-          psql -h localhost -U erp -d alruya_erp_test -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+          PSQL="psql -h localhost -U erp -d alruya_erp_test -v ON_ERROR_STOP=1"
+          $PSQL -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+          $PSQL -c "CREATE EXTENSION IF NOT EXISTS pg_trgm;"
+          $PSQL -c "CREATE EXTENSION IF NOT EXISTS vector;"
+          # gen_ulid() — copied from migration 0007 (the bigint-cast-fixed version)
+          $PSQL <<'SQL'
+          CREATE OR REPLACE FUNCTION gen_ulid() RETURNS TEXT AS $$
+          DECLARE
+            encoding   TEXT := '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+            output     TEXT := '';
+            now_ms     BIGINT;
+            rand_bytes BYTEA;
+            i          INT;
+          BEGIN
+            now_ms := EXTRACT(EPOCH FROM clock_timestamp()) * 1000;
+            FOR i IN REVERSE 9..0 LOOP
+              output := output || SUBSTR(encoding, ((now_ms >> (i * 5) & 31) + 1)::int, 1);
+            END LOOP;
+            rand_bytes := gen_random_bytes(10);
+            FOR i IN 0..9 LOOP
+              output := output || SUBSTR(encoding, ((GET_BYTE(rand_bytes, i) >> 3 & 31) + 1)::int, 1);
+              IF i < 9 THEN
+                output := output || SUBSTR(encoding, (((GET_BYTE(rand_bytes, i) & 7) << 2 | GET_BYTE(rand_bytes, i+1) >> 6) & 31 + 1)::int, 1);
+              END IF;
+            END LOOP;
+            RETURN SUBSTR(output, 1, 26);
+          END;
+          $$ LANGUAGE plpgsql VOLATILE;
+
+          CREATE OR REPLACE FUNCTION current_company_id() RETURNS TEXT AS $$
+            SELECT NULLIF(current_setting('app.current_company', true), '');
+          $$ LANGUAGE sql STABLE;
+          SQL
       - name: Generate Prisma client
         run: pnpm --filter api exec prisma generate
-      - name: Apply migrations (creates gen_ulid + ENUMs + RLS functions)
-        # Migrations are partial — they create the SQL functions, ENUMs, and
-        # RLS policies that the schema depends on, but only ~52 of ~75 tables.
-        run: pnpm --filter api exec prisma migrate deploy
-      - name: Sync remaining tables from schema.prisma (db push)
-        # After migrations create the functions, this fills in the rest of
-        # the tables that the partial migrations don't cover. Safe on the
-        # ephemeral CI DB. Long-term fix: regenerate a complete baseline.
+      - name: Sync schema (creates tables + enums from schema.prisma)
         run: pnpm --filter api exec prisma db push --skip-generate --accept-data-loss
       - name: Seed bootstrap data (companies, roles, admin user, Iraqi CoA)
         # Many tests reference companies/users from seed via prisma.company.findFirst().
