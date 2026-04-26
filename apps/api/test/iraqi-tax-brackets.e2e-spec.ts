@@ -58,29 +58,29 @@ describe('Iraqi income tax brackets — payroll spec (e2e)', () => {
     // tax monthly = 33,000 / 12 = 2,750
     expect(compute(300_000)).toBe('2750');
 
-    // gross monthly = 416,666.67 → annual ≈ 5,000,000 (top of bracket)
-    // excess = 2,500,000 → tax = 75,000 → /12 = 6,250
-    expect(compute(416_666)).toBe('6249.99');
+    // gross monthly = 416,666 → annual = 4,999,992
+    // excess = 2,499,992 × 0.03 = 74,999.76 → /12 = 6,249.98
+    expect(compute(416_666)).toBe('6249.98');
   });
 
   it('Bracket 3 — 5,000,001 .. 10,000,000 → 5% on excess', () => {
     // gross monthly = 600,000 → annual = 7,200,000
-    // excess = 4,700,000 × 0.05 = 235,000 / 12 = 19,583.33...
-    expect(compute(600_000)).toBe('19583.333333333333333333');
+    // excess = 4,700,000 × 0.05 = 235,000 / 12 = 19,583.333... (20 sig figs)
+    expect(compute(600_000)).toBe('19583.333333333333333');
 
-    // gross monthly = 833,333 → annual ≈ 10,000,000 (top of bracket)
-    // excess = 7,499,996 × 0.05 = 374,999.80 / 12 = 31,249.983...
-    expect(compute(833_333)).toBe('31249.983333333333333333');
+    // gross monthly = 833,333 → annual = 9,999,996
+    // excess = 7,499,996 × 0.05 = 374,999.8 / 12 = 31,249.983... (20 sig figs)
+    expect(compute(833_333)).toBe('31249.983333333333333');
   });
 
   it('Bracket 4 — > 10,000,000 → 10% on excess', () => {
     // gross monthly = 1,000,000 → annual = 12,000,000
-    // excess = 9,500,000 × 0.10 = 950,000 / 12 = 79,166.67
-    expect(compute(1_000_000)).toBe('79166.666666666666666667');
+    // excess = 9,500,000 × 0.10 = 950,000 / 12 = 79,166.667 (20 sig figs)
+    expect(compute(1_000_000)).toBe('79166.666666666666667');
 
     // gross monthly = 5,000,000 → annual = 60,000,000
-    // excess = 57,500,000 × 0.10 = 5,750,000 / 12 = 479,166.67
-    expect(compute(5_000_000)).toBe('479166.666666666666666667');
+    // excess = 57,500,000 × 0.10 = 5,750,000 / 12 = 479,166.667 (20 sig figs)
+    expect(compute(5_000_000)).toBe('479166.66666666666667');
   });
 
   it('Bracket boundaries are deterministic — no jumps', () => {
