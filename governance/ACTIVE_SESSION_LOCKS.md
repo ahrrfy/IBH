@@ -40,6 +40,7 @@ claims them.
 | COD-I020-LOCK | Codex | `codex/fix-i020-parallel-lock` | Parallel-session governance guard | `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, frontend pages | Closed |
 | SESSION-Z0 | Codex Audit Agent | `agent/z0-audit` | Accuracy audit and stub map | `governance/ACCURACY_MAP.md`, `governance/SESSION_HANDOFF.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, frontend pages, runtime config | Closed |
 | claude-opus-4-7-20260426-1 | Claude Code (Opus 4.7) | `feat/t01-backup-cron` | T01 — Backup cron schedule + DR runbook | `infra/scripts/backup-cron.sh`, `infra/scripts/install-cron.sh`, `governance/DR_RUNBOOK.md`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, frontend pages | Closed (merged in PR #6 / fa3aeee on 2026-04-26T15:08:04Z) |
+| claude-opus-4-7-20260426-4 | Claude Code (Opus 4.7) | `feat/t10-invoice-cancel-fe` | T10 — Sales invoice reverse button (FE) | `apps/web/src/app/(app)/sales/invoices/[id]/page.tsx`, `apps/web/src/components/reason-modal.tsx`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Business modules, Prisma schema, other frontend pages | Active |
 
 ## Integration Owner
 
