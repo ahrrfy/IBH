@@ -1,7 +1,10 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Module, forwardRef } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LicenseGuard } from './license.guard';
 import { FeatureCacheService } from './feature-cache.service';
+import { LicenseSignerService } from './license-signer.service';
+import { LicenseActivationController } from './activation.controller';
+import { LicensingModule } from '../../modules/licensing/licensing.module';
 
 /**
  * Platform-level licensing module (T59).
@@ -18,8 +21,9 @@ import { FeatureCacheService } from './feature-cache.service';
  */
 @Global()
 @Module({
-  imports: [PrismaModule],
-  providers: [FeatureCacheService, LicenseGuard],
-  exports: [FeatureCacheService, LicenseGuard],
+  imports: [PrismaModule, forwardRef(() => LicensingModule)],
+  controllers: [LicenseActivationController],
+  providers: [FeatureCacheService, LicenseGuard, LicenseSignerService],
+  exports: [FeatureCacheService, LicenseGuard, LicenseSignerService],
 })
 export class PlatformLicensingModule {}
