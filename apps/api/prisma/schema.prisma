@@ -2970,6 +2970,7 @@ model Subscription {
   featureOverrides SubscriptionFeature[]
   licenseKeys      LicenseKey[]
   events           LicenseEvent[]
+  invoices         LicenseInvoice[]
 
   @@index([companyId, status])
   @@index([currentPeriodEndAt])
@@ -3073,6 +3074,61 @@ model LicenseReminderLog {
   @@unique([subscriptionId, threshold])
   @@index([subscriptionId])
   @@map("license_reminder_log")
+}
+
+// ============================================================
+// T70 — Multi-tenant Billing Dashboard (manual recording layer)
+// ============================================================
+// Surfaces what already happens (subscription periods + T68 prorated
+// charges) as invoices the super-admin can mark paid, mark failed,
+// retry, or void. No real payment-gateway integration — manual only.
+model LicenseInvoice {
+  id               String           @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId        String           @db.Char(26)
+  subscriptionId   String           @db.Char(26)
+  periodStart      DateTime
+  periodEnd        DateTime
+  amountIqd        Decimal          @db.Decimal(18, 2)
+  // status: open | paid | failed | voided (CHECK constraint in migration)
+  status           String           @default("open") @db.VarChar(20)
+  dueDate          DateTime?
+  paidAt           DateTime?
+  // paymentMethod: manual | wire | pending (CHECK constraint in migration)
+  paymentMethod    String           @default("pending") @db.VarChar(20)
+  paymentReference String?          @db.VarChar(200)
+  notes            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  createdBy        String?          @db.Char(26)
+
+  subscription Subscription      @relation(fields: [subscriptionId], references: [id])
+  payments     LicensePayment[]
+
+  @@unique([subscriptionId, periodStart, periodEnd])
+  @@index([companyId, status])
+  @@index([status])
+  @@index([periodEnd])
+  @@map("license_invoices")
+}
+
+model LicensePayment {
+  id         String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  invoiceId  String   @db.Char(26)
+  amountIqd  Decimal  @db.Decimal(18, 2)
+  paidAt     DateTime @default(now())
+  // method: manual | wire | pending
+  method     String   @default("manual") @db.VarChar(20)
+  reference  String?  @db.VarChar(200)
+  recordedBy String?  @db.Char(26)
+  notes      String?
+  // status: recorded | reversed
+  status     String   @default("recorded") @db.VarChar(20)
+  createdAt  DateTime @default(now())
+
+  invoice LicenseInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("license_payments")
 }
 
 // Reorder Points
