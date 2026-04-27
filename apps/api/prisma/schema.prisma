@@ -3601,3 +3601,108 @@ model PolicyAcknowledgment {
   @@index([companyId, policyId])
   @@map("policy_acknowledgments")
 }
+
+// ============================================================
+// T53 — HR SALARY BANDS + PROMOTIONS (Wave 5)
+// ============================================================
+
+/// Salary band defines allowable compensation range per grade/band combination.
+/// Linked to PayGrade for payroll enforcement — additive, not replacing PayGrade.
+/// grade: e.g. "G1"–"G10"; band: "A"/"B"/"C" (experience sub-band within grade).
+model SalaryBand {
+  id          String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId   String   @db.Char(26)
+  /// Pay grade code this band belongs to — must match an existing PayGrade.code.
+  grade       String   @db.VarChar(10)
+  /// Sub-band within the grade (A=entry, B=proficient, C=senior).
+  band        String   @db.VarChar(5)
+  nameAr      String   @db.VarChar(100)
+  minIqd      Decimal  @db.Decimal(18, 3)
+  midIqd      Decimal  @db.Decimal(18, 3)
+  maxIqd      Decimal  @db.Decimal(18, 3)
+  /// Whether this band can still receive new employees.
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String   @db.Char(26)
+
+  promotions HrPromotion[]
+
+  @@unique([companyId, grade, band])
+  @@index([companyId, grade])
+  @@map("salary_bands")
+}
+
+/// HR promotion request — moves an employee to a new position and/or salary band.
+/// Approval workflow: HR Manager (step 1) → Director (step 2).
+/// Once approved, system drafts a contract amendment (EmploymentContract in draft)
+/// but NEVER auto-issues it — a human must confirm via the contracts module.
+model HrPromotion {
+  id              String            @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String            @db.Char(26)
+  promotionNo     String            @db.VarChar(30)
+  employeeId      String            @db.Char(26)
+  /// Current (before promotion) values — frozen at creation time.
+  fromPayGradeId  String?           @db.Char(26)
+  fromSalaryBandId String?          @db.Char(26)
+  fromPositionTitle String?         @db.VarChar(100)
+  fromSalaryIqd   Decimal           @db.Decimal(18, 3)
+  /// Proposed (after promotion) values.
+  toPayGradeId    String?           @db.Char(26)
+  toSalaryBandId  String?           @db.Char(26)
+  toPositionTitle String?           @db.VarChar(100)
+  toSalaryIqd     Decimal           @db.Decimal(18, 3)
+  /// Effective date — when the promotion takes effect (must be future or today).
+  effectiveDate   DateTime          @db.Date
+  reason          String?
+  /// Auto-suggest metadata — null if created manually.
+  autoSuggestBasis String?          @db.VarChar(200) // e.g. "tenure:24mo,attendance:95%,kpi:88"
+  status          HrPromotionStatus @default(draft)
+  /// Set when status moves to approved — references the draft contract created.
+  contractAmendmentId String?       @db.Char(26)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  createdBy       String            @db.Char(26)
+
+  approvals   PromotionApproval[]
+  salaryBand  SalaryBand?         @relation(fields: [toSalaryBandId], references: [id])
+
+  @@unique([companyId, promotionNo])
+  @@index([companyId, status])
+  @@index([companyId, employeeId])
+  @@map("hr_promotions")
+}
+
+/// Append-only approval step for an HrPromotion.
+/// step 1 = HR Manager review; step 2 = Director approval.
+/// A rejection at any step terminates the flow (status → rejected).
+model PromotionApproval {
+  id          String                  @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId   String                  @db.Char(26)
+  promotionId String                  @db.Char(26)
+  step        Int                     // 1 or 2
+  decision    PromotionApprovalResult
+  approvedBy  String                  @db.Char(26)
+  note        String?                 @db.VarChar(500)
+  decidedAt   DateTime                @default(now())
+
+  promotion HrPromotion @relation(fields: [promotionId], references: [id])
+
+  @@unique([promotionId, step])
+  @@index([companyId, promotionId])
+  @@map("promotion_approvals")
+}
+
+enum HrPromotionStatus {
+  draft
+  pending_hr
+  pending_director
+  approved
+  rejected
+  cancelled
+}
+
+enum PromotionApprovalResult {
+  approved
+  rejected
+}

@@ -23,6 +23,8 @@ import { ContractsService } from './contracts/contracts.service';
 import { ContractsController } from './contracts/contracts.controller';
 import { PoliciesService } from './policies/policies.service';
 import { PoliciesController } from './policies/policies.controller';
+import { PromotionsService } from './promotions/promotions.service';
+import { PromotionsController } from './promotions/promotions.controller';
 
 @Module({
   imports: [AuditModule, SequenceModule, PostingModule, SalesCommissionsModule],
@@ -37,6 +39,7 @@ import { PoliciesController } from './policies/policies.controller';
     RecruitmentPublicController,
     ContractsController,
     PoliciesController,
+    PromotionsController,
   ],
   providers: [
     EmployeesService,
@@ -49,6 +52,7 @@ import { PoliciesController } from './policies/policies.controller';
     RecruitmentService,
     ContractsService,
     PoliciesService,
+    PromotionsService,
   ],
   exports: [
     EmployeesService,
@@ -61,6 +65,7 @@ import { PoliciesController } from './policies/policies.controller';
     RecruitmentService,
     ContractsService,
     PoliciesService,
+    PromotionsService,
   ],
 })
 export class HrModule {}
