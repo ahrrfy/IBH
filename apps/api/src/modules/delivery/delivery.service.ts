@@ -281,6 +281,49 @@ export class DeliveryService {
     return delivery;
   }
 
+  // Public tracking lookup — no auth, no companyId scoping.
+  // Returns ONLY non-sensitive fields suitable for a public page.
+  // Why: customers receive a tracking link via WhatsApp/SMS and must reach the
+  // status page without logging in. Address, phone, COD amount and customer
+  // identity stay private; only the city, status timeline and ETA are exposed.
+  async findPublicByNumber(number: string) {
+    if (!number || number.length > 50) {
+      throw new BadRequestException({
+        code: 'DLV_INVALID_NUMBER',
+        messageAr: 'رقم التتبع غير صالح',
+      });
+    }
+    const delivery = await this.prisma.deliveryOrder.findFirst({
+      where: {
+        OR: [{ number }, { externalWaybillNo: number }],
+      },
+      select: {
+        number: true,
+        status: true,
+        deliveryCity: true,
+        plannedDate: true,
+        dispatchedAt: true,
+        deliveredAt: true,
+        failureReason: true,
+        externalWaybillNo: true,
+        deliveryCompany: {
+          select: { nameAr: true, phone: true, whatsapp: true },
+        },
+        statusLogs: {
+          orderBy: { changedAt: 'asc' },
+          select: { fromStatus: true, toStatus: true, changedAt: true, notes: true },
+        },
+      },
+    });
+    if (!delivery) {
+      throw new NotFoundException({
+        code: 'DLV_NOT_FOUND',
+        messageAr: 'لم يتم العثور على شحنة بهذا الرقم',
+      });
+    }
+    return delivery;
+  }
+
   private async loadForTransition(id: string, companyId: string) {
     const delivery = await this.prisma.deliveryOrder.findFirst({
       where: { id, companyId },
