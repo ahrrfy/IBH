@@ -172,6 +172,33 @@ deps_met() {
   return 0
 }
 
+# --- Worktree helpers (I033 fix) --------------------------------------------
+# Each task gets its own git worktree under $ROOT/.worktrees/<tid-lowercased>/.
+# This is the only way to keep parallel agents from corrupting each other's
+# HEAD/index when sharing the same checkout. See governance/OPEN_ISSUES.md §I033.
+
+worktree_dir_of() {
+  local tid_lc
+  tid_lc=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+  echo "$ROOT/.worktrees/$tid_lc"
+}
+
+# Print the worktree path that has the given branch checked out, or empty.
+worktree_path_for_branch() {
+  git worktree list --porcelain | awk -v b="refs/heads/$1" '
+    /^worktree / { p = $2 }
+    /^branch /   { if ($2 == b) { print p; exit } }
+  '
+}
+
+teardown_worktree() {
+  local p="$1"
+  if [ -n "$p" ] && [ -d "$p" ]; then
+    git worktree remove --force "$p" 2>/dev/null || true
+  fi
+  git worktree prune --quiet 2>/dev/null || true
+}
+
 # --- Commands ----------------------------------------------------------------
 
 cmd_status() {
@@ -244,10 +271,20 @@ Isolate this session in its own worktree BEFORE claiming:
 Or wait for the active claim(s) above to complete/release first."
   fi
 
-  # Ensure local main is up to date.
+  # Optional belt-and-suspenders: hard-reject a 2nd concurrent claim on this
+  # machine regardless of worktree isolation. Opt-in via env var.
+  if [ "${TASK_SINGLE_SESSION_LOCK:-0}" = "1" ]; then
+    local existing
+    existing=$(git worktree list --porcelain \
+      | awk '/^branch refs\/heads\/feat\/t/ {print substr($2, 12)}' \
+      | head -1 || true)
+    if [ -n "$existing" ]; then
+      die "TASK_SINGLE_SESSION_LOCK=1: another task branch ($existing) is already checked out. Finish/release it before claiming a new one."
+    fi
+  fi
+
+  # Ensure local refs are up to date (no checkout on the main worktree).
   git fetch "$ORIGIN" "$BASE" --quiet
-  git checkout "$BASE" --quiet
-  git reset --hard "$ORIGIN/$BASE" --quiet
 
   local info state branch
   info=$(status_of "$tid"); state=$(echo "$info" | cut -d'|' -f1)
@@ -266,14 +303,28 @@ Or wait for the active claim(s) above to complete/release first."
     die "$tid has unmet deps: $deps"
   fi
 
-  echo "Claiming $tid → $branch ..."
-  git checkout -b "$branch"
-  git commit --allow-empty -m "claim($tid): $(git config user.email) at $(date -u +%FT%TZ)"
+  # Create an isolated worktree for this task — parallel agents cannot
+  # corrupt each other's index/HEAD because each lives in its own directory.
+  local wt
+  wt=$(worktree_dir_of "$tid")
+  mkdir -p "$ROOT/.worktrees"
+  if [ -d "$wt" ]; then
+    die "Worktree path already exists: $wt
+Run 'bash scripts/orchestrator/task.sh release' from inside it, or remove it manually with 'git worktree remove --force $wt'."
+  fi
 
-  # ATOMIC CLAIM — first push wins on the GitHub side.
-  if ! git push -u "$ORIGIN" "$branch" 2>&1; then
-    git checkout "$BASE" --quiet
-    git branch -D "$branch" >/dev/null 2>&1 || true
+  echo "Claiming $tid → $branch ..."
+  echo "→ creating worktree: $wt"
+  git worktree add -b "$branch" "$wt" "$ORIGIN/$BASE" --quiet \
+    || die "Failed to create worktree at $wt"
+
+  # ATOMIC CLAIM — first push wins on the GitHub side. Run from inside the
+  # worktree so the claim commit lives on the new branch only.
+  if ! ( cd "$wt" \
+         && git commit --allow-empty -m "claim($tid): $(git config user.email) at $(date -u +%FT%TZ)" --quiet \
+         && git push -u "$ORIGIN" "$branch" --quiet ); then
+    teardown_worktree "$wt"
+    git push "$ORIGIN" --delete "$branch" 2>/dev/null || true
     die "Lost the race for $tid (branch $branch already exists on $ORIGIN). Re-run 'task claim'."
   fi
 
@@ -296,10 +347,14 @@ BODY
     --body "$pr_body" >/dev/null
 
   echo "✅ $tid claimed."
-  echo "   branch: $branch"
-  echo "   PR:     $(gh pr list --head "$branch" --state open --json number,url --jq '.[0].url')"
+  echo "   worktree: $wt"
+  echo "   branch:   $branch"
+  echo "   PR:       $(gh pr list --head "$branch" --state open --json number,url --jq '.[0].url')"
   echo
-  echo "Work on this branch only. When done: bash scripts/orchestrator/task.sh complete"
+  echo "Next steps:"
+  echo "  cd \"$wt\"     # all edits for $tid happen inside this worktree"
+  echo "  # ... make changes, commit, push ..."
+  echo "  bash $ROOT/scripts/orchestrator/task.sh complete"
 }
 
 cmd_complete() {
@@ -307,18 +362,37 @@ cmd_complete() {
   branch=$(git rev-parse --abbrev-ref HEAD)
   [[ "$branch" == feat/t* ]] || die "Not on a task branch (current: $branch)"
 
-  # Push current state.
-  git push "$ORIGIN" "$branch"
+  # Locate the worktree for this branch. Modern claims live in
+  # $ROOT/.worktrees/<tid>/; legacy claims (pre-I033) live in the main
+  # worktree — those use the LEGACY_INPLACE=1 escape hatch below.
+  local wt
+  wt=$(worktree_path_for_branch "$branch")
+  if [ -z "$wt" ]; then
+    die "Could not find a worktree holding $branch. Run from inside the task worktree."
+  fi
+  local main_wt
+  main_wt=$(git worktree list --porcelain | awk '/^worktree / {print $2; exit}')
+  local legacy=0
+  if [ "$wt" = "$main_wt" ] && [ "${LEGACY_INPLACE:-0}" = "1" ]; then
+    legacy=1
+    echo "⚠ LEGACY_INPLACE=1 — completing in main worktree (one-shot escape)"
+  elif [ "$wt" = "$main_wt" ]; then
+    die "$branch is checked out in the MAIN worktree ($main_wt) — that path is forbidden by the I033 fix.
+Either move the work into a worktree, or set LEGACY_INPLACE=1 to bypass once."
+  fi
+
+  # Push current state from inside the worktree.
+  ( cd "$wt" && git push "$ORIGIN" "$branch" )
 
   local pr
   pr=$(gh pr list --head "$branch" --state open --json number --jq '.[0].number // empty')
   [ -z "$pr" ] && die "No open PR for $branch"
 
-  # Local quality gates — agents cannot mark complete without these passing.
+  # Local quality gates — run inside the worktree, not the main checkout.
   echo "→ apps/api typecheck"
-  ( cd "$ROOT/apps/api" && pnpm exec tsc --noEmit ) || die "API typecheck FAILED"
+  ( cd "$wt/apps/api" && pnpm exec tsc --noEmit ) || die "API typecheck FAILED"
   echo "→ apps/web typecheck"
-  ( cd "$ROOT/apps/web" && pnpm exec tsc --noEmit ) || die "Web typecheck FAILED"
+  ( cd "$wt/apps/web" && pnpm exec tsc --noEmit ) || die "Web typecheck FAILED"
 
   # Mark ready for review and request auto-merge once CI is green.
   gh pr ready "$pr" >/dev/null 2>&1 || true
@@ -337,12 +411,18 @@ cmd_complete() {
     sleep 30
   done
 
-  # Local cleanup.
-  git checkout "$BASE" --quiet
-  git pull --ff-only "$ORIGIN" "$BASE" --quiet
-  git branch -D "$branch" >/dev/null 2>&1 || true
-
-  echo "✅ Task complete. PR #$pr merged. Branch deleted."
+  # Local cleanup. Tear down the worktree (or fall back for legacy mode).
+  git fetch "$ORIGIN" "$BASE" --quiet
+  if [ "$legacy" = 1 ]; then
+    git checkout "$BASE" --quiet
+    git pull --ff-only "$ORIGIN" "$BASE" --quiet
+    git branch -D "$branch" >/dev/null 2>&1 || true
+    echo "✅ Task complete (legacy path). PR #$pr merged. Branch deleted."
+  else
+    teardown_worktree "$wt"
+    git branch -D "$branch" >/dev/null 2>&1 || true
+    echo "✅ Task complete. PR #$pr merged. Worktree $wt removed."
+  fi
 }
 
 cmd_release() {
@@ -361,9 +441,20 @@ cmd_release() {
     git push "$ORIGIN" --delete "$branch" 2>/dev/null || true
   fi
 
-  git checkout "$BASE" --quiet
-  git branch -D "$branch" >/dev/null 2>&1 || true
-  echo "Released $branch."
+  local wt main_wt
+  wt=$(worktree_path_for_branch "$branch")
+  main_wt=$(git worktree list --porcelain | awk '/^worktree / {print $2; exit}')
+
+  if [ -n "$wt" ] && [ "$wt" != "$main_wt" ]; then
+    teardown_worktree "$wt"
+    git branch -D "$branch" >/dev/null 2>&1 || true
+    echo "Released $branch (worktree $wt removed)."
+  else
+    # Legacy / main-worktree path — branch was checked out in the root.
+    git checkout "$BASE" --quiet
+    git branch -D "$branch" >/dev/null 2>&1 || true
+    echo "Released $branch (legacy path)."
+  fi
 }
 
 # --- Dispatch ----------------------------------------------------------------
