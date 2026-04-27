@@ -1,20 +1,20 @@
 'use client';
 
 /**
- * صفحة إنشاء عميل محتمل جديد.
+ * صفحة تعديل عميل محتمل.
  *
- * تستخدم Zod للتحقق من المدخلات قبل إرسالها لـ POST /crm/leads.
- * في حال النجاح، يتم التوجيه إلى صفحة تفاصيل العميل المحتمل.
+ * تُحمّل البيانات الحالية من GET /crm/leads/:id ثم تُرسل التعديلات
+ * عبر PUT /crm/leads/:id (يطابق ما يقبله الـ backend في leads.service.ts → update()).
  */
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { z } from 'zod';
 import { api, ApiError } from '@/lib/api';
 
-// Zod schema — must mirror what the backend accepts (see leads.service.ts → create()).
-const leadCreateSchema = z.object({
+// Backend update() accepts a Partial of these fields.
+const leadUpdateSchema = z.object({
   nameAr: z.string().trim().min(1, 'اسم العميل المحتمل مطلوب'),
   phone: z.string().trim().optional(),
   email: z.string().trim().email('بريد إلكتروني غير صالح').optional().or(z.literal('')),
@@ -23,10 +23,16 @@ const leadCreateSchema = z.object({
   estimatedValueIqd: z.number().nonnegative('القيمة المتوقعة لا يمكن أن تكون سالبة').optional(),
 });
 
-type LeadCreateInput = z.infer<typeof leadCreateSchema>;
+type LeadUpdateInput = z.infer<typeof leadUpdateSchema>;
 
-interface CreatedLead {
+interface LeadDetail {
   id: string;
+  nameAr: string;
+  phone: string | null;
+  email: string | null;
+  source: string | null;
+  interest: string | null;
+  estimatedValueIqd: string | number | null;
 }
 
 const SOURCE_OPTIONS: ReadonlyArray<{ value: string; labelAr: string }> = [
@@ -38,6 +44,7 @@ const SOURCE_OPTIONS: ReadonlyArray<{ value: string; labelAr: string }> = [
   { value: 'instagram', labelAr: 'انستغرام' },
   { value: 'referral', labelAr: 'إحالة' },
   { value: 'website', labelAr: 'الموقع' },
+  { value: 'manual', labelAr: 'يدوي' },
 ];
 
 interface FormState {
@@ -46,10 +53,10 @@ interface FormState {
   email: string;
   source: string;
   interest: string;
-  estimatedValueIqd: string; // string in form state, parsed at submit time
+  estimatedValueIqd: string;
 }
 
-const INITIAL_FORM: FormState = {
+const EMPTY_FORM: FormState = {
   nameAr: '',
   phone: '',
   email: '',
@@ -58,12 +65,48 @@ const INITIAL_FORM: FormState = {
   estimatedValueIqd: '',
 };
 
-export default function NewLeadPage() {
+export default function EditLeadPage() {
   const router = useRouter();
-  const [form, setForm] = useState<FormState>(INITIAL_FORM);
+  const { id } = useParams<{ id: string }>();
+
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    setLoading(true);
+    setLoadError(null);
+    api<LeadDetail>(`/crm/leads/${id}`)
+      .then((data) => {
+        if (!active) return;
+        setForm({
+          nameAr: data.nameAr ?? '',
+          phone: data.phone ?? '',
+          email: data.email ?? '',
+          source: data.source ?? '',
+          interest: data.interest ?? '',
+          estimatedValueIqd:
+            data.estimatedValueIqd === null || data.estimatedValueIqd === undefined
+              ? ''
+              : String(data.estimatedValueIqd),
+        });
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        setLoadError(err instanceof ApiError ? err.messageAr : 'تعذَّر تحميل العميل المحتمل');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]): void {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -77,8 +120,7 @@ export default function NewLeadPage() {
     setSubmitError(null);
     setFieldErrors({});
 
-    // Build input object with proper typing (numbers parsed, blanks dropped).
-    const candidate: LeadCreateInput = {
+    const candidate: LeadUpdateInput = {
       nameAr: form.nameAr,
       phone: form.phone || undefined,
       email: form.email || undefined,
@@ -87,7 +129,7 @@ export default function NewLeadPage() {
       estimatedValueIqd: form.estimatedValueIqd ? Number(form.estimatedValueIqd) : undefined,
     };
 
-    const parsed = leadCreateSchema.safeParse(candidate);
+    const parsed = leadUpdateSchema.safeParse(candidate);
     if (!parsed.success) {
       const errs: Partial<Record<keyof FormState, string>> = {};
       for (const issue of parsed.error.issues) {
@@ -100,29 +142,38 @@ export default function NewLeadPage() {
 
     setBusy(true);
     try {
-      const created = await api<CreatedLead>('/crm/leads', {
-        method: 'POST',
-        body: parsed.data,
-      });
-      router.push(`/crm/leads/${created.id}`);
+      await api(`/crm/leads/${id}`, { method: 'PUT', body: parsed.data });
+      router.push(`/crm/leads/${id}`);
     } catch (err) {
-      if (err instanceof ApiError) {
-        setSubmitError(err.messageAr);
-      } else {
-        setSubmitError('تعذَّر إنشاء العميل المحتمل');
-      }
+      setSubmitError(err instanceof ApiError ? err.messageAr : 'تعذَّر حفظ التعديلات');
     } finally {
       setBusy(false);
     }
   }
 
+  if (loading) {
+    return <div className="p-6 text-slate-500">جارٍ التحميل…</div>;
+  }
+  if (loadError) {
+    return (
+      <div className="space-y-4 p-6">
+        <div className="rounded bg-rose-50 p-3 text-rose-700" role="alert">
+          {loadError}
+        </div>
+        <Link href="/crm/leads" className="text-sm text-sky-700 hover:underline">
+          ← العودة للقائمة
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <header>
-        <Link href="/crm/leads" className="text-sm text-sky-700 hover:underline">
-          ← العملاء المحتملون
+        <Link href={`/crm/leads/${id}`} className="text-sm text-sky-700 hover:underline">
+          ← العودة لتفاصيل العميل المحتمل
         </Link>
-        <h1 className="mt-2 text-3xl font-bold">عميل محتمل جديد</h1>
+        <h1 className="mt-2 text-3xl font-bold">تعديل عميل محتمل</h1>
       </header>
 
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -150,7 +201,6 @@ export default function NewLeadPage() {
               value={form.phone}
               onChange={(e) => setField('phone', e.target.value)}
             />
-            {fieldErrors.phone && <span className="mt-1 block text-xs text-rose-600">{fieldErrors.phone}</span>}
           </label>
 
           <label className="block">
@@ -177,6 +227,10 @@ export default function NewLeadPage() {
                   {opt.labelAr}
                 </option>
               ))}
+              {/* If the current source is not in the predefined list, render it so we don't lose it. */}
+              {form.source && !SOURCE_OPTIONS.some((o) => o.value === form.source) && (
+                <option value={form.source}>{form.source}</option>
+              )}
             </select>
           </label>
 
@@ -214,7 +268,7 @@ export default function NewLeadPage() {
         )}
 
         <div className="flex justify-end gap-2">
-          <Link href="/crm/leads" className="rounded border px-4 py-2">
+          <Link href={`/crm/leads/${id}`} className="rounded border px-4 py-2">
             إلغاء
           </Link>
           <button
@@ -222,7 +276,7 @@ export default function NewLeadPage() {
             disabled={busy}
             className="rounded bg-sky-700 px-4 py-2 text-white disabled:opacity-50"
           >
-            {busy ? 'جارٍ الحفظ…' : 'حفظ'}
+            {busy ? 'جارٍ الحفظ…' : 'حفظ التعديلات'}
           </button>
         </div>
       </form>
