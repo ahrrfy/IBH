@@ -83,7 +83,13 @@ export class ReportsController {
   @Get('ar-aging')
   @RequirePermission('Report', 'read')
   arAging(@CurrentUser() session: UserSession, @Query('asOf') asOf?: string) {
-    return this.reports.arAgingReport(session.companyId, asOf ? new Date(asOf) : undefined);
+    return this.reports.arAging(session.companyId, asOf ? new Date(asOf) : undefined);
+  }
+
+  @Get('stock-on-hand')
+  @RequirePermission('Report', 'read')
+  stockOnHand(@CurrentUser() session: UserSession, @Query('warehouseId') warehouseId?: string) {
+    return this.reports.stockOnHand(session.companyId, { warehouseId });
   }
 
   @Get('top-suppliers')
