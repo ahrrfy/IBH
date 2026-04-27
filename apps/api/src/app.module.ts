@@ -50,6 +50,7 @@ import { MarketingModule } from './modules/marketing/marketing.module';
 // Business Modules (Wave 6)
 import { CrmModule }       from './modules/crm/crm.module';
 import { LicensingModule } from './modules/licensing/licensing.module';
+import { AdminLicensingModule } from './modules/admin/licensing/admin-licensing.module';
 import { AiModule }        from './modules/ai/ai.module';
 import { ReportingModule } from './modules/reporting/reporting.module';
 import { StorefrontModule } from './modules/storefront/storefront.module';
@@ -134,6 +135,7 @@ import { OnlineOrdersModule } from './modules/sales/online-orders/online-orders.
     // ── Business Modules — Wave 6 ───────────────────────────────────────────
     CrmModule,
     LicensingModule,
+    AdminLicensingModule,
     ExpiryWatcherModule,
     AiModule,
     ReportingModule,

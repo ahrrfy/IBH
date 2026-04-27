@@ -20,6 +20,18 @@ import {
   getVisibleModulesForRoles,
   MODULE_HREFS,
 } from '@/lib/permissions';
+import { useFeatures } from '@/lib/license/use-feature';
+
+/**
+ * T65 — Activity-bar modules gated by a licensing feature code. Modules
+ * absent from this map are always visible (subject to RBAC). To gate more
+ * modules, add another entry; the same feature codes flow through
+ * `sidebar.tsx` and any direct `<FeatureGate>` usage in pages/buttons.
+ */
+const MODULE_FEATURE_GATE: Partial<Record<ModuleKey, string>> = {
+  hr:   'hr.core',
+  jobs: 'manufacturing',
+};
 
 const MODULE_ICONS: Record<ModuleKey, React.ElementType> = {
   sales:     ShoppingCart,
@@ -59,6 +71,16 @@ export function ActivityBar() {
   const roles: string[] = (user as any)?.roles ?? [(user as any)?.role ?? 'super_admin'];
   const modules = getVisibleModulesForRoles(roles);
 
+  // T65 — drop modules whose required feature is not active on the current
+  // plan. While loading we hide gated modules to prevent a brief flash.
+  const { features, loading: featuresLoading } = useFeatures();
+  const visibleModules = modules.filter((m) => {
+    const required = MODULE_FEATURE_GATE[m];
+    if (!required) return true;
+    if (featuresLoading) return false;
+    return features.includes(required);
+  });
+
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
 
   return (
@@ -79,8 +101,8 @@ export function ActivityBar() {
 
       <div className="h-px w-7 bg-slate-700 my-1" />
 
-      {/* Role-filtered modules */}
-      {modules.map((m) => {
+      {/* Role-filtered + plan-gated modules (T65) */}
+      {visibleModules.map((m) => {
         const Icon = MODULE_ICONS[m];
         const href = MODULE_HREFS[m];
         const active = isActive(href);

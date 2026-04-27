@@ -13,6 +13,7 @@ const PROTECTED_PREFIXES = [
   '/reports',
   '/settings',
   '/profile',
+  '/super-admin',
 ];
 
 const TOKEN_COOKIE = 'al-ruya.token';
@@ -51,5 +52,6 @@ export const config = {
     '/reports/:path*',
     '/settings/:path*',
     '/profile/:path*',
+    '/super-admin/:path*',
   ],
 };
