@@ -136,7 +136,7 @@ enum PaymentMethod {
   qi_card
   fib
   bank_transfer
-  credit      // آجل
+  credit // آجل
   store_credit
   loyalty_points
   mixed
@@ -190,7 +190,7 @@ enum ShiftStatus {
 enum ReceiptStatus {
   completed
   voided
-  held              // معلقة
+  held // معلقة
   refunded
   partially_refunded
 }
@@ -202,6 +202,19 @@ enum DeliveryStatus {
   delivered
   failed
   returned
+  cancelled
+}
+
+enum DeliveryCompanyType {
+  internal
+  external
+}
+
+enum CodSettlementStatus {
+  draft
+  proposed
+  posted
+  paid
   cancelled
 }
 
@@ -234,8 +247,8 @@ enum GRNStatus {
 
 enum VendorInvoiceStatus {
   draft
-  matched           // 3-way match passed
-  on_hold           // discrepancy
+  matched // 3-way match passed
+  on_hold // discrepancy
   posted
   partially_paid
   paid
@@ -388,42 +401,42 @@ model Company {
   deletedAt           DateTime?
   deletedBy           String?     @db.Char(26)
 
-  branches            Branch[]
-  users               User[]
-  chartOfAccounts     ChartOfAccount[]
-  accountingPeriods   AccountingPeriod[]
-  costCenters         CostCenter[]
-  exchangeRates       ExchangeRate[]
-  warehouses          Warehouse[]
-  productTemplates    ProductTemplate[]
-  systemPolicies      SystemPolicy[]
+  branches          Branch[]
+  users             User[]
+  chartOfAccounts   ChartOfAccount[]
+  accountingPeriods AccountingPeriod[]
+  costCenters       CostCenter[]
+  exchangeRates     ExchangeRate[]
+  warehouses        Warehouse[]
+  productTemplates  ProductTemplate[]
+  systemPolicies    SystemPolicy[]
 
   @@map("companies")
 }
 
 model Branch {
-  id                  String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId           String   @db.Char(26)
-  code                String   @db.VarChar(10)
-  nameAr              String   @db.VarChar(200)
-  nameEn              String?  @db.VarChar(200)
-  address             String?
-  phone               String?  @db.VarChar(20)
-  city                String?  @db.VarChar(100)
-  isMainBranch        Boolean  @default(false)
-  isActive            Boolean  @default(true)
-  workingHoursStart   String?  @db.VarChar(5)
-  workingHoursEnd     String?  @db.VarChar(5)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  createdBy           String   @db.Char(26)
-  updatedBy           String   @db.Char(26)
-  deletedAt           DateTime?
-  deletedBy           String?  @db.Char(26)
+  id                String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String    @db.Char(26)
+  code              String    @db.VarChar(10)
+  nameAr            String    @db.VarChar(200)
+  nameEn            String?   @db.VarChar(200)
+  address           String?
+  phone             String?   @db.VarChar(20)
+  city              String?   @db.VarChar(100)
+  isMainBranch      Boolean   @default(false)
+  isActive          Boolean   @default(true)
+  workingHoursStart String?   @db.VarChar(5)
+  workingHoursEnd   String?   @db.VarChar(5)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdBy         String    @db.Char(26)
+  updatedBy         String    @db.Char(26)
+  deletedAt         DateTime?
+  deletedBy         String?   @db.Char(26)
 
-  company             Company  @relation(fields: [companyId], references: [id])
-  users               User[]
-  warehouses          Warehouse[]
+  company    Company     @relation(fields: [companyId], references: [id])
+  users      User[]
+  warehouses Warehouse[]
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -435,49 +448,49 @@ model Branch {
 // ============================================================
 
 model User {
-  id              String     @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId       String     @db.Char(26)
-  branchId        String?    @db.Char(26)
-  email           String     @db.VarChar(254)
+  id           String     @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId    String     @db.Char(26)
+  branchId     String?    @db.Char(26)
+  email        String     @db.VarChar(254)
   // Optional username for accounts that prefer login-by-handle (system owner, admins).
   // Globally unique — one username system-wide.
-  username        String?    @unique @db.VarChar(40)
-  passwordHash    String
-  nameAr          String     @db.VarChar(200)
-  nameEn          String?    @db.VarChar(200)
-  avatarUrl       String?
-  phone           String?    @db.VarChar(20)
-  locale          String     @default("ar") @db.VarChar(5)
-  status          UserStatus @default(active)
+  username     String?    @unique @db.VarChar(40)
+  passwordHash String
+  nameAr       String     @db.VarChar(200)
+  nameEn       String?    @db.VarChar(200)
+  avatarUrl    String?
+  phone        String?    @db.VarChar(20)
+  locale       String     @default("ar") @db.VarChar(5)
+  status       UserStatus @default(active)
 
   // ─── System-level privilege ────────────────────────────────────────────
   // The single permanent owner of the deployment. Cannot be deleted, cannot
   // have permissions reduced, sees all companies (super-tenant).
   // Exactly one user per deployment may have this flag.
-  isSystemOwner   Boolean    @default(false)
+  isSystemOwner Boolean @default(false)
 
   // ─── 2FA (TOTP via Google Authenticator / Authy) ──────────────────────
   failedLoginCount Int       @default(0)
-  lockedUntil     DateTime?
-  requires2FA     Boolean    @default(false)        // user has enabled TOTP
-  mfaEnforced     Boolean    @default(false)        // policy forces TOTP for this account
-  totpSecret      String?                            // AES-encrypted base32 secret
-  totpEnabledAt   DateTime?
-  backupCodes     String?                            // JSON array of single-use backup codes (hashed)
+  lockedUntil      DateTime?
+  requires2FA      Boolean   @default(false) // user has enabled TOTP
+  mfaEnforced      Boolean   @default(false) // policy forces TOTP for this account
+  totpSecret       String? // AES-encrypted base32 secret
+  totpEnabledAt    DateTime?
+  backupCodes      String? // JSON array of single-use backup codes (hashed)
 
-  lastLoginAt     DateTime?
-  lastLoginIp     String?    @db.VarChar(45)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  createdBy       String     @db.Char(26)
-  updatedBy       String     @db.Char(26)
-  deletedAt       DateTime?
-  deletedBy       String?    @db.Char(26)
+  lastLoginAt DateTime?
+  lastLoginIp String?   @db.VarChar(45)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String    @db.Char(26)
+  updatedBy   String    @db.Char(26)
+  deletedAt   DateTime?
+  deletedBy   String?   @db.Char(26)
 
-  company         Company    @relation(fields: [companyId], references: [id])
-  branch          Branch?    @relation(fields: [branchId], references: [id])
-  userRoles       UserRole[]
-  refreshTokens   RefreshToken[]
+  company       Company        @relation(fields: [companyId], references: [id])
+  branch        Branch?        @relation(fields: [branchId], references: [id])
+  userRoles     UserRole[]
+  refreshTokens RefreshToken[]
 
   @@unique([companyId, email])
   @@index([companyId])
@@ -492,41 +505,41 @@ model Role {
   displayNameAr String   @db.VarChar(200)
   displayNameEn String?  @db.VarChar(200)
   isSystem      Boolean  @default(false)
-  permissions   Json     // PermissionEntry[] — see shared-types
+  permissions   Json // PermissionEntry[] — see shared-types
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  userRoles     UserRole[]
+  userRoles UserRole[]
 
   @@unique([companyId, name])
   @@map("roles")
 }
 
 model UserRole {
-  userId    String   @db.Char(26)
-  roleId    String   @db.Char(26)
+  userId     String   @db.Char(26)
+  roleId     String   @db.Char(26)
   assignedAt DateTime @default(now())
   assignedBy String   @db.Char(26)
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role      Role     @relation(fields: [roleId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id])
 
   @@id([userId, roleId])
   @@map("user_roles")
 }
 
 model RefreshToken {
-  id          String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  userId      String   @db.Char(26)
-  tokenHash   String   @unique // SHA-256 of the token
-  deviceId    String   @db.VarChar(36)
-  deviceType  String   @db.VarChar(30)
-  ipAddress   String   @db.VarChar(45)
-  expiresAt   DateTime
-  revokedAt   DateTime?
-  createdAt   DateTime @default(now())
+  id         String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  userId     String    @db.Char(26)
+  tokenHash  String    @unique // SHA-256 of the token
+  deviceId   String    @db.VarChar(36)
+  deviceType String    @db.VarChar(30)
+  ipAddress  String    @db.VarChar(45)
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([tokenHash])
@@ -539,22 +552,22 @@ model RefreshToken {
 // ============================================================
 
 model AuditLog {
-  id           String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId    String   @db.Char(26)
-  userId       String   @db.Char(26)
-  userEmail    String   @db.VarChar(254) // denormalized for deleted users
-  action       String   @db.VarChar(50)  // create, update, delete, submit, approve...
-  entityType   String   @db.VarChar(100) // "Invoice", "User", "Product"...
-  entityId     String   @db.Char(26)
-  changedFields Json?   // { field: { old, new } }
-  ipAddress    String?  @db.VarChar(45)
-  userAgent    String?  @db.VarChar(500)
-  deviceType   String?  @db.VarChar(30)
-  reason       String?  @db.VarChar(1000)
-  occurredAt   DateTime @default(now())
+  id            String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId     String   @db.Char(26)
+  userId        String   @db.Char(26)
+  userEmail     String   @db.VarChar(254) // denormalized for deleted users
+  action        String   @db.VarChar(50) // create, update, delete, submit, approve...
+  entityType    String   @db.VarChar(100) // "Invoice", "User", "Product"...
+  entityId      String   @db.Char(26)
+  changedFields Json? // { field: { old, new } }
+  ipAddress     String?  @db.VarChar(45)
+  userAgent     String?  @db.VarChar(500)
+  deviceType    String?  @db.VarChar(30)
+  reason        String?  @db.VarChar(1000)
+  occurredAt    DateTime @default(now())
   // Hash chain for tamper detection
-  hash         String   @db.Char(64) // SHA-256 hex
-  previousHash String   @db.Char(64)
+  hash          String   @db.Char(64) // SHA-256 hex
+  previousHash  String   @db.Char(64)
 
   @@index([companyId, entityType, entityId])
   @@index([companyId, userId])
@@ -567,13 +580,13 @@ model AuditLog {
 // ============================================================
 
 model DocumentSequence {
-  id          String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId   String   @db.Char(26)
-  branchId    String?  @db.Char(26)
-  prefix      String   @db.VarChar(20)  // "INV", "PO", "JE"
-  year        Int
-  lastValue   Int      @default(0)
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId String   @db.Char(26)
+  branchId  String?  @db.Char(26)
+  prefix    String   @db.VarChar(20) // "INV", "PO", "JE"
+  year      Int
+  lastValue Int      @default(0)
+  updatedAt DateTime @updatedAt
 
   @@unique([companyId, branchId, prefix, year])
   @@map("document_sequences")
@@ -588,12 +601,12 @@ model SystemPolicy {
   companyId   String   @db.Char(26)
   branchId    String?  @db.Char(26) // null = company-wide
   policyKey   String   @db.VarChar(100) // "max_discount_cashier"
-  policyValue Json     // flexible value: number, string, bool, object
+  policyValue Json // flexible value: number, string, bool, object
   description String?
   updatedAt   DateTime @updatedAt
   updatedBy   String   @db.Char(26)
 
-  company     Company  @relation(fields: [companyId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
 
   @@unique([companyId, branchId, policyKey])
   @@map("system_policies")
@@ -622,9 +635,9 @@ model ChartOfAccount {
   updatedAt          DateTime        @updatedAt
   createdBy          String          @db.Char(26)
 
-  company            Company         @relation(fields: [companyId], references: [id])
-  parent             ChartOfAccount? @relation("AccountHierarchy", fields: [parentId], references: [id])
-  children           ChartOfAccount[] @relation("AccountHierarchy")
+  company  Company          @relation(fields: [companyId], references: [id])
+  parent   ChartOfAccount?  @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children ChartOfAccount[] @relation("AccountHierarchy")
 
   @@unique([companyId, code])
   @@index([companyId, category])
@@ -639,7 +652,7 @@ model AccountingPeriod {
   id        String       @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
   companyId String       @db.Char(26)
   year      Int
-  month     Int          // 1-12
+  month     Int // 1-12
   startDate DateTime     @db.Date
   endDate   DateTime     @db.Date
   status    PeriodStatus @default(open)
@@ -647,7 +660,7 @@ model AccountingPeriod {
   closedBy  String?      @db.Char(26)
   createdAt DateTime     @default(now())
 
-  company   Company      @relation(fields: [companyId], references: [id])
+  company        Company        @relation(fields: [companyId], references: [id])
   journalEntries JournalEntry[]
 
   @@unique([companyId, year, month])
@@ -661,29 +674,29 @@ model AccountingPeriod {
 // ============================================================
 
 model JournalEntry {
-  id              String             @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId       String             @db.Char(26)
-  periodId        String             @db.Char(26)
-  entryNumber     String             @db.VarChar(30)
-  entryDate       DateTime           @db.Date
-  description     String             @db.VarChar(500) // mandatory — no silent posting
-  referenceType   String             @db.VarChar(50)
-  referenceId     String             @db.Char(26)
-  totalDebitIqd   Decimal            @db.Decimal(18, 3)
-  totalCreditIqd  Decimal            @db.Decimal(18, 3) // DB constraint: = totalDebitIqd
-  status          JournalEntryStatus @default(draft)
-  reversalOfId    String?            @db.Char(26)
-  reversedById    String?            @db.Char(26)
-  postedAt        DateTime?
-  postedBy        String?            @db.Char(26)
-  createdAt       DateTime           @default(now())
-  createdBy       String             @db.Char(26)
+  id             String             @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId      String             @db.Char(26)
+  periodId       String             @db.Char(26)
+  entryNumber    String             @db.VarChar(30)
+  entryDate      DateTime           @db.Date
+  description    String             @db.VarChar(500) // mandatory — no silent posting
+  referenceType  String             @db.VarChar(50)
+  referenceId    String             @db.Char(26)
+  totalDebitIqd  Decimal            @db.Decimal(18, 3)
+  totalCreditIqd Decimal            @db.Decimal(18, 3) // DB constraint: = totalDebitIqd
+  status         JournalEntryStatus @default(draft)
+  reversalOfId   String?            @db.Char(26)
+  reversedById   String?            @db.Char(26)
+  postedAt       DateTime?
+  postedBy       String?            @db.Char(26)
+  createdAt      DateTime           @default(now())
+  createdBy      String             @db.Char(26)
   // Hash chain — tamper detection
-  hash            String             @db.Char(64)
-  previousHash    String             @db.Char(64)
+  hash           String             @db.Char(64)
+  previousHash   String             @db.Char(64)
 
-  period          AccountingPeriod   @relation(fields: [periodId], references: [id])
-  lines           JournalEntryLine[]
+  period AccountingPeriod   @relation(fields: [periodId], references: [id])
+  lines  JournalEntryLine[]
 
   @@unique([companyId, entryNumber])
   @@index([companyId, periodId])
@@ -699,7 +712,7 @@ model JournalEntryLine {
   accountId       String   @db.Char(26)
   accountCode     String   @db.VarChar(10) // denormalized
   accountNameAr   String   @db.VarChar(200) // denormalized
-  side            String   @db.VarChar(6)   // 'debit' | 'credit'
+  side            String   @db.VarChar(6) // 'debit' | 'credit'
   amountIqd       Decimal  @db.Decimal(18, 3)
   amountForeign   Decimal? @db.Decimal(18, 3)
   foreignCurrency String?  @db.VarChar(3)
@@ -708,7 +721,7 @@ model JournalEntryLine {
   description     String?  @db.VarChar(500)
   // NO createdAt — inherits from JournalEntry
 
-  journalEntry    JournalEntry @relation(fields: [journalEntryId], references: [id])
+  journalEntry JournalEntry @relation(fields: [journalEntryId], references: [id])
 
   @@index([journalEntryId])
   @@index([accountId])
@@ -717,18 +730,18 @@ model JournalEntryLine {
 
 // Posting profiles — auto journal templates
 model PostingProfile {
-  id                    String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId             String   @db.Char(26)
-  branchId              String?  @db.Char(26)
-  transactionType       String   @db.VarChar(50)
-  nameAr                String   @db.VarChar(200)
-  debitAccountId        String   @db.Char(26)
-  creditAccountId       String   @db.Char(26)
-  secondaryEntries      Json?    // additional entries (e.g. COGS)
-  isActive              Boolean  @default(true)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  createdBy             String   @db.Char(26)
+  id               String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId        String   @db.Char(26)
+  branchId         String?  @db.Char(26)
+  transactionType  String   @db.VarChar(50)
+  nameAr           String   @db.VarChar(200)
+  debitAccountId   String   @db.Char(26)
+  creditAccountId  String   @db.Char(26)
+  secondaryEntries Json? // additional entries (e.g. COGS)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  createdBy        String   @db.Char(26)
 
   @@unique([companyId, branchId, transactionType])
   @@map("posting_profiles")
@@ -750,7 +763,7 @@ model CostCenter {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  company   Company  @relation(fields: [companyId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
 
   @@unique([companyId, code])
   @@map("cost_centers")
@@ -761,19 +774,19 @@ model CostCenter {
 // ============================================================
 
 model ExchangeRate {
-  id             String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId      String   @db.Char(26)
-  fromCurrency   String   @db.VarChar(3)
-  toCurrency     String   @db.VarChar(3)
-  rate           Decimal  @db.Decimal(18, 6)
-  buyRate        Decimal? @db.Decimal(18, 6)
-  sellRate       Decimal? @db.Decimal(18, 6)
-  effectiveDate  DateTime @db.Date
-  source         String   @default("manual") @db.VarChar(10)
-  createdBy      String   @db.Char(26)
-  createdAt      DateTime @default(now())
+  id            String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId     String   @db.Char(26)
+  fromCurrency  String   @db.VarChar(3)
+  toCurrency    String   @db.VarChar(3)
+  rate          Decimal  @db.Decimal(18, 6)
+  buyRate       Decimal? @db.Decimal(18, 6)
+  sellRate      Decimal? @db.Decimal(18, 6)
+  effectiveDate DateTime @db.Date
+  source        String   @default("manual") @db.VarChar(10)
+  createdBy     String   @db.Char(26)
+  createdAt     DateTime @default(now())
 
-  company        Company  @relation(fields: [companyId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
 
   @@index([companyId, fromCurrency, toCurrency, effectiveDate])
   @@map("exchange_rates")
@@ -797,22 +810,22 @@ model ProductCategory {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  parent        ProductCategory?   @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children      ProductCategory[]  @relation("CategoryHierarchy")
-  templates     ProductTemplate[]
+  parent    ProductCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children  ProductCategory[] @relation("CategoryHierarchy")
+  templates ProductTemplate[]
 
   @@index([companyId])
   @@map("product_categories")
 }
 
 model UnitOfMeasure {
-  id           String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId    String   @db.Char(26)
-  nameAr       String   @db.VarChar(100)
-  nameEn       String?  @db.VarChar(100)
-  abbreviation String   @db.VarChar(10)
-  isBaseUnit   Boolean  @default(false)
-  isActive     Boolean  @default(true)
+  id           String  @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId    String  @db.Char(26)
+  nameAr       String  @db.VarChar(100)
+  nameEn       String? @db.VarChar(100)
+  abbreviation String  @db.VarChar(10)
+  isBaseUnit   Boolean @default(false)
+  isActive     Boolean @default(true)
 
   @@unique([companyId, abbreviation])
   @@map("units_of_measure")
@@ -826,43 +839,43 @@ model UnitConversion {
   toUnitId   String  @db.Char(26)
   factor     Decimal @db.Decimal(18, 6)
 
-  template   ProductTemplate @relation(fields: [templateId], references: [id])
+  template ProductTemplate @relation(fields: [templateId], references: [id])
 
   @@unique([templateId, fromUnitId, toUnitId])
   @@map("unit_conversions")
 }
 
 model ProductTemplate {
-  id                  String      @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId           String      @db.Char(26)
-  sku                 String      @db.VarChar(50)
-  nameAr              String      @db.VarChar(300)
-  nameEn              String?     @db.VarChar(300)
-  categoryId          String      @db.Char(26)
-  brandId             String?     @db.Char(26)
-  type                ProductType @default(storable)
-  baseUnitId          String      @db.Char(26)
-  saleUnitId          String      @db.Char(26)
-  purchaseUnitId      String      @db.Char(26)
-  defaultSalePriceIqd Decimal     @db.Decimal(18, 3)
-  defaultPurchasePriceIqd Decimal @db.Decimal(18, 3)
-  minSalePriceIqd     Decimal     @db.Decimal(18, 3)
-  description         String?     @db.VarChar(2000)
-  isPublishedOnline   Boolean     @default(false)
-  tags                String[]    @default([])
-  imageUrls           String[]    @default([])
-  isActive            Boolean     @default(true)
-  createdAt           DateTime    @default(now())
-  updatedAt           DateTime    @updatedAt
-  createdBy           String      @db.Char(26)
-  updatedBy           String      @db.Char(26)
-  deletedAt           DateTime?
-  deletedBy           String?     @db.Char(26)
+  id                      String      @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId               String      @db.Char(26)
+  sku                     String      @db.VarChar(50)
+  nameAr                  String      @db.VarChar(300)
+  nameEn                  String?     @db.VarChar(300)
+  categoryId              String      @db.Char(26)
+  brandId                 String?     @db.Char(26)
+  type                    ProductType @default(storable)
+  baseUnitId              String      @db.Char(26)
+  saleUnitId              String      @db.Char(26)
+  purchaseUnitId          String      @db.Char(26)
+  defaultSalePriceIqd     Decimal     @db.Decimal(18, 3)
+  defaultPurchasePriceIqd Decimal     @db.Decimal(18, 3)
+  minSalePriceIqd         Decimal     @db.Decimal(18, 3)
+  description             String?     @db.VarChar(2000)
+  isPublishedOnline       Boolean     @default(false)
+  tags                    String[]    @default([])
+  imageUrls               String[]    @default([])
+  isActive                Boolean     @default(true)
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+  createdBy               String      @db.Char(26)
+  updatedBy               String      @db.Char(26)
+  deletedAt               DateTime?
+  deletedBy               String?     @db.Char(26)
 
-  company             Company     @relation(fields: [companyId], references: [id])
-  category            ProductCategory @relation(fields: [categoryId], references: [id])
-  variants            ProductVariant[]
-  unitConversions     UnitConversion[]
+  company         Company          @relation(fields: [companyId], references: [id])
+  category        ProductCategory  @relation(fields: [categoryId], references: [id])
+  variants        ProductVariant[]
+  unitConversions UnitConversion[]
 
   @@unique([companyId, sku])
   @@index([companyId, categoryId])
@@ -871,12 +884,12 @@ model ProductTemplate {
 }
 
 model ProductAttribute {
-  id        String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId String   @db.Char(26)
-  nameAr    String   @db.VarChar(100)
-  nameEn    String?  @db.VarChar(100)
-  type      String   @default("select") @db.VarChar(20)
-  isActive  Boolean  @default(true)
+  id        String                  @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId String                  @db.Char(26)
+  nameAr    String                  @db.VarChar(100)
+  nameEn    String?                 @db.VarChar(100)
+  type      String                  @default("select") @db.VarChar(20)
+  isActive  Boolean                 @default(true)
   values    ProductAttributeValue[]
 
   @@unique([companyId, nameAr])
@@ -884,38 +897,38 @@ model ProductAttribute {
 }
 
 model ProductAttributeValue {
-  id          String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  attributeId String   @db.Char(26)
-  valueAr     String   @db.VarChar(200)
-  valueEn     String?  @db.VarChar(200)
-  colorHex    String?  @db.VarChar(7)
-  sortOrder   Int      @default(0)
+  id          String  @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  attributeId String  @db.Char(26)
+  valueAr     String  @db.VarChar(200)
+  valueEn     String? @db.VarChar(200)
+  colorHex    String? @db.VarChar(7)
+  sortOrder   Int     @default(0)
 
-  attribute   ProductAttribute @relation(fields: [attributeId], references: [id])
+  attribute ProductAttribute @relation(fields: [attributeId], references: [id])
 
   @@map("product_attribute_values")
 }
 
 model ProductVariant {
-  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  templateId      String   @db.Char(26)
-  companyId       String   @db.Char(26)
-  sku             String   @db.VarChar(80)
-  attributeValues Json     @default("{}") // { "اللون": "أزرق" }
+  id              String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  templateId      String    @db.Char(26)
+  companyId       String    @db.Char(26)
+  sku             String    @db.VarChar(80)
+  attributeValues Json      @default("{}") // { "اللون": "أزرق" }
   imageUrl        String?
-  weight          Decimal? @db.Decimal(10, 3)
-  volume          Decimal? @db.Decimal(10, 3)
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  createdBy       String   @db.Char(26)
-  updatedBy       String   @db.Char(26)
+  weight          Decimal?  @db.Decimal(10, 3)
+  volume          Decimal?  @db.Decimal(10, 3)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdBy       String    @db.Char(26)
+  updatedBy       String    @db.Char(26)
   deletedAt       DateTime?
 
-  template        ProductTemplate @relation(fields: [templateId], references: [id])
-  barcodes        VariantBarcode[]
+  template          ProductTemplate    @relation(fields: [templateId], references: [id])
+  barcodes          VariantBarcode[]
   inventoryBalances InventoryBalance[]
-  stockLedger     StockLedgerEntry[]
+  stockLedger       StockLedgerEntry[]
 
   @@unique([companyId, sku])
   @@index([templateId])
@@ -931,7 +944,7 @@ model VariantBarcode {
   barcodeType BarcodeType @default(EAN13)
   isPrimary   Boolean     @default(false)
 
-  variant     ProductVariant @relation(fields: [variantId], references: [id])
+  variant ProductVariant @relation(fields: [variantId], references: [id])
 
   @@unique([companyId, barcode])
   @@index([variantId])
@@ -940,36 +953,36 @@ model VariantBarcode {
 
 // Price Lists — Time-based (Temporal)
 model PriceList {
-  id          String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId   String   @db.Char(26)
-  nameAr      String   @db.VarChar(200)
-  type        String   @db.VarChar(30) // 'retail' | 'wholesale' | 'online'
-  currency    String   @default("IQD") @db.VarChar(3)
-  isDefault   Boolean  @default(false)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   String   @db.Char(26)
+  id        String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId String   @db.Char(26)
+  nameAr    String   @db.VarChar(200)
+  type      String   @db.VarChar(30) // 'retail' | 'wholesale' | 'online'
+  currency  String   @default("IQD") @db.VarChar(3)
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String   @db.Char(26)
 
-  items       PriceListItem[]
+  items PriceListItem[]
 
   @@index([companyId])
   @@map("price_lists")
 }
 
 model PriceListItem {
-  id             String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  priceListId    String   @db.Char(26)
-  variantId      String   @db.Char(26)
-  priceIqd       Decimal  @db.Decimal(18, 3)
-  effectiveFrom  DateTime @db.Date
-  effectiveTo    DateTime? @db.Date
-  approvedBy     String?  @db.Char(26)
-  approvedAt     DateTime?
-  createdBy      String   @db.Char(26)
-  createdAt      DateTime @default(now())
+  id            String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  priceListId   String    @db.Char(26)
+  variantId     String    @db.Char(26)
+  priceIqd      Decimal   @db.Decimal(18, 3)
+  effectiveFrom DateTime  @db.Date
+  effectiveTo   DateTime? @db.Date
+  approvedBy    String?   @db.Char(26)
+  approvedAt    DateTime?
+  createdBy     String    @db.Char(26)
+  createdAt     DateTime  @default(now())
 
-  priceList      PriceList @relation(fields: [priceListId], references: [id])
+  priceList PriceList @relation(fields: [priceListId], references: [id])
 
   @@index([priceListId, variantId, effectiveFrom])
   @@map("price_list_items")
@@ -996,12 +1009,12 @@ model Warehouse {
   updatedBy String        @db.Char(26)
   deletedAt DateTime?
 
-  company   Company       @relation(fields: [companyId], references: [id])
-  branch    Branch        @relation(fields: [branchId], references: [id])
+  company           Company            @relation(fields: [companyId], references: [id])
+  branch            Branch             @relation(fields: [branchId], references: [id])
   inventoryBalances InventoryBalance[]
-  stockLedger StockLedgerEntry[]
-  transfersFrom StockTransfer[] @relation("TransferFrom")
-  transfersTo   StockTransfer[] @relation("TransferTo")
+  stockLedger       StockLedgerEntry[]
+  transfersFrom     StockTransfer[]    @relation("TransferFrom")
+  transfersTo       StockTransfer[]    @relation("TransferTo")
 
   @@unique([companyId, code])
   @@index([companyId, branchId])
@@ -1021,8 +1034,8 @@ model InventoryBalance {
   avgCostIqd    Decimal  @default(0) @db.Decimal(18, 6) // Moving Weighted Average
   lastUpdatedAt DateTime @updatedAt
 
-  variant       ProductVariant @relation(fields: [variantId], references: [id])
-  warehouse     Warehouse      @relation(fields: [warehouseId], references: [id])
+  variant   ProductVariant @relation(fields: [variantId], references: [id])
+  warehouse Warehouse      @relation(fields: [warehouseId], references: [id])
 
   @@unique([variantId, warehouseId])
   @@index([companyId, warehouseId])
@@ -1048,8 +1061,8 @@ model StockLedgerEntry {
   createdBy       String   @db.Char(26)
   // NO updatedAt — this is append-only
 
-  variant         ProductVariant @relation(fields: [variantId], references: [id])
-  warehouse       Warehouse      @relation(fields: [warehouseId], references: [id])
+  variant   ProductVariant @relation(fields: [variantId], references: [id])
+  warehouse Warehouse      @relation(fields: [warehouseId], references: [id])
 
   @@index([companyId, variantId, warehouseId, createdAt])
   @@index([companyId, referenceType, referenceId])
@@ -1074,9 +1087,9 @@ model StockTransfer {
   updatedAt       DateTime       @updatedAt
   createdBy       String         @db.Char(26)
 
-  fromWarehouse   Warehouse      @relation("TransferFrom", fields: [fromWarehouseId], references: [id])
-  toWarehouse     Warehouse      @relation("TransferTo", fields: [toWarehouseId], references: [id])
-  lines           StockTransferLine[]
+  fromWarehouse Warehouse           @relation("TransferFrom", fields: [fromWarehouseId], references: [id])
+  toWarehouse   Warehouse           @relation("TransferTo", fields: [toWarehouseId], references: [id])
+  lines         StockTransferLine[]
 
   @@unique([companyId, transferNumber])
   @@index([companyId, status])
@@ -1084,15 +1097,15 @@ model StockTransfer {
 }
 
 model StockTransferLine {
-  id           String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  transferId   String   @db.Char(26)
-  variantId    String   @db.Char(26)
-  qtyRequested Decimal  @db.Decimal(18, 3)
-  qtyShipped   Decimal  @default(0) @db.Decimal(18, 3)
-  qtyReceived  Decimal  @default(0) @db.Decimal(18, 3)
-  unitCostIqd  Decimal  @db.Decimal(18, 6)
+  id           String  @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  transferId   String  @db.Char(26)
+  variantId    String  @db.Char(26)
+  qtyRequested Decimal @db.Decimal(18, 3)
+  qtyShipped   Decimal @default(0) @db.Decimal(18, 3)
+  qtyReceived  Decimal @default(0) @db.Decimal(18, 3)
+  unitCostIqd  Decimal @db.Decimal(18, 6)
 
-  transfer     StockTransfer @relation(fields: [transferId], references: [id])
+  transfer StockTransfer @relation(fields: [transferId], references: [id])
 
   @@index([transferId])
   @@map("stock_transfer_lines")
@@ -1100,23 +1113,23 @@ model StockTransferLine {
 
 // Stocktaking Sessions
 model StocktakingSession {
-  id            String            @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId     String            @db.Char(26)
-  warehouseId   String            @db.Char(26)
-  sessionNumber String            @db.VarChar(30)
-  type          StocktakingType
-  status        StocktakingStatus @default(draft)
-  countDate     DateTime          @db.Date
-  isFrozen      Boolean           @default(false)
-  notes         String?           @db.VarChar(1000)
-  approvedAt    DateTime?
-  approvedBy    String?           @db.Char(26)
-  journalEntryId String?          @db.Char(26)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  createdBy     String            @db.Char(26)
+  id             String            @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId      String            @db.Char(26)
+  warehouseId    String            @db.Char(26)
+  sessionNumber  String            @db.VarChar(30)
+  type           StocktakingType
+  status         StocktakingStatus @default(draft)
+  countDate      DateTime          @db.Date
+  isFrozen       Boolean           @default(false)
+  notes          String?           @db.VarChar(1000)
+  approvedAt     DateTime?
+  approvedBy     String?           @db.Char(26)
+  journalEntryId String?           @db.Char(26)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  createdBy      String            @db.Char(26)
 
-  lines         StocktakingLine[]
+  lines StocktakingLine[]
 
   @@unique([companyId, sessionNumber])
   @@index([companyId, warehouseId, status])
@@ -1124,19 +1137,19 @@ model StocktakingSession {
 }
 
 model StocktakingLine {
-  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  sessionId       String   @db.Char(26)
-  variantId       String   @db.Char(26)
-  systemQty       Decimal  @db.Decimal(18, 3)
-  countedQty      Decimal? @db.Decimal(18, 3)
-  variance        Decimal? @db.Decimal(18, 3)
-  varianceValueIqd Decimal? @db.Decimal(18, 3)
-  unitCostIqd     Decimal  @db.Decimal(18, 6)
-  notes           String?  @db.VarChar(500)
-  countedBy       String?  @db.Char(26)
-  countedAt       DateTime?
+  id               String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  sessionId        String    @db.Char(26)
+  variantId        String    @db.Char(26)
+  systemQty        Decimal   @db.Decimal(18, 3)
+  countedQty       Decimal?  @db.Decimal(18, 3)
+  variance         Decimal?  @db.Decimal(18, 3)
+  varianceValueIqd Decimal?  @db.Decimal(18, 3)
+  unitCostIqd      Decimal   @db.Decimal(18, 6)
+  notes            String?   @db.VarChar(500)
+  countedBy        String?   @db.Char(26)
+  countedAt        DateTime?
 
-  session         StocktakingSession @relation(fields: [sessionId], references: [id])
+  session StocktakingSession @relation(fields: [sessionId], references: [id])
 
   @@index([sessionId])
   @@map("stocktaking_lines")
@@ -1147,37 +1160,37 @@ model StocktakingLine {
 // ============================================================
 
 model Customer {
-  id                String       @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId         String       @db.Char(26)
-  code              String       @db.VarChar(20)
-  type              CustomerType @default(regular)
-  nameAr            String       @db.VarChar(200)
-  nameEn            String?      @db.VarChar(200)
-  phone             String?      @db.VarChar(20)
-  whatsapp          String?      @db.VarChar(20)
-  email             String?      @db.VarChar(200)
-  address           String?
-  city              String?      @db.VarChar(100)
-  taxNumber         String?      @db.VarChar(50)
-  creditLimitIqd    Decimal      @default(0) @db.Decimal(18, 3)
-  creditBalanceIqd  Decimal      @default(0) @db.Decimal(18, 3)
-  loyaltyPoints     Int          @default(0)
-  loyaltyTier       String?      @db.VarChar(20)  // bronze | silver | gold | platinum
-  preferredPriceListId String?   @db.Char(26)
-  defaultDiscountPct Decimal     @default(0) @db.Decimal(5, 2)
-  birthDate         DateTime?    @db.Date
-  notes             String?
-  isActive          Boolean      @default(true)
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-  createdBy         String       @db.Char(26)
-  updatedBy         String       @db.Char(26)
-  deletedAt         DateTime?
-  deletedBy         String?      @db.Char(26)
+  id                   String       @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId            String       @db.Char(26)
+  code                 String       @db.VarChar(20)
+  type                 CustomerType @default(regular)
+  nameAr               String       @db.VarChar(200)
+  nameEn               String?      @db.VarChar(200)
+  phone                String?      @db.VarChar(20)
+  whatsapp             String?      @db.VarChar(20)
+  email                String?      @db.VarChar(200)
+  address              String?
+  city                 String?      @db.VarChar(100)
+  taxNumber            String?      @db.VarChar(50)
+  creditLimitIqd       Decimal      @default(0) @db.Decimal(18, 3)
+  creditBalanceIqd     Decimal      @default(0) @db.Decimal(18, 3)
+  loyaltyPoints        Int          @default(0)
+  loyaltyTier          String?      @db.VarChar(20) // bronze | silver | gold | platinum
+  preferredPriceListId String?      @db.Char(26)
+  defaultDiscountPct   Decimal      @default(0) @db.Decimal(5, 2)
+  birthDate            DateTime?    @db.Date
+  notes                String?
+  isActive             Boolean      @default(true)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  createdBy            String       @db.Char(26)
+  updatedBy            String       @db.Char(26)
+  deletedAt            DateTime?
+  deletedBy            String?      @db.Char(26)
 
-  quotations        Quotation[]
-  salesOrders       SalesOrder[]
-  salesInvoices     SalesInvoice[]
+  quotations    Quotation[]
+  salesOrders   SalesOrder[]
+  salesInvoices SalesInvoice[]
 
   @@unique([companyId, code])
   @@index([companyId, phone])
@@ -1186,30 +1199,30 @@ model Customer {
 }
 
 model Quotation {
-  id                String           @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId         String           @db.Char(26)
-  branchId          String           @db.Char(26)
-  number            String           @db.VarChar(50)
-  customerId        String           @db.Char(26)
-  quotationDate     DateTime         @default(now())
-  validUntil        DateTime
-  status            QuotationStatus  @default(draft)
-  subtotalIqd       Decimal          @db.Decimal(18, 3)
-  discountIqd       Decimal          @default(0) @db.Decimal(18, 3)
-  taxIqd            Decimal          @default(0) @db.Decimal(18, 3)
-  totalIqd          Decimal          @db.Decimal(18, 3)
-  currency          String           @default("IQD") @db.VarChar(3)
-  exchangeRate      Decimal          @default(1) @db.Decimal(18, 6)
-  terms             String?
-  notes             String?
+  id                 String          @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId          String          @db.Char(26)
+  branchId           String          @db.Char(26)
+  number             String          @db.VarChar(50)
+  customerId         String          @db.Char(26)
+  quotationDate      DateTime        @default(now())
+  validUntil         DateTime
+  status             QuotationStatus @default(draft)
+  subtotalIqd        Decimal         @db.Decimal(18, 3)
+  discountIqd        Decimal         @default(0) @db.Decimal(18, 3)
+  taxIqd             Decimal         @default(0) @db.Decimal(18, 3)
+  totalIqd           Decimal         @db.Decimal(18, 3)
+  currency           String          @default("IQD") @db.VarChar(3)
+  exchangeRate       Decimal         @default(1) @db.Decimal(18, 6)
+  terms              String?
+  notes              String?
   convertedToOrderId String?         @db.Char(26)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  createdBy         String           @db.Char(26)
-  updatedBy         String           @db.Char(26)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  createdBy          String          @db.Char(26)
+  updatedBy          String          @db.Char(26)
 
-  customer          Customer         @relation(fields: [customerId], references: [id])
-  lines             QuotationLine[]
+  customer Customer        @relation(fields: [customerId], references: [id])
+  lines    QuotationLine[]
 
   @@unique([companyId, number])
   @@index([companyId, customerId])
@@ -1218,56 +1231,56 @@ model Quotation {
 }
 
 model QuotationLine {
-  id            String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  quotationId   String   @db.Char(26)
-  variantId     String   @db.Char(26)
-  qty           Decimal  @db.Decimal(18, 3)
-  unitPriceIqd  Decimal  @db.Decimal(18, 3)
-  discountPct   Decimal  @default(0) @db.Decimal(5, 2)
-  discountIqd   Decimal  @default(0) @db.Decimal(18, 3)
-  lineTotalIqd  Decimal  @db.Decimal(18, 3)
-  notes         String?  @db.VarChar(500)
-  sortOrder     Int      @default(0)
+  id           String  @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  quotationId  String  @db.Char(26)
+  variantId    String  @db.Char(26)
+  qty          Decimal @db.Decimal(18, 3)
+  unitPriceIqd Decimal @db.Decimal(18, 3)
+  discountPct  Decimal @default(0) @db.Decimal(5, 2)
+  discountIqd  Decimal @default(0) @db.Decimal(18, 3)
+  lineTotalIqd Decimal @db.Decimal(18, 3)
+  notes        String? @db.VarChar(500)
+  sortOrder    Int     @default(0)
 
-  quotation     Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
 
   @@index([quotationId])
   @@map("quotation_lines")
 }
 
 model SalesOrder {
-  id                String            @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId         String            @db.Char(26)
-  branchId          String            @db.Char(26)
-  number            String            @db.VarChar(50)
-  customerId        String            @db.Char(26)
-  sourceQuotationId String?           @db.Char(26)
-  orderDate         DateTime          @default(now())
+  id                   String           @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId            String           @db.Char(26)
+  branchId             String           @db.Char(26)
+  number               String           @db.VarChar(50)
+  customerId           String           @db.Char(26)
+  sourceQuotationId    String?          @db.Char(26)
+  orderDate            DateTime         @default(now())
   expectedDeliveryDate DateTime?
-  status            SalesOrderStatus  @default(draft)
-  warehouseId       String            @db.Char(26)
-  subtotalIqd       Decimal           @db.Decimal(18, 3)
-  discountIqd       Decimal           @default(0) @db.Decimal(18, 3)
-  taxIqd            Decimal           @default(0) @db.Decimal(18, 3)
-  shippingIqd       Decimal           @default(0) @db.Decimal(18, 3)
-  totalIqd          Decimal           @db.Decimal(18, 3)
-  depositIqd        Decimal           @default(0) @db.Decimal(18, 3)
-  currency          String            @default("IQD") @db.VarChar(3)
-  exchangeRate      Decimal           @default(1) @db.Decimal(18, 6)
-  channel           String            @default("in_store") @db.VarChar(20) // in_store | online | phone | whatsapp
-  notes             String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  createdBy         String            @db.Char(26)
-  updatedBy         String            @db.Char(26)
-  cancelledAt       DateTime?
-  cancelledBy       String?           @db.Char(26)
-  cancellationReason String?          @db.VarChar(500)
+  status               SalesOrderStatus @default(draft)
+  warehouseId          String           @db.Char(26)
+  subtotalIqd          Decimal          @db.Decimal(18, 3)
+  discountIqd          Decimal          @default(0) @db.Decimal(18, 3)
+  taxIqd               Decimal          @default(0) @db.Decimal(18, 3)
+  shippingIqd          Decimal          @default(0) @db.Decimal(18, 3)
+  totalIqd             Decimal          @db.Decimal(18, 3)
+  depositIqd           Decimal          @default(0) @db.Decimal(18, 3)
+  currency             String           @default("IQD") @db.VarChar(3)
+  exchangeRate         Decimal          @default(1) @db.Decimal(18, 6)
+  channel              String           @default("in_store") @db.VarChar(20) // in_store | online | phone | whatsapp
+  notes                String?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  createdBy            String           @db.Char(26)
+  updatedBy            String           @db.Char(26)
+  cancelledAt          DateTime?
+  cancelledBy          String?          @db.Char(26)
+  cancellationReason   String?          @db.VarChar(500)
 
-  customer          Customer          @relation(fields: [customerId], references: [id])
-  lines             SalesOrderLine[]
-  invoices          SalesInvoice[]
-  deliveries        DeliveryOrder[]
+  customer   Customer         @relation(fields: [customerId], references: [id])
+  lines      SalesOrderLine[]
+  invoices   SalesInvoice[]
+  deliveries DeliveryOrder[]
 
   @@unique([companyId, number])
   @@index([companyId, customerId])
@@ -1277,20 +1290,20 @@ model SalesOrder {
 }
 
 model SalesOrderLine {
-  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  salesOrderId    String   @db.Char(26)
-  variantId       String   @db.Char(26)
-  qty             Decimal  @db.Decimal(18, 3)
-  qtyDelivered    Decimal  @default(0) @db.Decimal(18, 3)
-  qtyInvoiced     Decimal  @default(0) @db.Decimal(18, 3)
-  unitPriceIqd    Decimal  @db.Decimal(18, 3)
-  discountPct     Decimal  @default(0) @db.Decimal(5, 2)
-  discountIqd     Decimal  @default(0) @db.Decimal(18, 3)
-  lineTotalIqd    Decimal  @db.Decimal(18, 3)
-  notes           String?  @db.VarChar(500)
-  sortOrder       Int      @default(0)
+  id           String  @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  salesOrderId String  @db.Char(26)
+  variantId    String  @db.Char(26)
+  qty          Decimal @db.Decimal(18, 3)
+  qtyDelivered Decimal @default(0) @db.Decimal(18, 3)
+  qtyInvoiced  Decimal @default(0) @db.Decimal(18, 3)
+  unitPriceIqd Decimal @db.Decimal(18, 3)
+  discountPct  Decimal @default(0) @db.Decimal(5, 2)
+  discountIqd  Decimal @default(0) @db.Decimal(18, 3)
+  lineTotalIqd Decimal @db.Decimal(18, 3)
+  notes        String? @db.VarChar(500)
+  sortOrder    Int     @default(0)
 
-  salesOrder      SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  salesOrder SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
 
   @@index([salesOrderId])
   @@index([variantId])
@@ -1298,45 +1311,45 @@ model SalesOrderLine {
 }
 
 model SalesInvoice {
-  id                String         @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId         String         @db.Char(26)
-  branchId          String         @db.Char(26)
-  number            String         @db.VarChar(50)
-  customerId        String         @db.Char(26)
-  salesOrderId      String?        @db.Char(26)
-  shiftId           String?        @db.Char(26)     // if POS receipt was converted
-  posReceiptId      String?        @db.Char(26)
-  invoiceDate       DateTime       @default(now())
-  dueDate           DateTime?
-  status            InvoiceStatus  @default(draft)
-  warehouseId       String         @db.Char(26)
-  subtotalIqd       Decimal        @db.Decimal(18, 3)
-  discountIqd       Decimal        @default(0) @db.Decimal(18, 3)
-  taxIqd            Decimal        @default(0) @db.Decimal(18, 3)
-  shippingIqd       Decimal        @default(0) @db.Decimal(18, 3)
-  totalIqd          Decimal        @db.Decimal(18, 3)
-  paidIqd           Decimal        @default(0) @db.Decimal(18, 3)
-  balanceIqd        Decimal        @db.Decimal(18, 3)
-  currency          String         @default("IQD") @db.VarChar(3)
-  exchangeRate      Decimal        @default(1) @db.Decimal(18, 6)
-  paymentTerms      String?        @db.VarChar(100)
-  journalEntryId    String?        @db.Char(26)    // posted journal entry
-  notes             String?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  createdBy         String         @db.Char(26)
-  updatedBy         String         @db.Char(26)
-  postedAt          DateTime?
-  postedBy          String?        @db.Char(26)
-  reversedAt        DateTime?
-  reversedBy        String?        @db.Char(26)
-  reversalReason    String?        @db.VarChar(500)
+  id             String        @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId      String        @db.Char(26)
+  branchId       String        @db.Char(26)
+  number         String        @db.VarChar(50)
+  customerId     String        @db.Char(26)
+  salesOrderId   String?       @db.Char(26)
+  shiftId        String?       @db.Char(26) // if POS receipt was converted
+  posReceiptId   String?       @db.Char(26)
+  invoiceDate    DateTime      @default(now())
+  dueDate        DateTime?
+  status         InvoiceStatus @default(draft)
+  warehouseId    String        @db.Char(26)
+  subtotalIqd    Decimal       @db.Decimal(18, 3)
+  discountIqd    Decimal       @default(0) @db.Decimal(18, 3)
+  taxIqd         Decimal       @default(0) @db.Decimal(18, 3)
+  shippingIqd    Decimal       @default(0) @db.Decimal(18, 3)
+  totalIqd       Decimal       @db.Decimal(18, 3)
+  paidIqd        Decimal       @default(0) @db.Decimal(18, 3)
+  balanceIqd     Decimal       @db.Decimal(18, 3)
+  currency       String        @default("IQD") @db.VarChar(3)
+  exchangeRate   Decimal       @default(1) @db.Decimal(18, 6)
+  paymentTerms   String?       @db.VarChar(100)
+  journalEntryId String?       @db.Char(26) // posted journal entry
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  createdBy      String        @db.Char(26)
+  updatedBy      String        @db.Char(26)
+  postedAt       DateTime?
+  postedBy       String?       @db.Char(26)
+  reversedAt     DateTime?
+  reversedBy     String?       @db.Char(26)
+  reversalReason String?       @db.VarChar(500)
 
-  customer          Customer       @relation(fields: [customerId], references: [id])
-  salesOrder        SalesOrder?    @relation(fields: [salesOrderId], references: [id])
-  lines             SalesInvoiceLine[]
-  payments          SalesInvoicePayment[]
-  returns           SalesReturn[]
+  customer   Customer              @relation(fields: [customerId], references: [id])
+  salesOrder SalesOrder?           @relation(fields: [salesOrderId], references: [id])
+  lines      SalesInvoiceLine[]
+  payments   SalesInvoicePayment[]
+  returns    SalesReturn[]
 
   @@unique([companyId, number])
   @@index([companyId, customerId])
@@ -1347,20 +1360,20 @@ model SalesInvoice {
 }
 
 model SalesInvoiceLine {
-  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  invoiceId       String   @db.Char(26)
-  variantId       String   @db.Char(26)
-  qty             Decimal  @db.Decimal(18, 3)
-  unitPriceIqd    Decimal  @db.Decimal(18, 3)
-  unitCostIqd     Decimal  @db.Decimal(18, 6)          // snapshot of MWA cost at time of sale (for COGS)
-  discountPct     Decimal  @default(0) @db.Decimal(5, 2)
-  discountIqd     Decimal  @default(0) @db.Decimal(18, 3)
-  lineTotalIqd    Decimal  @db.Decimal(18, 3)
-  cogsIqd         Decimal  @db.Decimal(18, 3)
-  notes           String?  @db.VarChar(500)
-  sortOrder       Int      @default(0)
+  id           String  @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  invoiceId    String  @db.Char(26)
+  variantId    String  @db.Char(26)
+  qty          Decimal @db.Decimal(18, 3)
+  unitPriceIqd Decimal @db.Decimal(18, 3)
+  unitCostIqd  Decimal @db.Decimal(18, 6) // snapshot of MWA cost at time of sale (for COGS)
+  discountPct  Decimal @default(0) @db.Decimal(5, 2)
+  discountIqd  Decimal @default(0) @db.Decimal(18, 3)
+  lineTotalIqd Decimal @db.Decimal(18, 3)
+  cogsIqd      Decimal @db.Decimal(18, 3)
+  notes        String? @db.VarChar(500)
+  sortOrder    Int     @default(0)
 
-  invoice         SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
   @@index([variantId])
@@ -1368,19 +1381,19 @@ model SalesInvoiceLine {
 }
 
 model SalesInvoicePayment {
-  id              String        @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  invoiceId       String        @db.Char(26)
-  paymentDate     DateTime      @default(now())
-  amountIqd       Decimal       @db.Decimal(18, 3)
-  method          PaymentMethod
-  reference       String?       @db.VarChar(100)       // tx id, check num, etc.
-  cashAccountId   String        @db.Char(26)           // which cashbox/bank received it
-  shiftId         String?       @db.Char(26)
-  notes           String?       @db.VarChar(500)
-  createdAt       DateTime      @default(now())
-  createdBy       String        @db.Char(26)
+  id            String        @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  invoiceId     String        @db.Char(26)
+  paymentDate   DateTime      @default(now())
+  amountIqd     Decimal       @db.Decimal(18, 3)
+  method        PaymentMethod
+  reference     String?       @db.VarChar(100) // tx id, check num, etc.
+  cashAccountId String        @db.Char(26) // which cashbox/bank received it
+  shiftId       String?       @db.Char(26)
+  notes         String?       @db.VarChar(500)
+  createdAt     DateTime      @default(now())
+  createdBy     String        @db.Char(26)
 
-  invoice         SalesInvoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice SalesInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
   @@index([paymentDate])
@@ -1388,29 +1401,29 @@ model SalesInvoicePayment {
 }
 
 model SalesReturn {
-  id                String         @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId         String         @db.Char(26)
-  branchId          String         @db.Char(26)
-  number            String         @db.VarChar(50)
-  originalInvoiceId String         @db.Char(26)
-  returnDate        DateTime       @default(now())
-  reason            ReturnReason
-  status            DocumentStatus @default(draft)
-  warehouseId       String         @db.Char(26)
-  subtotalIqd       Decimal        @db.Decimal(18, 3)
-  totalIqd          Decimal        @db.Decimal(18, 3)
-  refundMethod      PaymentMethod
-  refundCashAccountId String?      @db.Char(26)
-  journalEntryId    String?        @db.Char(26)
-  notes             String?
-  createdAt         DateTime       @default(now())
-  updatedAt         DateTime       @updatedAt
-  createdBy         String         @db.Char(26)
-  approvedAt        DateTime?
-  approvedBy        String?        @db.Char(26)
+  id                  String         @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId           String         @db.Char(26)
+  branchId            String         @db.Char(26)
+  number              String         @db.VarChar(50)
+  originalInvoiceId   String         @db.Char(26)
+  returnDate          DateTime       @default(now())
+  reason              ReturnReason
+  status              DocumentStatus @default(draft)
+  warehouseId         String         @db.Char(26)
+  subtotalIqd         Decimal        @db.Decimal(18, 3)
+  totalIqd            Decimal        @db.Decimal(18, 3)
+  refundMethod        PaymentMethod
+  refundCashAccountId String?        @db.Char(26)
+  journalEntryId      String?        @db.Char(26)
+  notes               String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  createdBy           String         @db.Char(26)
+  approvedAt          DateTime?
+  approvedBy          String?        @db.Char(26)
 
-  originalInvoice   SalesInvoice   @relation(fields: [originalInvoiceId], references: [id])
-  lines             SalesReturnLine[]
+  originalInvoice SalesInvoice      @relation(fields: [originalInvoiceId], references: [id])
+  lines           SalesReturnLine[]
 
   @@unique([companyId, number])
   @@index([originalInvoiceId])
@@ -1419,17 +1432,17 @@ model SalesReturn {
 }
 
 model SalesReturnLine {
-  id            String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  returnId      String   @db.Char(26)
-  variantId     String   @db.Char(26)
-  qty           Decimal  @db.Decimal(18, 3)
-  unitPriceIqd  Decimal  @db.Decimal(18, 3)
-  unitCostIqd   Decimal  @db.Decimal(18, 6)
-  lineTotalIqd  Decimal  @db.Decimal(18, 3)
-  isRestockable Boolean  @default(true)               // if false → goes to damaged warehouse
-  notes         String?  @db.VarChar(500)
+  id            String  @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  returnId      String  @db.Char(26)
+  variantId     String  @db.Char(26)
+  qty           Decimal @db.Decimal(18, 3)
+  unitPriceIqd  Decimal @db.Decimal(18, 3)
+  unitCostIqd   Decimal @db.Decimal(18, 6)
+  lineTotalIqd  Decimal @db.Decimal(18, 3)
+  isRestockable Boolean @default(true) // if false → goes to damaged warehouse
+  notes         String? @db.VarChar(500)
 
-  return        SalesReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  return SalesReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
 
   @@index([returnId])
   @@map("sales_return_lines")
@@ -1440,23 +1453,23 @@ model SalesReturnLine {
 // ============================================================
 
 model POSDevice {
-  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId       String   @db.Char(26)
-  branchId        String   @db.Char(26)
-  code            String   @db.VarChar(20)        // POS-001
-  nameAr          String   @db.VarChar(100)
-  cashAccountId   String   @db.Char(26)           // linked cashbox account (e.g. 2412)
-  cardAccountId   String?  @db.Char(26)           // card terminal account
-  warehouseId     String   @db.Char(26)           // which warehouse supplies this POS
-  printerName     String?  @db.VarChar(100)
-  hardwareFingerprint String? @db.VarChar(100)
-  isActive        Boolean  @default(true)
-  lastSyncAt      DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  createdBy       String   @db.Char(26)
+  id                  String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId           String    @db.Char(26)
+  branchId            String    @db.Char(26)
+  code                String    @db.VarChar(20) // POS-001
+  nameAr              String    @db.VarChar(100)
+  cashAccountId       String    @db.Char(26) // linked cashbox account (e.g. 2412)
+  cardAccountId       String?   @db.Char(26) // card terminal account
+  warehouseId         String    @db.Char(26) // which warehouse supplies this POS
+  printerName         String?   @db.VarChar(100)
+  hardwareFingerprint String?   @db.VarChar(100)
+  isActive            Boolean   @default(true)
+  lastSyncAt          DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  createdBy           String    @db.Char(26)
 
-  shifts          Shift[]
+  shifts Shift[]
 
   @@unique([companyId, code])
   @@index([companyId, branchId])
@@ -1464,32 +1477,32 @@ model POSDevice {
 }
 
 model Shift {
-  id                String       @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId         String       @db.Char(26)
-  branchId          String       @db.Char(26)
-  posDeviceId       String       @db.Char(26)
-  cashierId         String       @db.Char(26)
-  shiftNumber       String       @db.VarChar(50)            // SHIFT-BGD-2026-000125
-  openingCashIqd    Decimal      @db.Decimal(18, 3)
-  closingCashIqd    Decimal?     @db.Decimal(18, 3)
-  expectedCashIqd   Decimal?     @db.Decimal(18, 3)         // calculated at close
-  cashDifferenceIqd Decimal?     @db.Decimal(18, 3)         // actual - expected
-  status            ShiftStatus  @default(open)
-  openedAt          DateTime     @default(now())
+  id                String      @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String      @db.Char(26)
+  branchId          String      @db.Char(26)
+  posDeviceId       String      @db.Char(26)
+  cashierId         String      @db.Char(26)
+  shiftNumber       String      @db.VarChar(50) // SHIFT-BGD-2026-000125
+  openingCashIqd    Decimal     @db.Decimal(18, 3)
+  closingCashIqd    Decimal?    @db.Decimal(18, 3)
+  expectedCashIqd   Decimal?    @db.Decimal(18, 3) // calculated at close
+  cashDifferenceIqd Decimal?    @db.Decimal(18, 3) // actual - expected
+  status            ShiftStatus @default(open)
+  openedAt          DateTime    @default(now())
   closedAt          DateTime?
-  closedBy          String?      @db.Char(26)
-  xReportsPrinted   Int          @default(0)
+  closedBy          String?     @db.Char(26)
+  xReportsPrinted   Int         @default(0)
   zReportPrintedAt  DateTime?
-  managerApprovalBy String?      @db.Char(26)              // required if difference > tolerance
+  managerApprovalBy String?     @db.Char(26) // required if difference > tolerance
   managerApprovalAt DateTime?
-  handoverToShiftId String?      @db.Char(26)              // next shift that inherited cash
+  handoverToShiftId String?     @db.Char(26) // next shift that inherited cash
   notes             String?
-  createdAt         DateTime     @default(now())
+  createdAt         DateTime    @default(now())
 
-  device            POSDevice    @relation(fields: [posDeviceId], references: [id])
-  receipts          POSReceipt[]
-  cashCounts        ShiftCashCount[]
-  cashMovements     CashMovement[]
+  device        POSDevice        @relation(fields: [posDeviceId], references: [id])
+  receipts      POSReceipt[]
+  cashCounts    ShiftCashCount[]
+  cashMovements CashMovement[]
 
   @@unique([companyId, shiftNumber])
   @@index([companyId, cashierId])
@@ -1499,53 +1512,53 @@ model Shift {
 }
 
 model ShiftCashCount {
-  id            String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  shiftId       String   @db.Char(26)
-  phase         String   @db.VarChar(20)         // opening | closing
-  denomination  Int                              // 250, 500, 1000, 5000, 10000, 25000, 50000 (IQD)
-  count         Int                              // how many notes
-  subtotalIqd   Decimal  @db.Decimal(18, 3)     // denomination × count
-  countedAt     DateTime @default(now())
-  countedBy     String   @db.Char(26)
+  id           String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  shiftId      String   @db.Char(26)
+  phase        String   @db.VarChar(20) // opening | closing
+  denomination Int // 250, 500, 1000, 5000, 10000, 25000, 50000 (IQD)
+  count        Int // how many notes
+  subtotalIqd  Decimal  @db.Decimal(18, 3) // denomination × count
+  countedAt    DateTime @default(now())
+  countedBy    String   @db.Char(26)
 
-  shift         Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  shift Shift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
 
   @@index([shiftId, phase])
   @@map("shift_cash_counts")
 }
 
 model POSReceipt {
-  id                String         @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId         String         @db.Char(26)
-  branchId          String         @db.Char(26)
-  shiftId           String         @db.Char(26)
-  number            String         @db.VarChar(50)
-  receiptDate       DateTime       @default(now())
-  customerId        String?        @db.Char(26)        // null = walk-in
-  warehouseId       String         @db.Char(26)
-  status            ReceiptStatus  @default(completed)
-  subtotalIqd       Decimal        @db.Decimal(18, 3)
-  discountIqd       Decimal        @default(0) @db.Decimal(18, 3)
-  taxIqd            Decimal        @default(0) @db.Decimal(18, 3)
-  totalIqd          Decimal        @db.Decimal(18, 3)
-  changeGivenIqd    Decimal        @default(0) @db.Decimal(18, 3)
-  loyaltyPointsEarned Int          @default(0)
-  loyaltyPointsUsed Int            @default(0)
-  journalEntryId    String?        @db.Char(26)
-  invoiceId         String?        @db.Char(26)         // linked SalesInvoice (auto-created)
-  originalReceiptId String?        @db.Char(26)         // for refunds
-  voidedAt          DateTime?
-  voidedBy          String?        @db.Char(26)
-  voidReason        String?        @db.VarChar(500)
-  clientUlid        String?        @db.VarChar(26)      // ULID generated client-side for offline dedup
-  syncedAt          DateTime?
-  isOffline         Boolean        @default(false)
-  createdAt         DateTime       @default(now())
-  createdBy         String         @db.Char(26)
+  id                  String        @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId           String        @db.Char(26)
+  branchId            String        @db.Char(26)
+  shiftId             String        @db.Char(26)
+  number              String        @db.VarChar(50)
+  receiptDate         DateTime      @default(now())
+  customerId          String?       @db.Char(26) // null = walk-in
+  warehouseId         String        @db.Char(26)
+  status              ReceiptStatus @default(completed)
+  subtotalIqd         Decimal       @db.Decimal(18, 3)
+  discountIqd         Decimal       @default(0) @db.Decimal(18, 3)
+  taxIqd              Decimal       @default(0) @db.Decimal(18, 3)
+  totalIqd            Decimal       @db.Decimal(18, 3)
+  changeGivenIqd      Decimal       @default(0) @db.Decimal(18, 3)
+  loyaltyPointsEarned Int           @default(0)
+  loyaltyPointsUsed   Int           @default(0)
+  journalEntryId      String?       @db.Char(26)
+  invoiceId           String?       @db.Char(26) // linked SalesInvoice (auto-created)
+  originalReceiptId   String?       @db.Char(26) // for refunds
+  voidedAt            DateTime?
+  voidedBy            String?       @db.Char(26)
+  voidReason          String?       @db.VarChar(500)
+  clientUlid          String?       @db.VarChar(26) // ULID generated client-side for offline dedup
+  syncedAt            DateTime?
+  isOffline           Boolean       @default(false)
+  createdAt           DateTime      @default(now())
+  createdBy           String        @db.Char(26)
 
-  shift             Shift          @relation(fields: [shiftId], references: [id])
-  lines             POSReceiptLine[]
-  payments          POSReceiptPayment[]
+  shift    Shift               @relation(fields: [shiftId], references: [id])
+  lines    POSReceiptLine[]
+  payments POSReceiptPayment[]
 
   @@unique([companyId, number])
   @@unique([clientUlid])
@@ -1555,19 +1568,19 @@ model POSReceipt {
 }
 
 model POSReceiptLine {
-  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  receiptId       String   @db.Char(26)
-  variantId       String   @db.Char(26)
-  qty             Decimal  @db.Decimal(18, 3)
-  unitPriceIqd    Decimal  @db.Decimal(18, 3)
-  unitCostIqd     Decimal  @db.Decimal(18, 6)
-  discountPct     Decimal  @default(0) @db.Decimal(5, 2)
-  discountIqd     Decimal  @default(0) @db.Decimal(18, 3)
-  lineTotalIqd    Decimal  @db.Decimal(18, 3)
-  cogsIqd         Decimal  @db.Decimal(18, 3)
-  sortOrder       Int      @default(0)
+  id           String  @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  receiptId    String  @db.Char(26)
+  variantId    String  @db.Char(26)
+  qty          Decimal @db.Decimal(18, 3)
+  unitPriceIqd Decimal @db.Decimal(18, 3)
+  unitCostIqd  Decimal @db.Decimal(18, 6)
+  discountPct  Decimal @default(0) @db.Decimal(5, 2)
+  discountIqd  Decimal @default(0) @db.Decimal(18, 3)
+  lineTotalIqd Decimal @db.Decimal(18, 3)
+  cogsIqd      Decimal @db.Decimal(18, 3)
+  sortOrder    Int     @default(0)
 
-  receipt         POSReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  receipt POSReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
 
   @@index([receiptId])
   @@index([variantId])
@@ -1575,34 +1588,34 @@ model POSReceiptLine {
 }
 
 model POSReceiptPayment {
-  id              String        @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  receiptId       String        @db.Char(26)
-  method          PaymentMethod
-  amountIqd       Decimal       @db.Decimal(18, 3)
-  reference       String?       @db.VarChar(100)
-  cashAccountId   String        @db.Char(26)
+  id            String        @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  receiptId     String        @db.Char(26)
+  method        PaymentMethod
+  amountIqd     Decimal       @db.Decimal(18, 3)
+  reference     String?       @db.VarChar(100)
+  cashAccountId String        @db.Char(26)
 
-  receipt         POSReceipt    @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  receipt POSReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
 
   @@index([receiptId])
   @@map("pos_receipt_payments")
 }
 
 model CashMovement {
-  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId       String   @db.Char(26)
-  shiftId         String?  @db.Char(26)
-  fromAccountId   String?  @db.Char(26)         // null = external origin (e.g. opening cash)
-  toAccountId     String?  @db.Char(26)         // null = external destination (e.g. deposit to bank)
-  amountIqd       Decimal  @db.Decimal(18, 3)
-  movementType    String   @db.VarChar(30)      // opening | closing | deposit | withdrawal | handover | petty_cash | interim_pickup
-  reference       String?  @db.VarChar(100)
-  notes           String?  @db.VarChar(500)
-  journalEntryId  String?  @db.Char(26)
-  createdAt       DateTime @default(now())
-  createdBy       String   @db.Char(26)
+  id             String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId      String   @db.Char(26)
+  shiftId        String?  @db.Char(26)
+  fromAccountId  String?  @db.Char(26) // null = external origin (e.g. opening cash)
+  toAccountId    String?  @db.Char(26) // null = external destination (e.g. deposit to bank)
+  amountIqd      Decimal  @db.Decimal(18, 3)
+  movementType   String   @db.VarChar(30) // opening | closing | deposit | withdrawal | handover | petty_cash | interim_pickup
+  reference      String?  @db.VarChar(100)
+  notes          String?  @db.VarChar(500)
+  journalEntryId String?  @db.Char(26)
+  createdAt      DateTime @default(now())
+  createdBy      String   @db.Char(26)
 
-  shift           Shift?   @relation(fields: [shiftId], references: [id])
+  shift Shift? @relation(fields: [shiftId], references: [id])
 
   @@index([companyId, createdAt])
   @@index([shiftId])
@@ -1621,8 +1634,8 @@ model DeliveryOrder {
   salesOrderId      String?        @db.Char(26)
   invoiceId         String?        @db.Char(26)
   customerId        String         @db.Char(26)
-  warehouseId       String         @db.Char(26)             // source warehouse
-  driverId          String?        @db.Char(26)             // assigned User (driver)
+  warehouseId       String         @db.Char(26) // source warehouse
+  driverId          String?        @db.Char(26) // assigned User (driver)
   status            DeliveryStatus @default(pending_dispatch)
   plannedDate       DateTime?
   dispatchedAt      DateTime?
@@ -1635,44 +1648,199 @@ model DeliveryOrder {
   deliveryLng       Decimal?       @db.Decimal(10, 7)
   contactPhone      String?        @db.VarChar(20)
   shippingFeeIqd    Decimal        @default(0) @db.Decimal(18, 3)
-  codAmountIqd      Decimal        @default(0) @db.Decimal(18, 3)   // cash to collect
+  codAmountIqd      Decimal        @default(0) @db.Decimal(18, 3) // cash to collect
   codCollectedIqd   Decimal        @default(0) @db.Decimal(18, 3)
   codDepositedAt    DateTime?
   codDepositJeId    String?        @db.Char(26)
   proofImageUrl     String?
   proofSignatureUrl String?
   proofOtpCode      String?        @db.VarChar(10)
-  customerRating    Int?                                    // 1-5
+  customerRating    Int? // 1-5
   notes             String?
+  // T32 — external delivery company assignment
+  deliveryCompanyId String?        @db.Char(26)
+  deliveryZoneId    String?        @db.Char(26)
+  assignmentReason  String?        @db.VarChar(200) // "auto: cheapest" | "manual" | "fallback: only available"
+  externalWaybillNo String?        @db.VarChar(100) // tracking ref from 3rd-party company
+  externalStatus    String?        @db.VarChar(100) // last raw status from external API
+  shippingCostIqd   Decimal        @default(0) @db.Decimal(18, 3) // what WE pay the company (separate from shippingFeeIqd we charge customer)
+  commissionIqd     Decimal        @default(0) @db.Decimal(18, 3) // commission deducted from COD (cached for settlement)
+  codSettlementId   String?        @db.Char(26) // set once settled (idempotency guard)
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   createdBy         String         @db.Char(26)
 
-  salesOrder        SalesOrder?    @relation(fields: [salesOrderId], references: [id])
-  statusLogs        DeliveryStatusLog[]
+  salesOrder      SalesOrder?         @relation(fields: [salesOrderId], references: [id])
+  deliveryCompany DeliveryCompany?    @relation(fields: [deliveryCompanyId], references: [id], onDelete: SetNull)
+  deliveryZone    DeliveryZone?       @relation(fields: [deliveryZoneId], references: [id], onDelete: SetNull)
+  codSettlement   CodSettlement?      @relation(fields: [codSettlementId], references: [id], onDelete: SetNull)
+  statusLogs      DeliveryStatusLog[]
 
   @@unique([companyId, number])
   @@index([companyId, status])
   @@index([companyId, driverId])
   @@index([companyId, plannedDate])
+  @@index([companyId, deliveryCompanyId, status])
+  @@index([deliveryCompanyId, codSettlementId])
   @@map("delivery_orders")
 }
 
 model DeliveryStatusLog {
-  id            String         @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  deliveryId    String         @db.Char(26)
-  fromStatus    DeliveryStatus?
-  toStatus      DeliveryStatus
-  lat           Decimal?       @db.Decimal(10, 7)
-  lng           Decimal?       @db.Decimal(10, 7)
-  notes         String?        @db.VarChar(500)
-  changedAt     DateTime       @default(now())
-  changedBy     String         @db.Char(26)
+  id         String          @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  deliveryId String          @db.Char(26)
+  fromStatus DeliveryStatus?
+  toStatus   DeliveryStatus
+  lat        Decimal?        @db.Decimal(10, 7)
+  lng        Decimal?        @db.Decimal(10, 7)
+  notes      String?         @db.VarChar(500)
+  changedAt  DateTime        @default(now())
+  changedBy  String          @db.Char(26)
 
-  delivery      DeliveryOrder  @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  delivery DeliveryOrder @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
 
   @@index([deliveryId])
   @@map("delivery_status_logs")
+}
+
+// ============================================================
+// T32 — EXTERNAL DELIVERY COMPANIES
+// ============================================================
+//   - DeliveryCompany: internal driver pool + 3rd-party couriers
+//   - DeliveryZone:    geographic hierarchy (country/governorate/city/district)
+//   - DeliveryCompanyRate: pricing matrix per (company × zone)
+//   - CodSettlement:   periodic COD batch reconciliation
+// All four match migrations/0010_delivery_companies/migration.sql byte-for-byte.
+
+model DeliveryCompany {
+  id                 String              @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId          String              @db.Char(26)
+  code               String              @db.VarChar(20)
+  nameAr             String              @db.VarChar(200)
+  nameEn             String?             @db.VarChar(200)
+  type               DeliveryCompanyType @default(external)
+  contactPerson      String?             @db.VarChar(200)
+  phone              String?             @db.VarChar(20)
+  whatsapp           String?             @db.VarChar(20)
+  email              String?             @db.VarChar(200)
+  address            String?
+  commissionPct      Decimal             @default(0) @db.Decimal(5, 2) // % of COD kept by company
+  flatFeePerOrderIqd Decimal             @default(0) @db.Decimal(18, 3) // optional flat fee added to commission
+  supportsCod        Boolean             @default(true)
+  codHoldingDays     Int                 @default(7) // days before settlement is due
+  minOrderValueIqd   Decimal?            @db.Decimal(18, 3)
+  maxOrderValueIqd   Decimal?            @db.Decimal(18, 3)
+  // cached scorecard (recomputed by autopilot cron — fast read for assignment)
+  totalDispatched    Int                 @default(0)
+  totalDelivered     Int                 @default(0)
+  totalFailed        Int                 @default(0)
+  totalReturned      Int                 @default(0)
+  successRatePct     Decimal             @default(0) @db.Decimal(5, 2)
+  avgDeliveryHours   Decimal             @default(0) @db.Decimal(8, 2)
+  lastScoredAt       DateTime?
+  isActive           Boolean             @default(true)
+  autoSuspendedAt    DateTime? // set when scorecard cron suspends
+  autoSuspendReason  String?             @db.VarChar(500)
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  createdBy          String              @db.Char(26)
+  updatedBy          String              @db.Char(26)
+  deletedAt          DateTime?
+  deletedBy          String?             @db.Char(26)
+
+  rates          DeliveryCompanyRate[]
+  deliveries     DeliveryOrder[]
+  codSettlements CodSettlement[]
+
+  @@unique([companyId, code])
+  @@index([companyId, isActive, type])
+  @@map("delivery_companies")
+}
+
+model DeliveryZone {
+  id        String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId String   @db.Char(26)
+  code      String   @db.VarChar(40)
+  nameAr    String   @db.VarChar(200)
+  nameEn    String?  @db.VarChar(200)
+  parentId  String?  @db.Char(26)
+  level     Int      @default(0) // 0=country, 1=governorate, 2=city, 3=district
+  city      String?  @db.VarChar(100) // denormalized for fast match against DeliveryOrder.deliveryCity
+  isActive  Boolean  @default(true)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy String   @db.Char(26)
+  updatedBy String   @db.Char(26)
+
+  parent     DeliveryZone?         @relation("DeliveryZoneTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children   DeliveryZone[]        @relation("DeliveryZoneTree")
+  rates      DeliveryCompanyRate[]
+  deliveries DeliveryOrder[]
+
+  @@unique([companyId, code])
+  @@index([companyId, city])
+  @@index([companyId, parentId])
+  @@map("delivery_zones")
+}
+
+model DeliveryCompanyRate {
+  id                String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  deliveryCompanyId String    @db.Char(26)
+  deliveryZoneId    String    @db.Char(26)
+  baseFeeIqd        Decimal   @db.Decimal(18, 3)
+  perKgIqd          Decimal   @default(0) @db.Decimal(18, 3)
+  minFeeIqd         Decimal?  @db.Decimal(18, 3)
+  maxFeeIqd         Decimal?  @db.Decimal(18, 3)
+  estimatedHours    Int       @default(24)
+  isActive          Boolean   @default(true)
+  validFrom         DateTime  @default(now())
+  validUntil        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  createdBy         String    @db.Char(26)
+  updatedBy         String    @db.Char(26)
+
+  deliveryCompany DeliveryCompany @relation(fields: [deliveryCompanyId], references: [id], onDelete: Cascade)
+  deliveryZone    DeliveryZone    @relation(fields: [deliveryZoneId], references: [id], onDelete: Cascade)
+
+  @@unique([deliveryCompanyId, deliveryZoneId], map: "delivery_company_rates_company_zone_key")
+  @@index([deliveryZoneId, isActive])
+  @@map("delivery_company_rates")
+}
+
+model CodSettlement {
+  id                   String              @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId            String              @db.Char(26)
+  deliveryCompanyId    String              @db.Char(26)
+  number               String              @db.VarChar(50)
+  periodStart          DateTime
+  periodEnd            DateTime
+  totalCodCollectedIqd Decimal             @default(0) @db.Decimal(18, 3)
+  totalCommissionIqd   Decimal             @default(0) @db.Decimal(18, 3)
+  totalShippingCostIqd Decimal             @default(0) @db.Decimal(18, 3)
+  netDueIqd            Decimal             @default(0) @db.Decimal(18, 3) // collected − commission − shippingCost
+  deliveriesCount      Int                 @default(0)
+  status               CodSettlementStatus @default(draft)
+  proposedJeId         String?             @db.Char(26) // draft journal entry awaiting approval
+  postedJeId           String?             @db.Char(26) // approved + posted journal entry
+  approvedBy           String?             @db.Char(26)
+  approvedAt           DateTime?
+  paidAt               DateTime?
+  paymentRef           String?             @db.VarChar(100)
+  notes                String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  createdBy            String              @db.Char(26)
+
+  deliveryCompany DeliveryCompany @relation(fields: [deliveryCompanyId], references: [id], onDelete: Restrict)
+  deliveries      DeliveryOrder[]
+
+  @@unique([companyId, number])
+  @@unique([deliveryCompanyId, periodStart, periodEnd], map: "cod_settlements_company_period_key")
+  @@index([companyId, status])
+  @@index([deliveryCompanyId, status])
+  @@map("cod_settlements")
 }
 
 // ============================================================
@@ -1680,39 +1848,39 @@ model DeliveryStatusLog {
 // ============================================================
 
 model Supplier {
-  id                  String         @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId           String         @db.Char(26)
-  code                String         @db.VarChar(20)
-  type                SupplierType   @default(local)
-  nameAr              String         @db.VarChar(200)
-  nameEn              String?        @db.VarChar(200)
-  contactPerson       String?        @db.VarChar(200)
-  phone               String?        @db.VarChar(20)
-  whatsapp            String?        @db.VarChar(20)
-  email               String?        @db.VarChar(200)
-  address             String?
-  city                String?        @db.VarChar(100)
-  country             String?        @db.VarChar(3)             // ISO-3166 alpha-3
-  taxNumber           String?        @db.VarChar(50)
-  currency            String         @default("IQD") @db.VarChar(3)
-  paymentTermsDays    Int            @default(0)
-  creditLimitIqd      Decimal        @default(0) @db.Decimal(18, 3)
-  balanceIqd          Decimal        @default(0) @db.Decimal(18, 3)
-  rating              Decimal?       @db.Decimal(3, 2)           // 0.00 - 5.00
-  onTimeDeliveryPct   Decimal?       @db.Decimal(5, 2)
-  qualityScorePct     Decimal?       @db.Decimal(5, 2)
-  isActive            Boolean        @default(true)
-  notes               String?
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
-  createdBy           String         @db.Char(26)
-  updatedBy           String         @db.Char(26)
-  deletedAt           DateTime?
-  deletedBy           String?        @db.Char(26)
+  id                String       @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String       @db.Char(26)
+  code              String       @db.VarChar(20)
+  type              SupplierType @default(local)
+  nameAr            String       @db.VarChar(200)
+  nameEn            String?      @db.VarChar(200)
+  contactPerson     String?      @db.VarChar(200)
+  phone             String?      @db.VarChar(20)
+  whatsapp          String?      @db.VarChar(20)
+  email             String?      @db.VarChar(200)
+  address           String?
+  city              String?      @db.VarChar(100)
+  country           String?      @db.VarChar(3) // ISO-3166 alpha-3
+  taxNumber         String?      @db.VarChar(50)
+  currency          String       @default("IQD") @db.VarChar(3)
+  paymentTermsDays  Int          @default(0)
+  creditLimitIqd    Decimal      @default(0) @db.Decimal(18, 3)
+  balanceIqd        Decimal      @default(0) @db.Decimal(18, 3)
+  rating            Decimal?     @db.Decimal(3, 2) // 0.00 - 5.00
+  onTimeDeliveryPct Decimal?     @db.Decimal(5, 2)
+  qualityScorePct   Decimal?     @db.Decimal(5, 2)
+  isActive          Boolean      @default(true)
+  notes             String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  createdBy         String       @db.Char(26)
+  updatedBy         String       @db.Char(26)
+  deletedAt         DateTime?
+  deletedBy         String?      @db.Char(26)
 
-  purchaseOrders      PurchaseOrder[]
-  vendorInvoices      VendorInvoice[]
-  supplierPrices      SupplierPrice[]
+  purchaseOrders PurchaseOrder[]
+  vendorInvoices VendorInvoice[]
+  supplierPrices SupplierPrice[]
 
   @@unique([companyId, code])
   @@index([companyId, phone])
@@ -1720,21 +1888,21 @@ model Supplier {
 }
 
 model SupplierPrice {
-  id            String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  supplierId    String   @db.Char(26)
-  variantId     String   @db.Char(26)
-  priceIqd      Decimal  @db.Decimal(18, 3)
-  currency      String   @default("IQD") @db.VarChar(3)
-  priceOriginal Decimal? @db.Decimal(18, 3)                      // in supplier's currency
-  minQty        Decimal  @default(1) @db.Decimal(18, 3)
-  leadTimeDays  Int      @default(7)
-  effectiveFrom DateTime @default(now())
+  id            String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  supplierId    String    @db.Char(26)
+  variantId     String    @db.Char(26)
+  priceIqd      Decimal   @db.Decimal(18, 3)
+  currency      String    @default("IQD") @db.VarChar(3)
+  priceOriginal Decimal?  @db.Decimal(18, 3) // in supplier's currency
+  minQty        Decimal   @default(1) @db.Decimal(18, 3)
+  leadTimeDays  Int       @default(7)
+  effectiveFrom DateTime  @default(now())
   effectiveTo   DateTime?
-  isPreferred   Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  createdBy     String   @db.Char(26)
+  isPreferred   Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  createdBy     String    @db.Char(26)
 
-  supplier      Supplier @relation(fields: [supplierId], references: [id])
+  supplier Supplier @relation(fields: [supplierId], references: [id])
 
   @@index([variantId, effectiveFrom])
   @@index([supplierId])
@@ -1742,41 +1910,41 @@ model SupplierPrice {
 }
 
 model PurchaseOrder {
-  id                String              @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId         String              @db.Char(26)
-  branchId          String              @db.Char(26)
-  number            String              @db.VarChar(50)
-  supplierId        String              @db.Char(26)
-  orderDate         DateTime            @default(now())
-  expectedDate      DateTime?
-  status            PurchaseOrderStatus @default(draft)
-  warehouseId       String              @db.Char(26)               // receiving warehouse
-  subtotalIqd       Decimal             @db.Decimal(18, 3)
-  discountIqd       Decimal             @default(0) @db.Decimal(18, 3)
-  taxIqd            Decimal             @default(0) @db.Decimal(18, 3)
-  shippingIqd       Decimal             @default(0) @db.Decimal(18, 3)
-  totalIqd          Decimal             @db.Decimal(18, 3)
-  currency          String              @default("IQD") @db.VarChar(3)
-  exchangeRate      Decimal             @default(1) @db.Decimal(18, 6)
-  paymentTerms      String?             @db.VarChar(100)
-  terms             String?
-  notes             String?
-  submittedAt       DateTime?
-  submittedBy       String?             @db.Char(26)
-  approvedAt        DateTime?
-  approvedBy        String?             @db.Char(26)
-  cancelledAt       DateTime?
-  cancelledBy       String?             @db.Char(26)
-  cancellationReason String?            @db.VarChar(500)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  createdBy         String              @db.Char(26)
-  updatedBy         String              @db.Char(26)
+  id                 String              @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId          String              @db.Char(26)
+  branchId           String              @db.Char(26)
+  number             String              @db.VarChar(50)
+  supplierId         String              @db.Char(26)
+  orderDate          DateTime            @default(now())
+  expectedDate       DateTime?
+  status             PurchaseOrderStatus @default(draft)
+  warehouseId        String              @db.Char(26) // receiving warehouse
+  subtotalIqd        Decimal             @db.Decimal(18, 3)
+  discountIqd        Decimal             @default(0) @db.Decimal(18, 3)
+  taxIqd             Decimal             @default(0) @db.Decimal(18, 3)
+  shippingIqd        Decimal             @default(0) @db.Decimal(18, 3)
+  totalIqd           Decimal             @db.Decimal(18, 3)
+  currency           String              @default("IQD") @db.VarChar(3)
+  exchangeRate       Decimal             @default(1) @db.Decimal(18, 6)
+  paymentTerms       String?             @db.VarChar(100)
+  terms              String?
+  notes              String?
+  submittedAt        DateTime?
+  submittedBy        String?             @db.Char(26)
+  approvedAt         DateTime?
+  approvedBy         String?             @db.Char(26)
+  cancelledAt        DateTime?
+  cancelledBy        String?             @db.Char(26)
+  cancellationReason String?             @db.VarChar(500)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  createdBy          String              @db.Char(26)
+  updatedBy          String              @db.Char(26)
 
-  supplier          Supplier            @relation(fields: [supplierId], references: [id])
-  lines             PurchaseOrderLine[]
-  grns              GoodsReceiptNote[]
-  invoices          VendorInvoice[]
+  supplier Supplier            @relation(fields: [supplierId], references: [id])
+  lines    PurchaseOrderLine[]
+  grns     GoodsReceiptNote[]
+  invoices VendorInvoice[]
 
   @@unique([companyId, number])
   @@index([companyId, supplierId])
@@ -1786,20 +1954,20 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderLine {
-  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  purchaseOrderId String   @db.Char(26)
-  variantId       String   @db.Char(26)
-  qtyOrdered      Decimal  @db.Decimal(18, 3)
-  qtyReceived     Decimal  @default(0) @db.Decimal(18, 3)
-  qtyInvoiced     Decimal  @default(0) @db.Decimal(18, 3)
-  qtyRejected     Decimal  @default(0) @db.Decimal(18, 3)
-  unitCostIqd     Decimal  @db.Decimal(18, 6)
-  discountPct     Decimal  @default(0) @db.Decimal(5, 2)
-  lineTotalIqd    Decimal  @db.Decimal(18, 3)
-  notes           String?  @db.VarChar(500)
-  sortOrder       Int      @default(0)
+  id              String  @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  purchaseOrderId String  @db.Char(26)
+  variantId       String  @db.Char(26)
+  qtyOrdered      Decimal @db.Decimal(18, 3)
+  qtyReceived     Decimal @default(0) @db.Decimal(18, 3)
+  qtyInvoiced     Decimal @default(0) @db.Decimal(18, 3)
+  qtyRejected     Decimal @default(0) @db.Decimal(18, 3)
+  unitCostIqd     Decimal @db.Decimal(18, 6)
+  discountPct     Decimal @default(0) @db.Decimal(5, 2)
+  lineTotalIqd    Decimal @db.Decimal(18, 3)
+  notes           String? @db.VarChar(500)
+  sortOrder       Int     @default(0)
 
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
 
   @@index([purchaseOrderId])
   @@index([variantId])
@@ -1807,28 +1975,28 @@ model PurchaseOrderLine {
 }
 
 model GoodsReceiptNote {
-  id                String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId         String    @db.Char(26)
-  branchId          String    @db.Char(26)
-  number            String    @db.VarChar(50)
-  purchaseOrderId   String    @db.Char(26)
-  supplierId        String    @db.Char(26)
-  warehouseId       String    @db.Char(26)
-  receiptDate       DateTime  @default(now())
-  status            GRNStatus @default(draft)
-  deliveryNoteRef   String?   @db.VarChar(50)
-  totalValueIqd     Decimal   @db.Decimal(18, 3)
-  qualityCheckedBy  String?   @db.Char(26)
-  qualityCheckedAt  DateTime?
-  qualityNotes      String?
-  journalEntryId    String?   @db.Char(26)
-  notes             String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  createdBy         String    @db.Char(26)
+  id               String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId        String    @db.Char(26)
+  branchId         String    @db.Char(26)
+  number           String    @db.VarChar(50)
+  purchaseOrderId  String    @db.Char(26)
+  supplierId       String    @db.Char(26)
+  warehouseId      String    @db.Char(26)
+  receiptDate      DateTime  @default(now())
+  status           GRNStatus @default(draft)
+  deliveryNoteRef  String?   @db.VarChar(50)
+  totalValueIqd    Decimal   @db.Decimal(18, 3)
+  qualityCheckedBy String?   @db.Char(26)
+  qualityCheckedAt DateTime?
+  qualityNotes     String?
+  journalEntryId   String?   @db.Char(26)
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  createdBy        String    @db.Char(26)
 
-  purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
-  lines             GRNLine[]
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+  lines         GRNLine[]
 
   @@unique([companyId, number])
   @@index([companyId, purchaseOrderId])
@@ -1837,21 +2005,21 @@ model GoodsReceiptNote {
 }
 
 model GRNLine {
-  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  grnId           String   @db.Char(26)
-  poLineId        String?  @db.Char(26)
-  variantId       String   @db.Char(26)
-  qtyReceived     Decimal  @db.Decimal(18, 3)
-  qtyAccepted     Decimal  @db.Decimal(18, 3)
-  qtyRejected     Decimal  @default(0) @db.Decimal(18, 3)
-  rejectionReason String?  @db.VarChar(500)
-  unitCostIqd     Decimal  @db.Decimal(18, 6)
-  lineValueIqd    Decimal  @db.Decimal(18, 3)
-  batchNumber     String?  @db.VarChar(50)
+  id              String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  grnId           String    @db.Char(26)
+  poLineId        String?   @db.Char(26)
+  variantId       String    @db.Char(26)
+  qtyReceived     Decimal   @db.Decimal(18, 3)
+  qtyAccepted     Decimal   @db.Decimal(18, 3)
+  qtyRejected     Decimal   @default(0) @db.Decimal(18, 3)
+  rejectionReason String?   @db.VarChar(500)
+  unitCostIqd     Decimal   @db.Decimal(18, 6)
+  lineValueIqd    Decimal   @db.Decimal(18, 3)
+  batchNumber     String?   @db.VarChar(50)
   expiryDate      DateTime?
-  sortOrder       Int      @default(0)
+  sortOrder       Int       @default(0)
 
-  grn             GoodsReceiptNote @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  grn GoodsReceiptNote @relation(fields: [grnId], references: [id], onDelete: Cascade)
 
   @@index([grnId])
   @@index([variantId])
@@ -1859,45 +2027,45 @@ model GRNLine {
 }
 
 model VendorInvoice {
-  id                String              @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId         String              @db.Char(26)
-  branchId          String              @db.Char(26)
-  number            String              @db.VarChar(50)              // internal number
-  vendorRef         String              @db.VarChar(100)             // supplier's invoice number
-  supplierId        String              @db.Char(26)
-  purchaseOrderId   String?             @db.Char(26)
-  invoiceDate       DateTime
-  dueDate           DateTime?
-  status            VendorInvoiceStatus @default(draft)
-  subtotalIqd       Decimal             @db.Decimal(18, 3)
-  discountIqd       Decimal             @default(0) @db.Decimal(18, 3)
-  taxIqd            Decimal             @default(0) @db.Decimal(18, 3)
-  shippingIqd       Decimal             @default(0) @db.Decimal(18, 3)
-  totalIqd          Decimal             @db.Decimal(18, 3)
-  paidIqd           Decimal             @default(0) @db.Decimal(18, 3)
-  balanceIqd        Decimal             @db.Decimal(18, 3)
-  currency          String              @default("IQD") @db.VarChar(3)
-  exchangeRate      Decimal             @default(1) @db.Decimal(18, 6)
-  matchStatus       String?             @db.VarChar(30)              // po_qty_mismatch | price_mismatch | ok | pending_review
-  matchDiscrepancy  String?
-  attachmentUrl     String?                                          // OCR'd PDF
-  ocrData           Json?
-  journalEntryId    String?             @db.Char(26)
-  notes             String?
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  createdBy         String              @db.Char(26)
-  updatedBy         String              @db.Char(26)
-  postedAt          DateTime?
-  postedBy          String?             @db.Char(26)
+  id               String              @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId        String              @db.Char(26)
+  branchId         String              @db.Char(26)
+  number           String              @db.VarChar(50) // internal number
+  vendorRef        String              @db.VarChar(100) // supplier's invoice number
+  supplierId       String              @db.Char(26)
+  purchaseOrderId  String?             @db.Char(26)
+  invoiceDate      DateTime
+  dueDate          DateTime?
+  status           VendorInvoiceStatus @default(draft)
+  subtotalIqd      Decimal             @db.Decimal(18, 3)
+  discountIqd      Decimal             @default(0) @db.Decimal(18, 3)
+  taxIqd           Decimal             @default(0) @db.Decimal(18, 3)
+  shippingIqd      Decimal             @default(0) @db.Decimal(18, 3)
+  totalIqd         Decimal             @db.Decimal(18, 3)
+  paidIqd          Decimal             @default(0) @db.Decimal(18, 3)
+  balanceIqd       Decimal             @db.Decimal(18, 3)
+  currency         String              @default("IQD") @db.VarChar(3)
+  exchangeRate     Decimal             @default(1) @db.Decimal(18, 6)
+  matchStatus      String?             @db.VarChar(30) // po_qty_mismatch | price_mismatch | ok | pending_review
+  matchDiscrepancy String?
+  attachmentUrl    String? // OCR'd PDF
+  ocrData          Json?
+  journalEntryId   String?             @db.Char(26)
+  notes            String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  createdBy        String              @db.Char(26)
+  updatedBy        String              @db.Char(26)
+  postedAt         DateTime?
+  postedBy         String?             @db.Char(26)
 
-  supplier          Supplier            @relation(fields: [supplierId], references: [id])
-  purchaseOrder     PurchaseOrder?      @relation(fields: [purchaseOrderId], references: [id])
-  lines             VendorInvoiceLine[]
-  payments          VendorInvoicePayment[]
+  supplier      Supplier               @relation(fields: [supplierId], references: [id])
+  purchaseOrder PurchaseOrder?         @relation(fields: [purchaseOrderId], references: [id])
+  lines         VendorInvoiceLine[]
+  payments      VendorInvoicePayment[]
 
   @@unique([companyId, number])
-  @@unique([supplierId, vendorRef])                                   // prevent duplicate supplier invoices
+  @@unique([supplierId, vendorRef]) // prevent duplicate supplier invoices
   @@index([companyId, supplierId])
   @@index([companyId, status])
   @@index([companyId, dueDate])
@@ -1905,36 +2073,36 @@ model VendorInvoice {
 }
 
 model VendorInvoiceLine {
-  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  invoiceId       String   @db.Char(26)
-  variantId       String?  @db.Char(26)                               // null for fees/services
-  description     String   @db.VarChar(500)
-  qty             Decimal  @db.Decimal(18, 3)
-  unitCostIqd     Decimal  @db.Decimal(18, 6)
-  lineTotalIqd    Decimal  @db.Decimal(18, 3)
-  accountId       String?  @db.Char(26)                               // override GL account
-  sortOrder       Int      @default(0)
+  id           String  @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  invoiceId    String  @db.Char(26)
+  variantId    String? @db.Char(26) // null for fees/services
+  description  String  @db.VarChar(500)
+  qty          Decimal @db.Decimal(18, 3)
+  unitCostIqd  Decimal @db.Decimal(18, 6)
+  lineTotalIqd Decimal @db.Decimal(18, 3)
+  accountId    String? @db.Char(26) // override GL account
+  sortOrder    Int     @default(0)
 
-  invoice         VendorInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice VendorInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
   @@map("vendor_invoice_lines")
 }
 
 model VendorInvoicePayment {
-  id              String        @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  invoiceId       String        @db.Char(26)
-  paymentDate     DateTime      @default(now())
-  amountIqd       Decimal       @db.Decimal(18, 3)
-  method          PaymentMethod
-  reference       String?       @db.VarChar(100)
-  cashAccountId   String        @db.Char(26)
-  notes           String?       @db.VarChar(500)
-  journalEntryId  String?       @db.Char(26)
-  createdAt       DateTime      @default(now())
-  createdBy       String        @db.Char(26)
+  id             String        @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  invoiceId      String        @db.Char(26)
+  paymentDate    DateTime      @default(now())
+  amountIqd      Decimal       @db.Decimal(18, 3)
+  method         PaymentMethod
+  reference      String?       @db.VarChar(100)
+  cashAccountId  String        @db.Char(26)
+  notes          String?       @db.VarChar(500)
+  journalEntryId String?       @db.Char(26)
+  createdAt      DateTime      @default(now())
+  createdBy      String        @db.Char(26)
 
-  invoice         VendorInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice VendorInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
   @@index([paymentDate])
@@ -1946,24 +2114,24 @@ model VendorInvoicePayment {
 // ============================================================
 
 model BankAccount {
-  id              String          @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId       String          @db.Char(26)
-  accountId       String          @db.Char(26)                  // FK → ChartOfAccount
-  bankName        String          @db.VarChar(100)
-  branchName      String?         @db.VarChar(100)
-  accountNumber   String          @db.VarChar(50)
-  iban            String?         @db.VarChar(50)
-  swift           String?         @db.VarChar(20)
-  type            BankAccountType @default(checking)
-  currency        String          @default("IQD") @db.VarChar(3)
-  openingBalance  Decimal         @default(0) @db.Decimal(18, 3)
-  currentBalance  Decimal         @default(0) @db.Decimal(18, 3)
+  id               String          @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId        String          @db.Char(26)
+  accountId        String          @db.Char(26) // FK → ChartOfAccount
+  bankName         String          @db.VarChar(100)
+  branchName       String?         @db.VarChar(100)
+  accountNumber    String          @db.VarChar(50)
+  iban             String?         @db.VarChar(50)
+  swift            String?         @db.VarChar(20)
+  type             BankAccountType @default(checking)
+  currency         String          @default("IQD") @db.VarChar(3)
+  openingBalance   Decimal         @default(0) @db.Decimal(18, 3)
+  currentBalance   Decimal         @default(0) @db.Decimal(18, 3)
   lastReconciledAt DateTime?
-  isActive        Boolean         @default(true)
-  notes           String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  createdBy       String          @db.Char(26)
+  isActive         Boolean         @default(true)
+  notes            String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  createdBy        String          @db.Char(26)
 
   reconciliations BankReconciliation[]
 
@@ -1972,63 +2140,63 @@ model BankAccount {
 }
 
 model BankReconciliation {
-  id                  String                   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId           String                   @db.Char(26)
-  bankAccountId       String                   @db.Char(26)
-  statementDate       DateTime                 @db.Date
-  statementBalance    Decimal                  @db.Decimal(18, 3)
-  bookBalance         Decimal                  @db.Decimal(18, 3)
-  adjustedBalance     Decimal                  @db.Decimal(18, 3)
-  status              BankReconciliationStatus @default(draft)
-  statementFileUrl    String?
-  notes               String?
-  reconciledAt        DateTime?
-  reconciledBy        String?                  @db.Char(26)
-  createdAt           DateTime                 @default(now())
-  createdBy           String                   @db.Char(26)
+  id               String                   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId        String                   @db.Char(26)
+  bankAccountId    String                   @db.Char(26)
+  statementDate    DateTime                 @db.Date
+  statementBalance Decimal                  @db.Decimal(18, 3)
+  bookBalance      Decimal                  @db.Decimal(18, 3)
+  adjustedBalance  Decimal                  @db.Decimal(18, 3)
+  status           BankReconciliationStatus @default(draft)
+  statementFileUrl String?
+  notes            String?
+  reconciledAt     DateTime?
+  reconciledBy     String?                  @db.Char(26)
+  createdAt        DateTime                 @default(now())
+  createdBy        String                   @db.Char(26)
 
-  bankAccount         BankAccount              @relation(fields: [bankAccountId], references: [id])
-  items               BankReconciliationItem[]
+  bankAccount BankAccount              @relation(fields: [bankAccountId], references: [id])
+  items       BankReconciliationItem[]
 
   @@index([companyId, bankAccountId, statementDate])
   @@map("bank_reconciliations")
 }
 
 model BankReconciliationItem {
-  id                  String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  reconciliationId    String   @db.Char(26)
-  journalEntryLineId  String?  @db.Char(26)                 // matched book entry
-  statementRef        String?  @db.VarChar(100)             // line in statement
-  description         String   @db.VarChar(500)
-  amountIqd           Decimal  @db.Decimal(18, 3)
-  direction           String   @db.VarChar(10)              // debit | credit
-  matched             Boolean  @default(false)
-  matchedAt           DateTime?
-  notes               String?
+  id                 String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  reconciliationId   String    @db.Char(26)
+  journalEntryLineId String?   @db.Char(26) // matched book entry
+  statementRef       String?   @db.VarChar(100) // line in statement
+  description        String    @db.VarChar(500)
+  amountIqd          Decimal   @db.Decimal(18, 3)
+  direction          String    @db.VarChar(10) // debit | credit
+  matched            Boolean   @default(false)
+  matchedAt          DateTime?
+  notes              String?
 
-  reconciliation      BankReconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+  reconciliation BankReconciliation @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
 
   @@index([reconciliationId])
   @@map("bank_reconciliation_items")
 }
 
 model PaymentReceipt {
-  id                String        @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId         String        @db.Char(26)
-  branchId          String        @db.Char(26)
-  number            String        @db.VarChar(50)
-  customerId        String        @db.Char(26)
-  receiptDate       DateTime      @default(now())
-  amountIqd         Decimal       @db.Decimal(18, 3)
-  method            PaymentMethod
-  reference         String?       @db.VarChar(100)
-  cashAccountId     String        @db.Char(26)
-  appliedInvoices   Json?                                   // [{invoiceId, amount}]
-  unappliedAmount   Decimal       @default(0) @db.Decimal(18, 3)
-  journalEntryId    String?       @db.Char(26)
-  notes             String?
-  createdAt         DateTime      @default(now())
-  createdBy         String        @db.Char(26)
+  id              String        @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String        @db.Char(26)
+  branchId        String        @db.Char(26)
+  number          String        @db.VarChar(50)
+  customerId      String        @db.Char(26)
+  receiptDate     DateTime      @default(now())
+  amountIqd       Decimal       @db.Decimal(18, 3)
+  method          PaymentMethod
+  reference       String?       @db.VarChar(100)
+  cashAccountId   String        @db.Char(26)
+  appliedInvoices Json? // [{invoiceId, amount}]
+  unappliedAmount Decimal       @default(0) @db.Decimal(18, 3)
+  journalEntryId  String?       @db.Char(26)
+  notes           String?
+  createdAt       DateTime      @default(now())
+  createdBy       String        @db.Char(26)
 
   @@unique([companyId, number])
   @@index([companyId, customerId])
@@ -2041,38 +2209,38 @@ model PaymentReceipt {
 // ============================================================
 
 model FixedAsset {
-  id                  String              @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId           String              @db.Char(26)
-  branchId            String              @db.Char(26)
-  number              String              @db.VarChar(50)              // FA-2026-001
-  nameAr              String              @db.VarChar(200)
-  nameEn              String?             @db.VarChar(200)
-  categoryAccountId   String              @db.Char(26)                 // FK → ChartOfAccount (asset side)
-  accumDepAccountId   String              @db.Char(26)                 // FK → ChartOfAccount (contra)
-  depreciationExpenseAccountId String     @db.Char(26)                 // FK → ChartOfAccount (65x)
-  costCenterId        String?             @db.Char(26)
-  acquisitionDate     DateTime            @db.Date
-  purchaseCostIqd     Decimal             @db.Decimal(18, 3)
-  salvageValueIqd     Decimal             @default(0) @db.Decimal(18, 3)
-  usefulLifeMonths    Int
-  depreciationMethod  DepreciationMethod  @default(straight_line)
-  monthlyDepIqd       Decimal             @db.Decimal(18, 3)           // computed
-  accumulatedDepIqd   Decimal             @default(0) @db.Decimal(18, 3)
-  bookValueIqd        Decimal             @db.Decimal(18, 3)
-  serialNumber        String?             @db.VarChar(100)
-  vendorId            String?             @db.Char(26)                 // supplier
-  warrantyUntil       DateTime?           @db.Date
-  location            String?
-  assignedTo          String?             @db.Char(26)                 // employee
-  status              AssetStatus         @default(active)
-  disposedAt          DateTime?
-  disposalMethod      String?             @db.VarChar(50)              // sold | written_off | scrapped
-  disposalValueIqd    Decimal?            @db.Decimal(18, 3)
-  disposalGainLossIqd Decimal?            @db.Decimal(18, 3)
-  notes               String?
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  createdBy           String              @db.Char(26)
+  id                           String             @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId                    String             @db.Char(26)
+  branchId                     String             @db.Char(26)
+  number                       String             @db.VarChar(50) // FA-2026-001
+  nameAr                       String             @db.VarChar(200)
+  nameEn                       String?            @db.VarChar(200)
+  categoryAccountId            String             @db.Char(26) // FK → ChartOfAccount (asset side)
+  accumDepAccountId            String             @db.Char(26) // FK → ChartOfAccount (contra)
+  depreciationExpenseAccountId String             @db.Char(26) // FK → ChartOfAccount (65x)
+  costCenterId                 String?            @db.Char(26)
+  acquisitionDate              DateTime           @db.Date
+  purchaseCostIqd              Decimal            @db.Decimal(18, 3)
+  salvageValueIqd              Decimal            @default(0) @db.Decimal(18, 3)
+  usefulLifeMonths             Int
+  depreciationMethod           DepreciationMethod @default(straight_line)
+  monthlyDepIqd                Decimal            @db.Decimal(18, 3) // computed
+  accumulatedDepIqd            Decimal            @default(0) @db.Decimal(18, 3)
+  bookValueIqd                 Decimal            @db.Decimal(18, 3)
+  serialNumber                 String?            @db.VarChar(100)
+  vendorId                     String?            @db.Char(26) // supplier
+  warrantyUntil                DateTime?          @db.Date
+  location                     String?
+  assignedTo                   String?            @db.Char(26) // employee
+  status                       AssetStatus        @default(active)
+  disposedAt                   DateTime?
+  disposalMethod               String?            @db.VarChar(50) // sold | written_off | scrapped
+  disposalValueIqd             Decimal?           @db.Decimal(18, 3)
+  disposalGainLossIqd          Decimal?           @db.Decimal(18, 3)
+  notes                        String?
+  createdAt                    DateTime           @default(now())
+  updatedAt                    DateTime           @updatedAt
+  createdBy                    String             @db.Char(26)
 
   depreciationEntries AssetDepreciation[]
   maintenanceRecords  AssetMaintenance[]
@@ -2084,19 +2252,19 @@ model FixedAsset {
 }
 
 model AssetDepreciation {
-  id              String      @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  assetId         String      @db.Char(26)
+  id              String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  assetId         String    @db.Char(26)
   periodYear      Int
   periodMonth     Int
-  depreciationIqd Decimal     @db.Decimal(18, 3)
-  accumulatedIqd  Decimal     @db.Decimal(18, 3)
-  bookValueIqd    Decimal     @db.Decimal(18, 3)
-  journalEntryId  String?     @db.Char(26)
+  depreciationIqd Decimal   @db.Decimal(18, 3)
+  accumulatedIqd  Decimal   @db.Decimal(18, 3)
+  bookValueIqd    Decimal   @db.Decimal(18, 3)
+  journalEntryId  String?   @db.Char(26)
   postedAt        DateTime?
-  postedBy        String?     @db.Char(26)
-  createdAt       DateTime    @default(now())
+  postedBy        String?   @db.Char(26)
+  createdAt       DateTime  @default(now())
 
-  asset           FixedAsset  @relation(fields: [assetId], references: [id])
+  asset FixedAsset @relation(fields: [assetId], references: [id])
 
   @@unique([assetId, periodYear, periodMonth])
   @@index([periodYear, periodMonth])
@@ -2104,18 +2272,18 @@ model AssetDepreciation {
 }
 
 model AssetMaintenance {
-  id          String      @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  assetId     String      @db.Char(26)
-  date        DateTime    @db.Date
-  type        String      @db.VarChar(50)               // scheduled | breakdown | inspection
-  description String      @db.VarChar(500)
-  costIqd     Decimal     @default(0) @db.Decimal(18, 3)
-  isCapital   Boolean     @default(false)                // if true, increases asset cost
+  id          String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  assetId     String   @db.Char(26)
+  date        DateTime @db.Date
+  type        String   @db.VarChar(50) // scheduled | breakdown | inspection
+  description String   @db.VarChar(500)
+  costIqd     Decimal  @default(0) @db.Decimal(18, 3)
+  isCapital   Boolean  @default(false) // if true, increases asset cost
   notes       String?
-  createdAt   DateTime    @default(now())
-  createdBy   String      @db.Char(26)
+  createdAt   DateTime @default(now())
+  createdBy   String   @db.Char(26)
 
-  asset       FixedAsset  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  asset FixedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
 
   @@index([assetId, date])
   @@map("asset_maintenance")
@@ -2126,87 +2294,87 @@ model AssetMaintenance {
 // ============================================================
 
 model Department {
-  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId       String   @db.Char(26)
-  code            String   @db.VarChar(20)
-  nameAr          String   @db.VarChar(200)
-  nameEn          String?  @db.VarChar(200)
-  parentId        String?  @db.Char(26)
-  managerId       String?  @db.Char(26)
-  costCenterId    String?  @db.Char(26)
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id           String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId    String   @db.Char(26)
+  code         String   @db.VarChar(20)
+  nameAr       String   @db.VarChar(200)
+  nameEn       String?  @db.VarChar(200)
+  parentId     String?  @db.Char(26)
+  managerId    String?  @db.Char(26)
+  costCenterId String?  @db.Char(26)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  parent          Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id])
-  children        Department[] @relation("DepartmentHierarchy")
+  parent   Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children Department[] @relation("DepartmentHierarchy")
 
   @@unique([companyId, code])
   @@map("departments")
 }
 
 model PayGrade {
-  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId       String   @db.Char(26)
-  code            String   @db.VarChar(10)
-  nameAr          String   @db.VarChar(100)
-  minSalaryIqd    Decimal  @db.Decimal(18, 3)
-  midSalaryIqd    Decimal  @db.Decimal(18, 3)
-  maxSalaryIqd    Decimal  @db.Decimal(18, 3)
-  annualIncreasePct Decimal @default(5) @db.Decimal(5, 2)
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
+  id                String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String   @db.Char(26)
+  code              String   @db.VarChar(10)
+  nameAr            String   @db.VarChar(100)
+  minSalaryIqd      Decimal  @db.Decimal(18, 3)
+  midSalaryIqd      Decimal  @db.Decimal(18, 3)
+  maxSalaryIqd      Decimal  @db.Decimal(18, 3)
+  annualIncreasePct Decimal  @default(5) @db.Decimal(5, 2)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
 
   @@unique([companyId, code])
   @@map("pay_grades")
 }
 
 model Employee {
-  id                  String          @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId           String          @db.Char(26)
-  branchId            String          @db.Char(26)
-  employeeNumber      String          @db.VarChar(20)
-  userId              String?         @db.Char(26)                    // linked login user
-  nameAr              String          @db.VarChar(200)
-  nameEn              String?         @db.VarChar(200)
-  nationalId          String?         @db.VarChar(30)
-  passportNumber      String?         @db.VarChar(30)
-  dateOfBirth         DateTime?       @db.Date
-  gender              String?         @db.VarChar(10)
-  maritalStatus       String?         @db.VarChar(20)
-  phone               String?         @db.VarChar(20)
-  whatsapp            String?         @db.VarChar(20)
-  email               String?         @db.VarChar(200)
-  address             String?
-  emergencyContact    String?         @db.VarChar(200)
-  emergencyPhone      String?         @db.VarChar(20)
-  departmentId        String?         @db.Char(26)
-  positionTitle       String?         @db.VarChar(100)
-  payGradeId          String?         @db.Char(26)
-  managerId           String?         @db.Char(26)
-  hireDate            DateTime        @db.Date
-  contractEndDate     DateTime?       @db.Date
-  baseSalaryIqd       Decimal         @db.Decimal(18, 3)
-  housingAllowanceIqd Decimal         @default(0) @db.Decimal(18, 3)
-  transportAllowanceIqd Decimal       @default(0) @db.Decimal(18, 3)
-  otherAllowancesIqd  Decimal         @default(0) @db.Decimal(18, 3)
-  bankAccountId       String?         @db.Char(26)
-  bankAccountNumber   String?         @db.VarChar(50)
-  socialSecurityEnrolled Boolean      @default(false)
-  status              EmployeeStatus  @default(active)
-  terminationDate     DateTime?       @db.Date
-  terminationReason   String?         @db.VarChar(500)
-  photoUrl            String?
-  notes               String?
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-  createdBy           String          @db.Char(26)
-  updatedBy           String          @db.Char(26)
-  deletedAt           DateTime?
+  id                     String         @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId              String         @db.Char(26)
+  branchId               String         @db.Char(26)
+  employeeNumber         String         @db.VarChar(20)
+  userId                 String?        @db.Char(26) // linked login user
+  nameAr                 String         @db.VarChar(200)
+  nameEn                 String?        @db.VarChar(200)
+  nationalId             String?        @db.VarChar(30)
+  passportNumber         String?        @db.VarChar(30)
+  dateOfBirth            DateTime?      @db.Date
+  gender                 String?        @db.VarChar(10)
+  maritalStatus          String?        @db.VarChar(20)
+  phone                  String?        @db.VarChar(20)
+  whatsapp               String?        @db.VarChar(20)
+  email                  String?        @db.VarChar(200)
+  address                String?
+  emergencyContact       String?        @db.VarChar(200)
+  emergencyPhone         String?        @db.VarChar(20)
+  departmentId           String?        @db.Char(26)
+  positionTitle          String?        @db.VarChar(100)
+  payGradeId             String?        @db.Char(26)
+  managerId              String?        @db.Char(26)
+  hireDate               DateTime       @db.Date
+  contractEndDate        DateTime?      @db.Date
+  baseSalaryIqd          Decimal        @db.Decimal(18, 3)
+  housingAllowanceIqd    Decimal        @default(0) @db.Decimal(18, 3)
+  transportAllowanceIqd  Decimal        @default(0) @db.Decimal(18, 3)
+  otherAllowancesIqd     Decimal        @default(0) @db.Decimal(18, 3)
+  bankAccountId          String?        @db.Char(26)
+  bankAccountNumber      String?        @db.VarChar(50)
+  socialSecurityEnrolled Boolean        @default(false)
+  status                 EmployeeStatus @default(active)
+  terminationDate        DateTime?      @db.Date
+  terminationReason      String?        @db.VarChar(500)
+  photoUrl               String?
+  notes                  String?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  createdBy              String         @db.Char(26)
+  updatedBy              String         @db.Char(26)
+  deletedAt              DateTime?
 
-  attendanceRecords   AttendanceRecord[]
-  leaveRequests       LeaveRequest[]
-  payrollLines        PayrollLine[]
+  attendanceRecords AttendanceRecord[]
+  leaveRequests     LeaveRequest[]
+  payrollLines      PayrollLine[]
 
   @@unique([companyId, employeeNumber])
   @@index([companyId, departmentId])
@@ -2215,26 +2383,26 @@ model Employee {
 }
 
 model AttendanceRecord {
-  id              String             @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId       String             @db.Char(26)
-  employeeId      String             @db.Char(26)
-  date            DateTime           @db.Date
+  id              String            @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String            @db.Char(26)
+  employeeId      String            @db.Char(26)
+  date            DateTime          @db.Date
   checkInAt       DateTime?
   checkOutAt      DateTime?
   checkInSource   AttendanceSource?
   checkOutSource  AttendanceSource?
-  checkInLat      Decimal?           @db.Decimal(10, 7)
-  checkInLng      Decimal?           @db.Decimal(10, 7)
-  hoursWorked     Decimal?           @db.Decimal(6, 2)
-  lateMinutes     Int                @default(0)
-  overtimeMinutes Int                @default(0)
-  isAbsent        Boolean            @default(false)
-  isLeave         Boolean            @default(false)
-  leaveRequestId  String?            @db.Char(26)
+  checkInLat      Decimal?          @db.Decimal(10, 7)
+  checkInLng      Decimal?          @db.Decimal(10, 7)
+  hoursWorked     Decimal?          @db.Decimal(6, 2)
+  lateMinutes     Int               @default(0)
+  overtimeMinutes Int               @default(0)
+  isAbsent        Boolean           @default(false)
+  isLeave         Boolean           @default(false)
+  leaveRequestId  String?           @db.Char(26)
   notes           String?
-  createdAt       DateTime           @default(now())
+  createdAt       DateTime          @default(now())
 
-  employee        Employee @relation(fields: [employeeId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
 
   @@unique([employeeId, date])
   @@index([companyId, date])
@@ -2242,25 +2410,25 @@ model AttendanceRecord {
 }
 
 model LeaveRequest {
-  id              String       @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId       String       @db.Char(26)
-  employeeId      String       @db.Char(26)
+  id              String      @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String      @db.Char(26)
+  employeeId      String      @db.Char(26)
   type            LeaveType
-  startDate       DateTime     @db.Date
-  endDate         DateTime     @db.Date
-  totalDays       Decimal      @db.Decimal(5, 1)
+  startDate       DateTime    @db.Date
+  endDate         DateTime    @db.Date
+  totalDays       Decimal     @db.Decimal(5, 1)
   reason          String?
-  status          LeaveStatus  @default(draft)
-  attachmentUrl   String?                                // medical cert etc.
-  approvedBy      String?      @db.Char(26)
+  status          LeaveStatus @default(draft)
+  attachmentUrl   String? // medical cert etc.
+  approvedBy      String?     @db.Char(26)
   approvedAt      DateTime?
-  rejectedBy      String?      @db.Char(26)
+  rejectedBy      String?     @db.Char(26)
   rejectionReason String?
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  createdBy       String       @db.Char(26)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  createdBy       String      @db.Char(26)
 
-  employee        Employee     @relation(fields: [employeeId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
 
   @@index([companyId, employeeId, status])
   @@index([companyId, startDate])
@@ -2268,29 +2436,29 @@ model LeaveRequest {
 }
 
 model PayrollRun {
-  id              String            @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId       String            @db.Char(26)
-  branchId        String?           @db.Char(26)
-  number          String            @db.VarChar(50)
-  periodYear      Int
-  periodMonth     Int
-  status          PayrollRunStatus  @default(draft)
-  totalGrossIqd   Decimal           @default(0) @db.Decimal(18, 3)
-  totalDeductionsIqd Decimal        @default(0) @db.Decimal(18, 3)
-  totalNetIqd     Decimal           @default(0) @db.Decimal(18, 3)
-  totalTaxIqd     Decimal           @default(0) @db.Decimal(18, 3)
-  totalSsIqd      Decimal           @default(0) @db.Decimal(18, 3)
-  approvedBy      String?           @db.Char(26)
-  approvedAt      DateTime?
-  journalEntryId  String?           @db.Char(26)
-  postedAt        DateTime?
-  paidAt          DateTime?
-  notes           String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  createdBy       String            @db.Char(26)
+  id                 String           @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId          String           @db.Char(26)
+  branchId           String?          @db.Char(26)
+  number             String           @db.VarChar(50)
+  periodYear         Int
+  periodMonth        Int
+  status             PayrollRunStatus @default(draft)
+  totalGrossIqd      Decimal          @default(0) @db.Decimal(18, 3)
+  totalDeductionsIqd Decimal          @default(0) @db.Decimal(18, 3)
+  totalNetIqd        Decimal          @default(0) @db.Decimal(18, 3)
+  totalTaxIqd        Decimal          @default(0) @db.Decimal(18, 3)
+  totalSsIqd         Decimal          @default(0) @db.Decimal(18, 3)
+  approvedBy         String?          @db.Char(26)
+  approvedAt         DateTime?
+  journalEntryId     String?          @db.Char(26)
+  postedAt           DateTime?
+  paidAt             DateTime?
+  notes              String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  createdBy          String           @db.Char(26)
 
-  lines           PayrollLine[]
+  lines PayrollLine[]
 
   @@unique([companyId, periodYear, periodMonth, branchId])
   @@index([companyId, status])
@@ -2298,32 +2466,32 @@ model PayrollRun {
 }
 
 model PayrollLine {
-  id              String      @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  payrollRunId    String      @db.Char(26)
-  employeeId      String      @db.Char(26)
-  baseSalaryIqd   Decimal     @db.Decimal(18, 3)
-  housingIqd      Decimal     @default(0) @db.Decimal(18, 3)
-  transportIqd    Decimal     @default(0) @db.Decimal(18, 3)
-  otherAllowIqd   Decimal     @default(0) @db.Decimal(18, 3)
-  overtimeIqd     Decimal     @default(0) @db.Decimal(18, 3)
-  bonusIqd        Decimal     @default(0) @db.Decimal(18, 3)
-  commissionIqd   Decimal     @default(0) @db.Decimal(18, 3)
-  grossIqd        Decimal     @db.Decimal(18, 3)
-  absenceDeductIqd Decimal    @default(0) @db.Decimal(18, 3)
-  lateDeductIqd   Decimal     @default(0) @db.Decimal(18, 3)
-  advanceDeductIqd Decimal    @default(0) @db.Decimal(18, 3)
-  incomeTaxIqd    Decimal     @default(0) @db.Decimal(18, 3)
-  socialSecurityIqd Decimal   @default(0) @db.Decimal(18, 3)
-  otherDeductIqd  Decimal     @default(0) @db.Decimal(18, 3)
-  totalDeductIqd  Decimal     @db.Decimal(18, 3)
-  netIqd          Decimal     @db.Decimal(18, 3)
-  daysWorked      Decimal     @db.Decimal(5, 1)
-  hoursOvertime   Decimal     @default(0) @db.Decimal(6, 2)
-  payslipPdfUrl   String?
-  notes           String?
+  id                String  @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  payrollRunId      String  @db.Char(26)
+  employeeId        String  @db.Char(26)
+  baseSalaryIqd     Decimal @db.Decimal(18, 3)
+  housingIqd        Decimal @default(0) @db.Decimal(18, 3)
+  transportIqd      Decimal @default(0) @db.Decimal(18, 3)
+  otherAllowIqd     Decimal @default(0) @db.Decimal(18, 3)
+  overtimeIqd       Decimal @default(0) @db.Decimal(18, 3)
+  bonusIqd          Decimal @default(0) @db.Decimal(18, 3)
+  commissionIqd     Decimal @default(0) @db.Decimal(18, 3)
+  grossIqd          Decimal @db.Decimal(18, 3)
+  absenceDeductIqd  Decimal @default(0) @db.Decimal(18, 3)
+  lateDeductIqd     Decimal @default(0) @db.Decimal(18, 3)
+  advanceDeductIqd  Decimal @default(0) @db.Decimal(18, 3)
+  incomeTaxIqd      Decimal @default(0) @db.Decimal(18, 3)
+  socialSecurityIqd Decimal @default(0) @db.Decimal(18, 3)
+  otherDeductIqd    Decimal @default(0) @db.Decimal(18, 3)
+  totalDeductIqd    Decimal @db.Decimal(18, 3)
+  netIqd            Decimal @db.Decimal(18, 3)
+  daysWorked        Decimal @db.Decimal(5, 1)
+  hoursOvertime     Decimal @default(0) @db.Decimal(6, 2)
+  payslipPdfUrl     String?
+  notes             String?
 
-  payrollRun      PayrollRun  @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
-  employee        Employee    @relation(fields: [employeeId], references: [id])
+  payrollRun PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee   Employee   @relation(fields: [employeeId], references: [id])
 
   @@unique([payrollRunId, employeeId])
   @@index([employeeId])
@@ -2335,34 +2503,34 @@ model PayrollLine {
 // ============================================================
 
 model JobOrder {
-  id                String          @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId         String          @db.Char(26)
-  branchId          String          @db.Char(26)
-  number            String          @db.VarChar(50)
-  customerId        String          @db.Char(26)
-  salesOrderId      String?         @db.Char(26)
-  productName       String          @db.VarChar(200)
-  description       String?
-  designFileUrl     String?
-  quantity          Int
-  expectedDate      DateTime        @db.Date
-  status            JobOrderStatus  @default(quotation)
-  estimatedCostIqd  Decimal         @db.Decimal(18, 3)
-  actualCostIqd     Decimal         @default(0) @db.Decimal(18, 3)
-  pricePerUnitIqd   Decimal         @db.Decimal(18, 3)
-  totalPriceIqd     Decimal         @db.Decimal(18, 3)
-  depositIqd        Decimal         @default(0) @db.Decimal(18, 3)
-  notes             String?
-  completedAt       DateTime?
-  deliveredAt       DateTime?
-  cancelledAt       DateTime?
+  id                 String         @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId          String         @db.Char(26)
+  branchId           String         @db.Char(26)
+  number             String         @db.VarChar(50)
+  customerId         String         @db.Char(26)
+  salesOrderId       String?        @db.Char(26)
+  productName        String         @db.VarChar(200)
+  description        String?
+  designFileUrl      String?
+  quantity           Int
+  expectedDate       DateTime       @db.Date
+  status             JobOrderStatus @default(quotation)
+  estimatedCostIqd   Decimal        @db.Decimal(18, 3)
+  actualCostIqd      Decimal        @default(0) @db.Decimal(18, 3)
+  pricePerUnitIqd    Decimal        @db.Decimal(18, 3)
+  totalPriceIqd      Decimal        @db.Decimal(18, 3)
+  depositIqd         Decimal        @default(0) @db.Decimal(18, 3)
+  notes              String?
+  completedAt        DateTime?
+  deliveredAt        DateTime?
+  cancelledAt        DateTime?
   cancellationReason String?        @db.VarChar(500)
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  createdBy         String          @db.Char(26)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  createdBy          String         @db.Char(26)
 
-  bomLines          JobOrderBOM[]
-  stages            JobOrderStage[]
+  bomLines JobOrderBOM[]
+  stages   JobOrderStage[]
 
   @@unique([companyId, number])
   @@index([companyId, customerId])
@@ -2371,38 +2539,38 @@ model JobOrder {
 }
 
 model JobOrderBOM {
-  id                String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  jobOrderId        String   @db.Char(26)
-  variantId         String?  @db.Char(26)                  // null if external/service
-  description       String   @db.VarChar(500)
-  qtyRequired       Decimal  @db.Decimal(18, 3)
-  qtyConsumed       Decimal  @default(0) @db.Decimal(18, 3)
-  unitCostIqd       Decimal  @db.Decimal(18, 6)
-  totalCostIqd      Decimal  @db.Decimal(18, 3)
-  sourceType        String   @db.VarChar(30)               // inventory | external | service
-  warehouseId       String?  @db.Char(26)
-  sortOrder         Int      @default(0)
+  id           String  @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  jobOrderId   String  @db.Char(26)
+  variantId    String? @db.Char(26) // null if external/service
+  description  String  @db.VarChar(500)
+  qtyRequired  Decimal @db.Decimal(18, 3)
+  qtyConsumed  Decimal @default(0) @db.Decimal(18, 3)
+  unitCostIqd  Decimal @db.Decimal(18, 6)
+  totalCostIqd Decimal @db.Decimal(18, 3)
+  sourceType   String  @db.VarChar(30) // inventory | external | service
+  warehouseId  String? @db.Char(26)
+  sortOrder    Int     @default(0)
 
-  jobOrder          JobOrder @relation(fields: [jobOrderId], references: [id], onDelete: Cascade)
+  jobOrder JobOrder @relation(fields: [jobOrderId], references: [id], onDelete: Cascade)
 
   @@index([jobOrderId])
   @@map("job_order_bom")
 }
 
 model JobOrderStage {
-  id            String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  jobOrderId    String    @db.Char(26)
-  sequence      Int
-  nameAr        String    @db.VarChar(100)
-  description   String?
-  assignedTo    String?   @db.Char(26)                     // employee
-  plannedDate   DateTime?
-  startedAt     DateTime?
-  completedAt   DateTime?
-  status        String    @default("pending") @db.VarChar(20)   // pending | in_progress | done | skipped
-  notes         String?
+  id          String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  jobOrderId  String    @db.Char(26)
+  sequence    Int
+  nameAr      String    @db.VarChar(100)
+  description String?
+  assignedTo  String?   @db.Char(26) // employee
+  plannedDate DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  status      String    @default("pending") @db.VarChar(20) // pending | in_progress | done | skipped
+  notes       String?
 
-  jobOrder      JobOrder  @relation(fields: [jobOrderId], references: [id], onDelete: Cascade)
+  jobOrder JobOrder @relation(fields: [jobOrderId], references: [id], onDelete: Cascade)
 
   @@index([jobOrderId, sequence])
   @@map("job_order_stages")
@@ -2413,29 +2581,29 @@ model JobOrderStage {
 // ============================================================
 
 model Campaign {
-  id                String           @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId         String           @db.Char(26)
-  name              String           @db.VarChar(200)
+  id                String          @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String          @db.Char(26)
+  name              String          @db.VarChar(200)
   description       String?
   channel           CampaignChannel
-  status            CampaignStatus   @default(draft)
-  audienceCriteria  Json?                                      // { loyaltyTier, lastPurchaseDaysAgo, etc. }
-  audienceSize      Int              @default(0)
+  status            CampaignStatus  @default(draft)
+  audienceCriteria  Json? // { loyaltyTier, lastPurchaseDaysAgo, etc. }
+  audienceSize      Int             @default(0)
   messageTemplate   String?
-  messageTemplateId String?          @db.Char(26)
+  messageTemplateId String?         @db.Char(26)
   scheduledAt       DateTime?
   startedAt         DateTime?
   completedAt       DateTime?
-  budgetIqd         Decimal          @default(0) @db.Decimal(18, 3)
-  spentIqd          Decimal          @default(0) @db.Decimal(18, 3)
-  utmSource         String?          @db.VarChar(50)
-  utmMedium         String?          @db.VarChar(50)
-  utmCampaign       String?          @db.VarChar(100)
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  createdBy         String           @db.Char(26)
+  budgetIqd         Decimal         @default(0) @db.Decimal(18, 3)
+  spentIqd          Decimal         @default(0) @db.Decimal(18, 3)
+  utmSource         String?         @db.VarChar(50)
+  utmMedium         String?         @db.VarChar(50)
+  utmCampaign       String?         @db.VarChar(100)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  createdBy         String          @db.Char(26)
 
-  recipients        CampaignRecipient[]
+  recipients CampaignRecipient[]
 
   @@index([companyId, status])
   @@index([companyId, channel])
@@ -2443,19 +2611,19 @@ model Campaign {
 }
 
 model CampaignRecipient {
-  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  campaignId      String   @db.Char(26)
-  customerId      String?  @db.Char(26)
-  phoneOrEmail    String   @db.VarChar(200)
-  sentAt          DateTime?
-  deliveredAt     DateTime?
-  openedAt        DateTime?
-  clickedAt       DateTime?
-  convertedAt     DateTime?
-  conversionValueIqd Decimal? @db.Decimal(18, 3)
-  errorMessage    String?
+  id                 String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  campaignId         String    @db.Char(26)
+  customerId         String?   @db.Char(26)
+  phoneOrEmail       String    @db.VarChar(200)
+  sentAt             DateTime?
+  deliveredAt        DateTime?
+  openedAt           DateTime?
+  clickedAt          DateTime?
+  convertedAt        DateTime?
+  conversionValueIqd Decimal?  @db.Decimal(18, 3)
+  errorMessage       String?
 
-  campaign        Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
 
   @@index([campaignId])
   @@index([customerId])
@@ -2463,24 +2631,24 @@ model CampaignRecipient {
 }
 
 model Promotion {
-  id                String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId         String   @db.Char(26)
-  code              String?  @db.VarChar(30)                   // coupon code, null for automatic
-  nameAr            String   @db.VarChar(200)
-  type              String   @db.VarChar(30)                   // percent | amount | bxgy | bundle | free_shipping
-  value             Decimal  @db.Decimal(18, 3)
-  minPurchaseIqd    Decimal  @default(0) @db.Decimal(18, 3)
-  maxDiscountIqd    Decimal? @db.Decimal(18, 3)
-  applicableCategories Json?                                   // [categoryId, ...]
-  applicableVariants   Json?                                   // [variantId, ...]
-  startDate         DateTime
-  endDate           DateTime
-  maxUses           Int?
-  maxUsesPerCustomer Int?
-  usedCount         Int      @default(0)
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  createdBy         String   @db.Char(26)
+  id                   String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId            String   @db.Char(26)
+  code                 String?  @db.VarChar(30) // coupon code, null for automatic
+  nameAr               String   @db.VarChar(200)
+  type                 String   @db.VarChar(30) // percent | amount | bxgy | bundle | free_shipping
+  value                Decimal  @db.Decimal(18, 3)
+  minPurchaseIqd       Decimal  @default(0) @db.Decimal(18, 3)
+  maxDiscountIqd       Decimal? @db.Decimal(18, 3)
+  applicableCategories Json? // [categoryId, ...]
+  applicableVariants   Json? // [variantId, ...]
+  startDate            DateTime
+  endDate              DateTime
+  maxUses              Int?
+  maxUsesPerCustomer   Int?
+  usedCount            Int      @default(0)
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  createdBy            String   @db.Char(26)
 
   @@unique([companyId, code])
   @@index([companyId, isActive, startDate, endDate])
@@ -2492,26 +2660,26 @@ model Promotion {
 // ============================================================
 
 model Lead {
-  id              String     @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  companyId       String     @db.Char(26)
-  source          String?    @db.VarChar(50)
-  nameAr          String     @db.VarChar(200)
-  phone           String?    @db.VarChar(20)
-  email           String?    @db.VarChar(200)
-  interest        String?
-  estimatedValueIqd Decimal? @db.Decimal(18, 3)
-  status          LeadStatus @default(new)
-  score           Int        @default(0)                       // 0-100 (AI scoring)
-  assignedTo      String?    @db.Char(26)
-  customerId      String?    @db.Char(26)                      // if converted
-  wonAt           DateTime?
-  lostAt          DateTime?
-  lostReason      String?    @db.VarChar(500)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  createdBy       String     @db.Char(26)
+  id                String     @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String     @db.Char(26)
+  source            String?    @db.VarChar(50)
+  nameAr            String     @db.VarChar(200)
+  phone             String?    @db.VarChar(20)
+  email             String?    @db.VarChar(200)
+  interest          String?
+  estimatedValueIqd Decimal?   @db.Decimal(18, 3)
+  status            LeadStatus @default(new)
+  score             Int        @default(0) // 0-100 (AI scoring)
+  assignedTo        String?    @db.Char(26)
+  customerId        String?    @db.Char(26) // if converted
+  wonAt             DateTime?
+  lostAt            DateTime?
+  lostReason        String?    @db.VarChar(500)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  createdBy         String     @db.Char(26)
 
-  activities      LeadActivity[]
+  activities LeadActivity[]
 
   @@index([companyId, status])
   @@index([companyId, assignedTo])
@@ -2519,18 +2687,18 @@ model Lead {
 }
 
 model LeadActivity {
-  id            String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  leadId        String   @db.Char(26)
-  type          String   @db.VarChar(30)                      // call | email | meeting | whatsapp | note
-  subject       String?  @db.VarChar(200)
-  body          String?
-  scheduledAt   DateTime?
-  completedAt   DateTime?
-  outcome       String?  @db.VarChar(100)
-  createdAt     DateTime @default(now())
-  createdBy     String   @db.Char(26)
+  id          String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  leadId      String    @db.Char(26)
+  type        String    @db.VarChar(30) // call | email | meeting | whatsapp | note
+  subject     String?   @db.VarChar(200)
+  body        String?
+  scheduledAt DateTime?
+  completedAt DateTime?
+  outcome     String?   @db.VarChar(100)
+  createdAt   DateTime  @default(now())
+  createdBy   String    @db.Char(26)
 
-  lead          Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([leadId, scheduledAt])
   @@map("lead_activities")
@@ -2541,26 +2709,26 @@ model LeadActivity {
 // ============================================================
 
 model License {
-  id                  String       @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  licenseKey          String       @unique @db.VarChar(64)
-  clientName          String       @db.VarChar(200)
-  clientContactEmail  String?      @db.VarChar(200)
+  id                  String      @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  licenseKey          String      @unique @db.VarChar(64)
+  clientName          String      @db.VarChar(200)
+  clientContactEmail  String?     @db.VarChar(200)
   plan                LicensePlan
-  issuedAt            DateTime     @default(now())
+  issuedAt            DateTime    @default(now())
   expiresAt           DateTime
   activatedAt         DateTime?
-  maxCompanies        Int          @default(1)
-  maxBranches         Int          @default(1)
-  maxUsers            Int          @default(5)
-  enabledModules      Json                                      // ["sales", "pos", ...]
-  hardwareFingerprint String?      @db.VarChar(200)
+  maxCompanies        Int         @default(1)
+  maxBranches         Int         @default(1)
+  maxUsers            Int         @default(5)
+  enabledModules      Json // ["sales", "pos", ...]
+  hardwareFingerprint String?     @db.VarChar(200)
   lastHeartbeatAt     DateTime?
-  isActive            Boolean      @default(true)
+  isActive            Boolean     @default(true)
   revokedAt           DateTime?
   revokedReason       String?
-  signature           String                                     // RSA-2048 signed JWT
-  createdAt           DateTime     @default(now())
-  createdBy           String       @db.Char(26)
+  signature           String // RSA-2048 signed JWT
+  createdAt           DateTime    @default(now())
+  createdBy           String      @db.Char(26)
 
   @@index([clientName])
   @@map("licenses")
@@ -2568,18 +2736,18 @@ model License {
 
 // Reorder Points
 model ReorderPoint {
-  id                  String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
-  variantId           String   @db.Char(26)
-  warehouseId         String   @db.Char(26)
-  companyId           String   @db.Char(26)
-  reorderQty          Decimal  @db.Decimal(18, 3)
-  reorderAmount       Decimal  @db.Decimal(18, 3)
-  leadTimeDays        Int      @default(7)
-  safetyStock         Decimal  @default(0) @db.Decimal(18, 3)
-  preferredSupplierId String?  @db.Char(26)
-  isAiGenerated       Boolean  @default(false)
+  id                  String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  variantId           String    @db.Char(26)
+  warehouseId         String    @db.Char(26)
+  companyId           String    @db.Char(26)
+  reorderQty          Decimal   @db.Decimal(18, 3)
+  reorderAmount       Decimal   @db.Decimal(18, 3)
+  leadTimeDays        Int       @default(7)
+  safetyStock         Decimal   @default(0) @db.Decimal(18, 3)
+  preferredSupplierId String?   @db.Char(26)
+  isAiGenerated       Boolean   @default(false)
   lastCalculatedAt    DateTime?
-  updatedAt           DateTime @updatedAt
+  updatedAt           DateTime  @updatedAt
 
   @@unique([variantId, warehouseId])
   @@map("reorder_points")
