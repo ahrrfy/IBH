@@ -219,6 +219,31 @@ cmd_claim() {
     die "Working tree is dirty. Commit or stash first."
   fi
 
+  # I033 root-cause guard — refuse to claim while ANY other task branch is
+  # checked out anywhere (current worktree or sibling worktrees). Two
+  # parallel sessions sharing one .git/index corrupt each other's HEAD,
+  # staged files, and untracked work — the orchestrator's earlier "git
+  # refs as lock" guarantee only works at the GitHub layer, not at the
+  # local filesystem layer. Caller must use `git worktree add` to isolate.
+  local other_task_branches
+  other_task_branches=$(git worktree list --porcelain \
+    | awk '/^branch refs\/heads\/feat\/t/ {print substr($2, 12)}' \
+    | grep -vE "^feat/${tid}-" || true)
+  if [ -n "$other_task_branches" ]; then
+    die "Refusing to claim $tid — other task branches are checked out:
+$other_task_branches
+
+Parallel sessions sharing the same repo path corrupt each other's HEAD/index.
+Isolate this session in its own worktree BEFORE claiming:
+
+  cd \"\$(git rev-parse --show-toplevel)\"
+  git worktree add \"../\$(basename \"\$PWD\")-$tid\" \"$ORIGIN/$BASE\"
+  cd \"../\$(basename \"\$PWD\")-$tid\"
+  bash scripts/orchestrator/task.sh claim $tid
+
+Or wait for the active claim(s) above to complete/release first."
+  fi
+
   # Ensure local main is up to date.
   git fetch "$ORIGIN" "$BASE" --quiet
   git checkout "$BASE" --quiet
