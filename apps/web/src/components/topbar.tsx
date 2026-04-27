@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { ROLE_LABELS_AR } from '@/lib/permissions';
+import { ConnectionStatus } from './connection-status';
 
 const PATH_LABELS: Record<string, string> = {
   dashboard: 'الرئيسية',
@@ -153,6 +154,8 @@ export function Topbar() {
         <Building2 className="h-3 w-3 text-slate-500" />
         <span className="font-medium">{branchName}</span>
       </div>
+
+      <ConnectionStatus />
 
       {/* Notifications + user menu */}
       <div className="flex items-center gap-1" ref={menuRef}>
