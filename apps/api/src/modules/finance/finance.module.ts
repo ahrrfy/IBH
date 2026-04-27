@@ -16,9 +16,10 @@ import { FinancialReportsService } from './reports/financial-reports.service';
 import { FinancialReportsController } from './reports/financial-reports.controller';
 import { AccountMappingService } from './account-mapping/account-mapping.service';
 import { AccountMappingController } from './account-mapping/account-mapping.controller';
+import { BudgetModule } from './budget/budget.module';
 
 @Module({
-  imports: [AuditModule, SequenceModule, PostingModule],
+  imports: [AuditModule, SequenceModule, PostingModule, BudgetModule],
   controllers: [
     GLController,
     BankAccountsController,
