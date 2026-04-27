@@ -4,52 +4,12 @@
  * POS Sync Conflict Review — I003
  *
  * Manager screen to review and resolve POS offline sync conflicts.
- *
- * A conflict is logged when a POS receipt syncs and:
- *   - The unit price differs from the server price list by more than 5%
- *   - The requested quantity exceeds available server stock at sync time
- *   - The product/variant is marked inactive on the server
- *
- * The receipt is ALWAYS posted (business continuity). This screen lets the
- * manager review the divergence and mark it accepted or rejected.
- *
- * Permissions required: pos.conflict.read (view) + pos.conflict.resolve (resolve)
+ * The receipt is ALWAYS posted (business continuity); this UI is for documentation.
  */
 
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiFetch } from '@/lib/api';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { AlertTriangle, CheckCircle2, XCircle, Clock } from 'lucide-react';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+import { api } from '@/lib/api';
 
 type Resolution =
   | 'pending_review'
@@ -61,24 +21,15 @@ type ConflictType = 'price_mismatch' | 'insufficient_stock' | 'product_inactive'
 
 interface PosConflict {
   id: string;
-  companyId: string;
-  branchId: string;
   receiptId: string;
-  clientUlid: string | null;
   conflictType: ConflictType;
   variantId: string | null;
   posValue: string;
   serverValue: string;
   resolution: Resolution;
   notes: string | null;
-  resolvedBy: string | null;
-  resolvedAt: string | null;
   createdAt: string;
-  receipt: {
-    number: string;
-    totalIqd: string;
-    createdAt: string;
-  };
+  receipt: { number: string; totalIqd: string; createdAt: string };
 }
 
 interface ConflictsResponse {
@@ -87,8 +38,6 @@ interface ConflictsResponse {
   page: number;
   pageSize: number;
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 const CONFLICT_TYPE_LABELS: Record<ConflictType, string> = {
   price_mismatch: 'تغيير السعر',
@@ -103,42 +52,20 @@ const RESOLUTION_LABELS: Record<Resolution, string> = {
   manager_rejected: 'مرفوض من المدير',
 };
 
-function ConflictTypeBadge({ type }: { type: ConflictType }) {
-  const variant =
-    type === 'price_mismatch'
-      ? 'warning'
-      : type === 'insufficient_stock'
-        ? 'destructive'
-        : 'secondary';
-  return <Badge variant={variant as any}>{CONFLICT_TYPE_LABELS[type]}</Badge>;
-}
-
-function ResolutionIcon({ resolution }: { resolution: Resolution }) {
-  switch (resolution) {
-    case 'pending_review':
-      return <Clock className="h-4 w-4 text-yellow-500" />;
-    case 'auto_accepted':
-      return <CheckCircle2 className="h-4 w-4 text-blue-500" />;
-    case 'manager_accepted':
-      return <CheckCircle2 className="h-4 w-4 text-green-600" />;
-    case 'manager_rejected':
-      return <XCircle className="h-4 w-4 text-red-600" />;
-  }
-}
+const TYPE_BADGE_CLASS: Record<ConflictType, string> = {
+  price_mismatch: 'bg-amber-100 text-amber-800',
+  insufficient_stock: 'bg-red-100 text-red-800',
+  product_inactive: 'bg-gray-100 text-gray-800',
+};
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleString('ar-IQ', {
-    dateStyle: 'short',
-    timeStyle: 'short',
-  });
+  return new Date(iso).toLocaleString('ar-IQ', { dateStyle: 'short', timeStyle: 'short' });
 }
 
 function formatIqd(raw: string) {
   const n = Number(raw);
   return isNaN(n) ? raw : `${n.toLocaleString('ar-IQ')} د.ع`;
 }
-
-// ── Resolve Dialog ────────────────────────────────────────────────────────────
 
 interface ResolveDialogProps {
   conflict: PosConflict | null;
@@ -149,74 +76,84 @@ interface ResolveDialogProps {
 
 function ResolveDialog({ conflict, onClose, onResolve, isLoading }: ResolveDialogProps) {
   const [notes, setNotes] = useState('');
-
   if (!conflict) return null;
 
   return (
-    <Dialog open={!!conflict} onOpenChange={() => onClose()}>
-      <DialogContent dir="rtl" className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>مراجعة تعارض الفاتورة {conflict.receipt.number}</DialogTitle>
-          <DialogDescription>
-            نوع التعارض: {CONFLICT_TYPE_LABELS[conflict.conflictType]}
-          </DialogDescription>
-        </DialogHeader>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+      dir="rtl"
+    >
+      <div
+        className="w-full max-w-lg rounded-lg bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-lg font-bold">مراجعة تعارض الفاتورة {conflict.receipt.number}</h2>
+        <p className="mt-1 text-sm text-gray-600">
+          نوع التعارض: {CONFLICT_TYPE_LABELS[conflict.conflictType]}
+        </p>
 
-        <div className="space-y-4 py-2">
-          <div className="grid grid-cols-2 gap-4 rounded-md border p-3 text-sm">
-            <div>
-              <span className="font-medium text-muted-foreground">قيمة الكاشير (POS):</span>
-              <p className="mt-1 font-mono">{conflict.posValue}</p>
-            </div>
-            <div>
-              <span className="font-medium text-muted-foreground">قيمة الخادم:</span>
-              <p className="mt-1 font-mono">{conflict.serverValue}</p>
-            </div>
+        <div className="mt-4 grid grid-cols-2 gap-4 rounded border p-3 text-sm">
+          <div>
+            <span className="font-medium text-gray-600">قيمة الكاشير (POS):</span>
+            <p className="mt-1 font-mono">{conflict.posValue}</p>
           </div>
-
-          <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-            <AlertTriangle className="mb-1 inline h-4 w-4" /> الفاتورة تم ترحيلها بالفعل.
-            قبولك أو رفضك هنا للتوثيق فقط — لا يلغي الفاتورة.
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="resolve-notes">ملاحظات المدير (اختياري)</Label>
-            <Textarea
-              id="resolve-notes"
-              placeholder="أضف أي ملاحظة للتوضيح..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-            />
+          <div>
+            <span className="font-medium text-gray-600">قيمة الخادم:</span>
+            <p className="mt-1 font-mono">{conflict.serverValue}</p>
           </div>
         </div>
 
-        <DialogFooter className="flex gap-2">
-          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+        <div className="mt-4 rounded bg-amber-50 p-3 text-sm text-amber-800">
+          ⚠️ الفاتورة تم ترحيلها بالفعل. قبولك أو رفضك هنا للتوثيق فقط — لا يلغي الفاتورة.
+        </div>
+
+        <div className="mt-4">
+          <label htmlFor="resolve-notes" className="block text-sm font-medium">
+            ملاحظات المدير (اختياري)
+          </label>
+          <textarea
+            id="resolve-notes"
+            className="mt-1 w-full rounded border border-gray-300 p-2 text-sm"
+            placeholder="أضف أي ملاحظة للتوضيح..."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+          />
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            className="rounded border px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-50"
+            onClick={onClose}
+            disabled={isLoading}
+          >
             إلغاء
-          </Button>
-          <Button
-            variant="destructive"
+          </button>
+          <button
+            type="button"
+            className="rounded bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 disabled:opacity-50"
             onClick={() => onResolve(conflict.id, 'manager_rejected', notes)}
             disabled={isLoading}
           >
-            <XCircle className="me-1 h-4 w-4" />
-            رفض (يحتاج تصحيح)
-          </Button>
-          <Button
+            رفض
+          </button>
+          <button
+            type="button"
+            className="rounded bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700 disabled:opacity-50"
             onClick={() => onResolve(conflict.id, 'manager_accepted', notes)}
             disabled={isLoading}
           >
-            <CheckCircle2 className="me-1 h-4 w-4" />
             قبول
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
-
-// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function PosConflictsPage() {
   const queryClient = useQueryClient();
@@ -227,7 +164,7 @@ export default function PosConflictsPage() {
   const { data, isLoading, isError } = useQuery<ConflictsResponse>({
     queryKey: ['pos-conflicts', resolutionFilter, page],
     queryFn: () =>
-      apiFetch(
+      api<ConflictsResponse>(
         `/pos/conflicts?resolution=${resolutionFilter}&page=${page}&pageSize=25`,
       ),
   });
@@ -242,9 +179,9 @@ export default function PosConflictsPage() {
       resolution: 'manager_accepted' | 'manager_rejected';
       notes: string;
     }) =>
-      apiFetch(`/pos/conflicts/${id}/resolve`, {
+      api(`/pos/conflicts/${id}/resolve`, {
         method: 'POST',
-        body: JSON.stringify({ resolution, notes: notes || undefined }),
+        body: { resolution, notes: notes || undefined },
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pos-conflicts'] });
@@ -256,159 +193,126 @@ export default function PosConflictsPage() {
 
   return (
     <div className="space-y-6 p-6" dir="rtl">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">تعارضات المزامنة — POS</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-gray-600">
             فواتير الكاشير المتعارضة مع بيانات الخادم أثناء المزامنة
           </p>
         </div>
-
         {pendingCount !== undefined && pendingCount > 0 && (
-          <Badge variant="destructive" className="text-base">
+          <span className="rounded bg-red-600 px-3 py-1 text-sm font-medium text-white">
             {pendingCount} قيد المراجعة
-          </Badge>
+          </span>
         )}
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">تصفية</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4">
-            <Label className="min-w-max">حالة المراجعة:</Label>
-            <Select
-              value={resolutionFilter}
-              onValueChange={(v) => {
-                setResolutionFilter(v);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending_review">قيد المراجعة</SelectItem>
-                <SelectItem value="auto_accepted">مقبول تلقائياً</SelectItem>
-                <SelectItem value="manager_accepted">مقبول من المدير</SelectItem>
-                <SelectItem value="manager_rejected">مرفوض</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-lg border bg-white p-4">
+        <div className="flex items-center gap-4">
+          <label className="text-sm font-medium">حالة المراجعة:</label>
+          <select
+            className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+            value={resolutionFilter}
+            onChange={(e) => {
+              setResolutionFilter(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="pending_review">قيد المراجعة</option>
+            <option value="auto_accepted">مقبول تلقائياً</option>
+            <option value="manager_accepted">مقبول من المدير</option>
+            <option value="manager_rejected">مرفوض</option>
+          </select>
+        </div>
+      </div>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="py-12 text-center text-muted-foreground">جاري التحميل...</div>
-          ) : isError ? (
-            <div className="py-12 text-center text-destructive">فشل تحميل البيانات</div>
-          ) : !data?.items.length ? (
-            <div className="py-12 text-center text-muted-foreground">
-              <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-green-500" />
-              لا توجد تعارضات في هذه الفئة
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-right">الفاتورة</TableHead>
-                  <TableHead className="text-right">نوع التعارض</TableHead>
-                  <TableHead className="text-right">قيمة الكاشير</TableHead>
-                  <TableHead className="text-right">قيمة الخادم</TableHead>
-                  <TableHead className="text-right">الحالة</TableHead>
-                  <TableHead className="text-right">التاريخ</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.items.map((conflict) => (
-                  <TableRow key={conflict.id}>
-                    <TableCell>
-                      <div className="font-medium">{conflict.receipt.number}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatIqd(conflict.receipt.totalIqd)}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <ConflictTypeBadge type={conflict.conflictType} />
-                    </TableCell>
-                    <TableCell className="max-w-[160px] truncate font-mono text-xs">
-                      {conflict.posValue}
-                    </TableCell>
-                    <TableCell className="max-w-[160px] truncate font-mono text-xs">
-                      {conflict.serverValue}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <ResolutionIcon resolution={conflict.resolution} />
-                        <span className="text-xs">
-                          {RESOLUTION_LABELS[conflict.resolution]}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">
-                      {formatDate(conflict.createdAt)}
-                    </TableCell>
-                    <TableCell>
-                      {conflict.resolution === 'pending_review' && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setSelectedConflict(conflict)}
-                        >
-                          مراجعة
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+      <div className="rounded-lg border bg-white">
+        {isLoading ? (
+          <div className="py-12 text-center text-gray-500">جاري التحميل...</div>
+        ) : isError ? (
+          <div className="py-12 text-center text-red-600">فشل تحميل البيانات</div>
+        ) : !data?.items.length ? (
+          <div className="py-12 text-center text-gray-500">لا توجد تعارضات في هذه الفئة</div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-right">
+              <tr>
+                <th className="p-3">الفاتورة</th>
+                <th className="p-3">نوع التعارض</th>
+                <th className="p-3">قيمة الكاشير</th>
+                <th className="p-3">قيمة الخادم</th>
+                <th className="p-3">الحالة</th>
+                <th className="p-3">التاريخ</th>
+                <th className="p-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {data.items.map((c) => (
+                <tr key={c.id} className="hover:bg-gray-50">
+                  <td className="p-3">
+                    <div className="font-medium">{c.receipt.number}</div>
+                    <div className="text-xs text-gray-500">{formatIqd(c.receipt.totalIqd)}</div>
+                  </td>
+                  <td className="p-3">
+                    <span
+                      className={`rounded px-2 py-0.5 text-xs ${TYPE_BADGE_CLASS[c.conflictType]}`}
+                    >
+                      {CONFLICT_TYPE_LABELS[c.conflictType]}
+                    </span>
+                  </td>
+                  <td className="max-w-[160px] truncate p-3 font-mono text-xs">{c.posValue}</td>
+                  <td className="max-w-[160px] truncate p-3 font-mono text-xs">{c.serverValue}</td>
+                  <td className="p-3 text-xs">{RESOLUTION_LABELS[c.resolution]}</td>
+                  <td className="p-3 text-xs text-gray-500">{formatDate(c.createdAt)}</td>
+                  <td className="p-3">
+                    {c.resolution === 'pending_review' && (
+                      <button
+                        type="button"
+                        className="rounded border px-3 py-1 text-xs hover:bg-gray-100"
+                        onClick={() => setSelectedConflict(c)}
+                      >
+                        مراجعة
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
 
-      {/* Pagination */}
       {data && data.total > data.pageSize && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div className="flex items-center justify-between text-sm text-gray-600">
           <span>
             يعرض {(page - 1) * data.pageSize + 1}–
             {Math.min(page * data.pageSize, data.total)} من {data.total}
           </span>
           <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
+            <button
+              type="button"
+              className="rounded border px-3 py-1 hover:bg-gray-50 disabled:opacity-50"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
             >
               السابق
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
+            </button>
+            <button
+              type="button"
+              className="rounded border px-3 py-1 hover:bg-gray-50 disabled:opacity-50"
               onClick={() => setPage((p) => p + 1)}
               disabled={page * data.pageSize >= data.total}
             >
               التالي
-            </Button>
+            </button>
           </div>
         </div>
       )}
 
-      {/* Resolve Dialog */}
       <ResolveDialog
         conflict={selectedConflict}
         onClose={() => setSelectedConflict(null)}
-        onResolve={(id, resolution, notes) =>
-          resolveMutation.mutate({ id, resolution, notes })
-        }
+        onResolve={(id, resolution, notes) => resolveMutation.mutate({ id, resolution, notes })}
         isLoading={resolveMutation.isPending}
       />
     </div>
