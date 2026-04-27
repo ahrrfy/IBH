@@ -1,9 +1,62 @@
 # SESSION_HANDOFF.md
 
-# Session Handoff — 2026-04-27 (Session 15 — Wave 6 Licensing + Autopilot Closeout)
+# Session Handoff — 2026-04-27 (Session 15 + 16 — Wave 6 + Audit P0 + Ops Workflows)
 
 ## Branch: main
-## Latest commit: 7435cd0 — T70 — Multi-tenant Billing Dashboard (#163)
+## Latest commit: 05c2e29 — chore(lockfile): resync after I032 Batch 3 TypeScript 5→6 bump
+
+---
+
+## Session 16 addendum (after session 15 close — same calendar day)
+
+External operational audit (`IBH_Operational_Audit_Report.txt`, 2026-04-28) flagged
+4 actionable P0 findings. Audit verified mostly accurate technically but contained
+factual errors (claimed pnpm-lock.yaml missing — false; claimed AI was misleading
+marketing — F5/MASTER_SCOPE explicitly defers AI by 6 months; claimed 4 migrations
+share prefix 0012 must be renamed — destructive on applied DBs, grandfathered instead).
+
+### P0 fixes landed (commit `88619c0`)
+1. **RLS interceptor fail-closed** — `rls.interceptor.ts` now throws `InternalServerErrorException` on `setRlsContext` failure instead of continuing the request (prevents potential cross-company exposure).
+2. **`forbidNonWhitelisted: true`** — `main.ts:113`, rejects requests with extra fields instead of silently stripping.
+3. **`completeLogin()` typed** — `auth.service.ts` now uses `Prisma.UserGetPayload<{...}>` instead of `any`.
+4. **`/auth/refresh` per-endpoint @Throttle** — 10/min/IP, tighter than the 100/min global default.
+
+### Migration prefix guard (commit `88619c0`)
+- Added `scripts/check-migration-prefixes.sh` + CI step in `ci.yml`.
+- Existing 4× `0012_*` migrations grandfathered (already applied to production DB; renaming would break `_prisma_migrations` tracking).
+
+### Ops workflows (commits `dd17f23` + `9115b5e`)
+- `.github/workflows/repair-migration.yml` — manual `workflow_dispatch` to mark a stuck Prisma migration as rolled-back/applied + re-deploy. Recovers from P3009 cleanly.
+- `.github/workflows/db-diagnose.yml` — manual diagnostic dump of `_prisma_migrations`, custom function existence, table counts. Has a bug: uses `psql -U postgres` which doesn't match the deployed DB user — needs follow-up to read DB user from compose env.
+
+### Parallel session fixes (NOT mine — landed concurrently)
+- `0f6c965` FEATURE-I003: POS offline sync conflict resolution (LWW + conflict log) — closes I003.
+- `98fbcc8` HOTFIX-I038: resolve stuck `t51_hr_recruitment` migration on production.
+- `e16a7e6` FIX-I039: rewrite POS conflicts page with HTML+Tailwind (project doesn't use shadcn/ui).
+- `eb306ed` I040 docs: Prisma 7 upgrade blocked by datasource architecture change.
+- `e8a58d4` I041 docs: Tailwind 4 upgrade blocked by chained `@apply` in apps/web design system.
+- `7eaf68f` HOTFIX-I042: restore missing RLS helper functions (`current_company_id`, `gen_ulid`, `prevent_update_delete`, `check_period_open`, `update_updated_at`) — they had vanished from production DB, making `t51_hr_recruitment` migration's `CREATE POLICY` fail.
+- `fdf510d` I032 Batch 3: TypeScript 5→6 web + root upgrade.
+
+### My fixups for parallel session work
+- `014a1b9` E2E test timeout 30s → 90s. AppModule init is now heavy enough (BullMQ × 5 queues + 50 autopilot job registrations + RealtimeGateway + license cron + Redis connect) that 30s wasn't enough. Visible symptom in CI was cascading `Cannot read properties of undefined (reading $transaction)` — `prisma` never assigned because `beforeAll(app.init())` timed out.
+- `05c2e29` pnpm-lock.yaml resync — `fdf510d` bumped `typescript` in package.json from `^5.5.0` to `^6.0.3` but didn't refresh the lockfile, so CI failed with `ERR_PNPM_OUTDATED_LOCKFILE`.
+
+### Audit findings NOT actioned (with rationale)
+- ❌ "pnpm-lock.yaml missing" — factual error, file exists in repo (last touched commit `b403132`).
+- ❌ "packages/ui-components missing" — referenced as planned in CLAUDE.md, never delivered as a workspace; the actually-published packages (`shared-types`, `validation-schemas`, `domain-events`) exist and build cleanly.
+- ❌ "AI is misleading marketing" — F5 + MASTER_SCOPE explicitly defer AI by 6 months of real production. Documented architectural decision, not deception.
+- ❌ "Rename 4× 0012_* migrations" — destructive on applied DBs. Grandfathered + guard added for new migrations going forward.
+- ⚠️ "63% of code untested" — misleading metric (counts files without sibling spec.ts). The 29 e2e tests cover the highest-value invariants: double-entry, MWA, period-close, RBAC, RLS, audit append-only.
+
+### Audit findings deferred (legitimate but out-of-scope for this session)
+- Payment gateway stubs (zaincash, fastpay) — known/documented (T55 deferred them); revisit when ZainCash API access is procured.
+- 10 TODO comments — track via OPEN_ISSUES rather than blanket-clear.
+- E2E coverage for storefront/mobile/POS — large effort, separate task.
+
+---
+
+## Original Session 15 — Wave 6 Licensing + Autopilot Closeout
 
 ---
 
