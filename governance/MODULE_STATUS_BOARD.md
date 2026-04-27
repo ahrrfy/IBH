@@ -8,7 +8,7 @@
 
 ---
 
-## 📊 نظرة عامة — 2026-04-27 (آخر تحديث — Session 9)
+## 📊 نظرة عامة — 2026-04-27 (آخر تحديث — Session 12)
 
 | المقياس | القيمة |
 |---|---|
@@ -23,7 +23,7 @@
 | Acceptance tests (written) | **38+** (e2e suites مدموجة: W1, W3, W6) |
 | Acceptance tests (passing) | 35/36 في CI (1 .skip في pos-session) |
 | Production HTTP 200 | ✅ مؤكد 2026-04-26 |
-| Open PRs | **2** (minor/patch آمنة، تنتظر rebase) |
+| Open PRs | **5** (major — مجمّدة I032) |
 | Major PRs مجمّدة | **18** (موثّقة في I032 — Wave 6) |
 | Open T-tasks (Wave 1) | **0** ✅ |
 
@@ -117,7 +117,7 @@
 
 | الوحدة | الحالة | Task | ملاحظات |
 |---|---|---|---|
-| Frontend Admin Web (Next.js 15) | 🟢 | T02-T19 merged | جميع صفحات CRUD + workflows مكتملة |
+| Frontend Admin Web (Next.js 15) | 🟢 | T02-T19, T34, T35, T57 merged | CRUD + Quotations + Orders New + Delivery Tracking مكتملة |
 | M15 Storefront (E-commerce) | 🟢 | T25 merged | Dockerfile + compose + nginx vhost shop.ibherp.cloud · يحتاج DNS + certbot على VPS |
 | POS Desktop (Tauri) | 🟡 scaffold | T27 merged | GitHub release workflow جاهز · يحتاج signing + SQLCipher activation |
 | Mobile apps (React Native Expo) | 🟡 scaffold | T28 merged | EAS workflow جاهز · يحتاج EXPO_TOKEN + Apple/Google credentials |
