@@ -556,7 +556,10 @@
 ---
 
 #### T33 — Delivery Web UI (Bidirectional + Live Tracking)
-- **Status:** ⏳ TODO
+- **Status:** 🔄 IN_PROGRESS
+- **Owner:** claude-opus-4-7-20260427-T33
+- **Branch:** `feat/t33-delivery-web-ui`
+- **Started:** 2026-04-27T11:30:00Z
 - **Deps:** [T31, T32]
 - **File scope:**
   - `apps/web/src/app/(app)/delivery/page.tsx` (dashboard live)
@@ -654,7 +657,11 @@
 ---
 
 #### T38 — Reports Backend Real Data (17 slugs)
-- **Status:** ⏳ TODO
+- **Status:** 🔄 IN_PROGRESS (incremental — 1 slug per cycle, parallel-safe per slug)
+- **Owner:** claude-opus-4-7-20260427-T38
+- **Branch:** `feat/t38-reports-top-suppliers` (cycle 1)
+- **Started:** 2026-04-27T11:35:00Z
+- **Cycle 1:** `top-suppliers` slug (additive to existing reporting service)
 - **Deps:** []
 - **File scope:**
   - `apps/api/src/modules/reports/reports.service.ts`
