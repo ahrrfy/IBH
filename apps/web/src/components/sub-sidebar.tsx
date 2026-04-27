@@ -9,6 +9,16 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type ModuleKey, MODULE_SECTIONS } from '@/lib/permissions';
+import { FeatureGate } from '@/components/license/feature-gate';
+
+/**
+ * T65 — Map specific sub-sidebar entries to a licensing feature code.
+ * Keyed by the section `href`. Entries not in this map are always shown
+ * (subject to RBAC). Extend by adding more `href -> featureCode` entries.
+ */
+const SECTION_FEATURE_GATE: Record<string, string> = {
+  '/inventory/intelligence': 'ai.tier3',
+};
 
 const MODULE_PREFIX_MAP: Array<[string, ModuleKey, string]> = [
   ['/sales',                  'sales',     'المبيعات'],
@@ -46,7 +56,7 @@ export function SubSidebar() {
       <nav className="flex-1 overflow-y-auto p-2 space-y-0.5 text-sm">
         {sections.map((s) => {
           const active = pathname === s.href || pathname.startsWith(s.href + '/');
-          return (
+          const link = (
             <Link
               key={s.href}
               href={s.href}
@@ -64,6 +74,16 @@ export function SubSidebar() {
               )}
             </Link>
           );
+          // T65 — wrap in FeatureGate when this section requires a licensed feature.
+          const requiredFeature = SECTION_FEATURE_GATE[s.href];
+          if (requiredFeature) {
+            return (
+              <FeatureGate key={s.href} code={requiredFeature} mode="hide">
+                {link}
+              </FeatureGate>
+            );
+          }
+          return link;
         })}
       </nav>
     </aside>

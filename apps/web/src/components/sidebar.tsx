@@ -25,6 +25,23 @@ import {
   getVisibleModulesForRoles,
   MODULE_HREFS,
 } from '@/lib/permissions';
+import { useFeatures } from '@/lib/license/use-feature';
+
+/**
+ * T65 — Map between sidebar module keys and the licensing feature code that
+ * gates them. Modules absent from this map have no licensing gate (always
+ * visible if RBAC allows). To extend the pattern: add the (moduleKey ->
+ * featureCode) entry here, and the same approach applies to sub-sidebar
+ * sections, action buttons (use `<FeatureGate>` directly), etc.
+ */
+const MODULE_FEATURE_GATE: Partial<Record<ModuleKey, string>> = {
+  hr:         'hr.core',
+  jobs:       'manufacturing',
+  // E-commerce storefront link will live under `marketing` for now;
+  // surface it via the `ecommerce` feature when that module ships.
+  // Tier-3 AI insights (e.g. /inventory/intelligence) gate via the
+  // sub-sidebar — see <FeatureGate code="ai.tier3"> usage.
+};
 
 /**
  * Sidebar — legacy single-pane navigation, kept as a fallback for any layout
@@ -71,9 +88,21 @@ export function Sidebar() {
   const isOwner = Boolean((user as any)?.isSystemOwner);
   const roles: string[] = (user as any)?.roles ?? [(user as any)?.role].filter(Boolean);
   const modules = getVisibleModulesForRoles(roles.length ? roles : ['super_admin']);
+
+  // T65 — filter out modules whose licensing feature is not enabled for the
+  // current plan. While the snapshot is loading we hide gated modules to
+  // avoid a flash; they reappear once entitlements arrive.
+  const { features, loading: featuresLoading } = useFeatures();
+  const visibleModules = modules.filter((m) => {
+    const required = MODULE_FEATURE_GATE[m];
+    if (!required) return true;
+    if (featuresLoading) return false;
+    return features.includes(required);
+  });
+
   const NAV: { href: string; label: string; icon: React.ElementType }[] = [
     { href: '/dashboard', label: 'الرئيسية', icon: LayoutDashboard },
-    ...modules.map((m) => ({
+    ...visibleModules.map((m) => ({
       href: MODULE_HREFS[m],
       label: MODULE_LABELS[m],
       icon: MODULE_ICONS[m],

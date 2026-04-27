@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LicenseGuard } from './license.guard';
 import { FeatureCacheService } from './feature-cache.service';
+import { MeFeaturesController } from './me-features.controller';
 
 /**
  * Platform-level licensing module (T59).
@@ -19,6 +20,7 @@ import { FeatureCacheService } from './feature-cache.service';
 @Global()
 @Module({
   imports: [PrismaModule],
+  controllers: [MeFeaturesController],
   providers: [FeatureCacheService, LicenseGuard],
   exports: [FeatureCacheService, LicenseGuard],
 })
