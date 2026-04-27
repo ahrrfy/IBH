@@ -14,21 +14,22 @@
 export type ModuleKey =
   | 'sales' | 'pos' | 'inventory' | 'purchases'
   | 'finance' | 'assets' | 'hr' | 'jobs'
-  | 'crm' | 'marketing' | 'reports' | 'settings';
+  | 'crm' | 'marketing' | 'reports' | 'settings'
+  | 'delivery';
 
 // Order matters — first item is the role's "primary" module (rendered larger)
 const ROLE_MODULES: Record<string, ModuleKey[]> = {
-  super_admin:        ['sales', 'pos', 'inventory', 'purchases', 'finance', 'assets', 'hr', 'jobs', 'crm', 'marketing', 'reports', 'settings'],
-  company_admin:      ['sales', 'pos', 'inventory', 'purchases', 'finance', 'assets', 'hr', 'jobs', 'crm', 'marketing', 'reports', 'settings'],
+  super_admin:        ['sales', 'pos', 'inventory', 'purchases', 'finance', 'delivery', 'assets', 'hr', 'jobs', 'crm', 'marketing', 'reports', 'settings'],
+  company_admin:      ['sales', 'pos', 'inventory', 'purchases', 'finance', 'delivery', 'assets', 'hr', 'jobs', 'crm', 'marketing', 'reports', 'settings'],
 
-  accountant:         ['finance', 'reports', 'sales', 'purchases', 'assets', 'inventory'],
+  accountant:         ['finance', 'reports', 'sales', 'purchases', 'delivery', 'assets', 'inventory'],
   cashier:            ['pos', 'crm', 'inventory'],
-  warehouse_manager:  ['inventory', 'purchases', 'reports'],
-  sales_manager:      ['sales', 'crm', 'pos', 'reports', 'inventory', 'marketing'],
+  warehouse_manager:  ['inventory', 'purchases', 'delivery', 'reports'],
+  sales_manager:      ['sales', 'crm', 'pos', 'delivery', 'reports', 'inventory', 'marketing'],
   purchasing_officer: ['purchases', 'inventory', 'reports'],
   hr_manager:         ['hr', 'reports'],
-  branch_manager:     ['sales', 'pos', 'inventory', 'crm', 'reports', 'hr'],
-  readonly_auditor:   ['reports', 'finance', 'sales', 'inventory', 'purchases', 'hr'],
+  branch_manager:     ['sales', 'pos', 'inventory', 'delivery', 'crm', 'reports', 'hr'],
+  readonly_auditor:   ['reports', 'finance', 'sales', 'inventory', 'purchases', 'delivery', 'hr'],
 };
 
 /**
@@ -149,6 +150,13 @@ export const MODULE_SECTIONS: Record<ModuleKey, { href: string; label: string; c
     { href: '/settings/branches', label: 'الفروع' },
     { href: '/settings/roles',    label: 'الأدوار والصلاحيات' },
   ],
+  delivery: [
+    { href: '/delivery',              label: 'لوحة التوصيل' },
+    { href: '/delivery/dispatches',   label: 'الإرساليات' },
+    { href: '/delivery/companies',    label: 'الشركات' },
+    { href: '/delivery/zones',        label: 'المناطق والأسعار' },
+    { href: '/delivery/settlements',  label: 'تسويات COD' },
+  ],
 };
 
 /** Module → its main URL (used by activity bar tile) */
@@ -165,4 +173,5 @@ export const MODULE_HREFS: Record<ModuleKey, string> = {
   marketing: '/marketing/promotions',
   reports:   '/reports',
   settings:  '/settings',
+  delivery:  '/delivery',
 };
