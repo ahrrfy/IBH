@@ -291,6 +291,76 @@ export class ReportsService {
     );
   }
 
+  /**
+   * AR Aging report (T38 — slug `ar-aging`).
+   * Buckets open customer invoices by days past `dueDate` as of a given date.
+   * Mirrors `apAgingReport` logic exactly — same bucket boundaries, AR side.
+   * Buckets:
+   *   - current      → not yet due (dueDate >= asOf, or no dueDate)
+   *   - days1to30    → 1..30 days past due
+   *   - days31to60   → 31..60 days past due
+   *   - days61to90   → 61..90 days past due
+   *   - daysOver90   → > 90 days past due
+   * Source: sales_invoices with positive balanceIqd, joined to customers.
+   * F1: scoped by companyId. F2: read-only aggregation, no journal mutation.
+   * @param companyId tenant scope
+   * @param asOf cut-off date (defaults to now)
+   * @returns rows of { customerId, customerName, current, days1to30, days31to60, days61to90, daysOver90, totalDue }
+   */
+  async arAging(companyId: string, asOf?: Date) {
+    const date = asOf ?? new Date();
+    return this.prisma.$queryRawUnsafe(
+      `SELECT si."customerId" AS "customerId",
+              c."nameAr" AS "customerName",
+              SUM(CASE WHEN si."dueDate" IS NULL OR si."dueDate" >= $2::date THEN si."balanceIqd" ELSE 0 END)::float AS "current",
+              SUM(CASE WHEN si."dueDate" < $2::date AND $2::date - si."dueDate" BETWEEN 1 AND 30 THEN si."balanceIqd" ELSE 0 END)::float AS "days1to30",
+              SUM(CASE WHEN si."dueDate" < $2::date AND $2::date - si."dueDate" BETWEEN 31 AND 60 THEN si."balanceIqd" ELSE 0 END)::float AS "days31to60",
+              SUM(CASE WHEN si."dueDate" < $2::date AND $2::date - si."dueDate" BETWEEN 61 AND 90 THEN si."balanceIqd" ELSE 0 END)::float AS "days61to90",
+              SUM(CASE WHEN si."dueDate" < $2::date AND $2::date - si."dueDate" > 90 THEN si."balanceIqd" ELSE 0 END)::float AS "daysOver90",
+              SUM(si."balanceIqd")::float AS "totalDue"
+       FROM "sales_invoices" si
+       LEFT JOIN "customers" c ON c.id = si."customerId"
+       WHERE si."companyId" = $1 AND si."balanceIqd" > 0
+       GROUP BY si."customerId", c."nameAr"
+       ORDER BY "totalDue" DESC`,
+      companyId,
+      date,
+    );
+  }
+
+  /**
+   * Stock On Hand report (T38 — slug `stock-on-hand`).
+   * Current inventory snapshot per variant per warehouse, ordered by valuation desc.
+   * Source: inventory_balances (denormalized for speed) joined with stock_ledger
+   * for the last movement date.
+   * F1: scoped by companyId. F3: read-only — no ledger mutation.
+   * @param companyId tenant scope
+   * @param params.warehouseId optional warehouse filter
+   * @returns rows of { variantId, productName, warehouseId, warehouseName, qtyOnHand, valuation, lastMovementDate }
+   */
+  async stockOnHand(companyId: string, params: { warehouseId?: string } = {}) {
+    return this.prisma.$queryRawUnsafe(
+      `SELECT ib."variantId" AS "variantId",
+              p."nameAr" AS "productName",
+              ib."warehouseId" AS "warehouseId",
+              w."nameAr" AS "warehouseName",
+              ib."qtyOnHand"::float AS "qtyOnHand",
+              (ib."qtyOnHand" * ib."avgCostIqd")::float AS "valuation",
+              (SELECT MAX(sl."createdAt") FROM "stock_ledger" sl
+                 WHERE sl."companyId" = $1
+                   AND sl."variantId" = ib."variantId"
+                   AND sl."warehouseId" = ib."warehouseId") AS "lastMovementDate"
+       FROM "inventory_balances" ib
+       JOIN "product_variants" pv ON pv.id = ib."variantId"
+       JOIN "product_templates" p ON p.id = pv."templateId"
+       JOIN "warehouses" w ON w.id = ib."warehouseId"
+       WHERE ib."companyId" = $1
+       ${params.warehouseId ? `AND ib."warehouseId" = '${params.warehouseId}'` : ''}
+       ORDER BY "valuation" DESC`,
+      companyId,
+    );
+  }
+
   async customerLifetimeValue(companyId: string, customerId: string) {
     const rows: any[] = await this.prisma.$queryRawUnsafe(
       `SELECT COUNT(*)::int AS invoice_count,
