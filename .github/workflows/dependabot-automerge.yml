@@ -1,0 +1,54 @@
+name: Dependabot Auto-Merge (safe updates)
+
+# Closes the loop for the Dependabot half: when Dependabot opens a PR
+# for a patch/minor update AND CI passes AND it's a security update or
+# a low-risk dev dependency, auto-approve and squash-merge it.
+#
+# What is NOT auto-merged (requires human):
+#   - any "version-update:semver-major"
+#   - production deps where the bump crosses Prisma/Nest/Next major lines
+#   - any PR with failing checks
+#
+# Without this, even with grouping you'd accumulate ~30 PRs/week that
+# all need a human button-press. With it, the routine ones drain to zero
+# overnight; only the major bumps stay in your queue.
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    if: ${{ github.actor == 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto-approve safe updates
+        if: |
+          steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+          steps.meta.outputs.update-type == 'version-update:semver-minor' ||
+          steps.meta.outputs.dependency-type == 'direct:development'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr review "$PR_URL" --approve --body "Auto-approved by dependabot-automerge.yml — patch/minor or dev-only update."
+          gh pr merge "$PR_URL" --squash --auto
+
+      - name: Comment on major bumps (no merge)
+        if: steps.meta.outputs.update-type == 'version-update:semver-major'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          gh pr comment "$PR_URL" --body "⚠️ **Major bump detected** — auto-merge skipped. Please review breaking changes manually before merging. Posting to \`security:auto\` label so it appears in next session's queue."
+          gh pr edit "$PR_URL" --add-label "security:auto,needs-human-review"

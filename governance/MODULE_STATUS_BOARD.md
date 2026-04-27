@@ -150,8 +150,10 @@
 | API Dockerfile multi-stage | ✅ |
 | Restic backup 3-2-1-1 | ✅ |
 | GitHub repo | ✅ `ahrrfy/IBH` |
-| CI/CD Gitea + Woodpecker | 🔴 لم يبدأ |
+| CI/CD Gitea + Woodpecker | 🔴 لم يبدأ (مُستعاض بـ GitHub Actions) |
+| GitHub Security Stack (CodeQL + Dependabot + Secret Scanning + Private Vuln Reporting) | ████████░░ جاهز للاختبار — PR #56 ينتظر merge |
+| Security Self-Healing Loop (bridge + sweep + close-hook + auto-merge + digest) | ████████░░ جاهز للاختبار — PR #56 ينتظر merge |
 
 ---
 
-*آخر تحديث: 2026-04-26 — session-end · W1 G4 مكتملة (5/5 مكتوبة) · 11/19 تمر في CI · PR #5 (5 إصلاحات) ينتظر merge · G4 مُشغَّلة 58% (11 pass)*
+*آخر تحديث: 2026-04-26 — session 6 close · PR #56 يضيف 13 ملف للحلقة الأمنية الذاتية (D13) · ينتظر merge ثم تفعيل تلقائي لـ Code scanning + Security policy*
