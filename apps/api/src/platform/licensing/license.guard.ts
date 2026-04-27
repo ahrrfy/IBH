@@ -10,6 +10,8 @@ import type { Request } from 'express';
 import type { UserSession } from '@erp/shared-types';
 import { FeatureCacheService } from './feature-cache.service';
 import { REQUIRE_FEATURE_KEY } from './require-feature.decorator';
+import { SKIP_LICENSE_KEY } from './skip-license.decorator';
+import { IS_PUBLIC_KEY } from '../../engines/auth/guards/jwt-auth.guard';
 
 /**
  * Statuses that grant entitlement to the system. `expired`, `suspended`,
@@ -50,6 +52,23 @@ export class LicenseGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // T66 — opt-out for routes that must remain reachable without a
+    // license: auth/health/activation/me-features. Public routes (those
+    // marked with @Public()) are also implicitly skipped: a request with
+    // no authenticated user belongs to a public route, and license
+    // enforcement only makes sense for an identified tenant.
+    const skipLicense = this.reflector.getAllAndOverride<boolean>(
+      SKIP_LICENSE_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+    if (skipLicense) return true;
+
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) return true;
+
     const req = context.switchToHttp().getRequest<Request & {
       user?: UserSession;
       license?: unknown;

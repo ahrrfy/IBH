@@ -14,6 +14,7 @@ import { Throttle } from '@nestjs/throttler';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { Public } from '../../engines/auth/decorators/public.decorator';
+import { SkipLicense } from './skip-license.decorator';
 import { CurrentUser } from '../../engines/auth/decorators/current-user.decorator';
 import { RequirePermission } from '../../engines/auth/decorators/require-permission.decorator';
 import { ZodValidationPipe } from '../pipes/zod-validation.pipe';
@@ -52,6 +53,7 @@ import type { UserSession } from '@erp/shared-types';
  * see T68. This controller only handles activate / renew / revoke.
  */
 @Controller('licensing/activation')
+@SkipLicense()
 export class LicenseActivationController {
   constructor(
     private readonly prisma: PrismaService,

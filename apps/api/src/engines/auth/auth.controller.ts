@@ -11,6 +11,7 @@ import { AuthService } from './auth.service';
 import { TotpService } from './totp.service';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { SkipLicense } from '../../platform/licensing/skip-license.decorator';
 import { ZodValidationPipe } from '../../platform/pipes/zod-validation.pipe';
 import {
   loginSchema,
@@ -30,6 +31,7 @@ import type { Request } from 'express';
 //            GET  /auth/me
 
 @Controller('auth')
+@SkipLicense()
 export class AuthController {
   constructor(
     private readonly authService: AuthService,

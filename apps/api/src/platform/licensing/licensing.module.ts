@@ -1,4 +1,5 @@
 import { Global, Module, forwardRef } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LicenseGuard } from './license.guard';
 import { FeatureCacheService } from './feature-cache.service';
@@ -24,7 +25,17 @@ import { LicensingModule } from '../../modules/licensing/licensing.module';
 @Module({
   imports: [PrismaModule, forwardRef(() => LicensingModule)],
   controllers: [LicenseActivationController, MeFeaturesController],
-  providers: [FeatureCacheService, LicenseGuard, LicenseSignerService],
+  providers: [
+    FeatureCacheService,
+    LicenseGuard,
+    LicenseSignerService,
+    // T66 — register the LicenseGuard as a GLOBAL APP_GUARD so license
+    // enforcement is on by default for every authenticated route. The
+    // guard internally honors `@SkipLicense()` and `@Public()` so auth,
+    // health, license activation/renewal, and the me-features mirror
+    // remain reachable when a tenant has no active license.
+    { provide: APP_GUARD, useExisting: LicenseGuard },
+  ],
   exports: [FeatureCacheService, LicenseGuard, LicenseSignerService],
 })
 export class PlatformLicensingModule {}
