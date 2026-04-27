@@ -163,6 +163,7 @@ describe('Purchases — GRN inventory posting invariants (e2e)', () => {
       by: ['variantId', 'warehouseId', 'companyId'],
       _count: { _all: true },
       having: { id: { _count: { gt: 1 } } },
+      orderBy: [{ variantId: 'asc' }],
       take: 5,
     });
     if (grouped.length === 0) return;
