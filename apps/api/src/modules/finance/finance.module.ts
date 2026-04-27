@@ -17,6 +17,8 @@ import { FinancialReportsController } from './reports/financial-reports.controll
 import { AccountMappingService } from './account-mapping/account-mapping.service';
 import { AccountMappingController } from './account-mapping/account-mapping.controller';
 import { BudgetModule } from './budget/budget.module';
+import { FinanceKpisService } from './kpis/finance-kpis.service';
+import { FinanceKpisController } from './kpis/finance-kpis.controller';
 
 @Module({
   imports: [AuditModule, SequenceModule, PostingModule, BudgetModule],
@@ -28,6 +30,7 @@ import { BudgetModule } from './budget/budget.module';
     PeriodCloseController,
     FinancialReportsController,
     AccountMappingController,
+    FinanceKpisController,
   ],
   providers: [
     GLService,
@@ -37,6 +40,7 @@ import { BudgetModule } from './budget/budget.module';
     PeriodCloseService,
     FinancialReportsService,
     AccountMappingService,
+    FinanceKpisService,
   ],
   exports: [GLService, BankAccountsService, FinancialReportsService, AccountMappingService],
 })
