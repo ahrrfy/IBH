@@ -826,6 +826,48 @@ model CostCenter {
 }
 
 // ============================================================
+// BUDGETS (T49) — Append-only budgets with monthly granularity.
+// Compared to actuals from JournalEntryLine; never posts journal
+// entries. Threshold alerts at 80%/100%/120% per (account, cc, period).
+// ============================================================
+
+model Budget {
+  id          String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId   String   @db.Char(26)
+  name        String   @db.VarChar(200)
+  fiscalYear  Int
+  status      String   @default("draft") @db.VarChar(10) // draft | active | closed
+  createdBy   String   @db.Char(26)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lines BudgetLine[]
+
+  @@index([companyId, fiscalYear])
+  @@map("budgets")
+}
+
+model BudgetLine {
+  id           String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  budgetId     String   @db.Char(26)
+  accountCode  String   @db.VarChar(10)
+  costCenterId String?  @db.Char(26)
+  period       Int // 1..12 (calendar month within fiscalYear)
+  amount       Decimal  @db.Decimal(18, 3)
+  // Cron tracking — last threshold (0/80/100/120) we already alerted for, to
+  // avoid re-notifying on every run while the actual stays in the same band.
+  lastAlertedThreshold Int @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@unique([budgetId, accountCode, costCenterId, period])
+  @@index([budgetId, period])
+  @@map("budget_lines")
+}
+
+// ============================================================
 // EXCHANGE RATES
 // ============================================================
 
