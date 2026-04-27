@@ -18,6 +18,7 @@ import { RedisModule }    from './platform/redis/redis.module';
 import { HealthModule }   from './platform/health/health.module';
 import { RealtimeModule } from './platform/realtime/realtime.module';
 import { NotificationsModule } from './platform/notifications/notifications.module';
+import { ExpiryWatcherModule } from './platform/licensing/expiry-watcher.module';
 
 // Business Modules (Wave 1)
 import { CoreModule }      from './modules/core/core.module';
@@ -131,6 +132,7 @@ import { OnlineOrdersModule } from './modules/sales/online-orders/online-orders.
     // ── Business Modules — Wave 6 ───────────────────────────────────────────
     CrmModule,
     LicensingModule,
+    ExpiryWatcherModule,
     AiModule,
     ReportingModule,
 
