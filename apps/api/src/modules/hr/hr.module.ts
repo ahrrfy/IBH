@@ -14,9 +14,11 @@ import { LeavesService } from './leaves/leaves.service';
 import { LeavesController } from './leaves/leaves.controller';
 import { PayrollService } from './payroll/payroll.service';
 import { PayrollController } from './payroll/payroll.controller';
+import { PayrollCommissionBridge } from './payroll/commission-bridge';
+import { SalesCommissionsModule } from '../sales/commissions/commissions.module';
 
 @Module({
-  imports: [AuditModule, SequenceModule, PostingModule],
+  imports: [AuditModule, SequenceModule, PostingModule, SalesCommissionsModule],
   controllers: [
     EmployeesController,
     DepartmentsController,
@@ -32,6 +34,7 @@ import { PayrollController } from './payroll/payroll.controller';
     AttendanceService,
     LeavesService,
     PayrollService,
+    PayrollCommissionBridge,
   ],
   exports: [
     EmployeesService,
@@ -40,6 +43,7 @@ import { PayrollController } from './payroll/payroll.controller';
     AttendanceService,
     LeavesService,
     PayrollService,
+    PayrollCommissionBridge,
   ],
 })
 export class HrModule {}
