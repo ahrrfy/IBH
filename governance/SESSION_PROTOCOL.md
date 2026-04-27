@@ -21,11 +21,17 @@ bash scripts/orchestrator/task.sh status
 bash scripts/orchestrator/task.sh claim          # أول AVAILABLE deps متحققة
 bash scripts/orchestrator/task.sh claim T34      # أو مهمة محددة
 
-# 3) اشتغل على الـ branch الذي أنشأه السكربت — مهمة واحدة، PR واحد
-git status   # تأكد أنك على feat/tNN-...
+# 3) ادخل worktree المهمة — orchestrator أنشأ worktree معزولاً تحت .worktrees/<tid>/
+#    (هذا هو إصلاح I033 — كل جلسة تعمل في مجلد منفصل بـ HEAD/index خاص بها)
+cd .worktrees/t34
+git status   # تأكد أنك على feat/t34-...
 
-# 4) عند الانتهاء — السكربت يدير كل شيء (typecheck → ready → auto-merge → حذف الـ branch)
-bash scripts/orchestrator/task.sh complete
+# 4) عند الانتهاء — من داخل worktree، السكربت يدير كل شيء
+#    (typecheck → ready → auto-merge → حذف الـ worktree والـ branch)
+bash ../../scripts/orchestrator/task.sh complete
+
+# (اختياري) قفل صارم لجلسة واحدة فقط — يرفض ادّعاء ثانٍ على نفس الجهاز:
+#   TASK_SINGLE_SESSION_LOCK=1 bash scripts/orchestrator/task.sh claim T34
 ```
 
 **`complete` تلقائياً**:

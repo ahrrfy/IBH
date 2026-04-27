@@ -105,3 +105,6 @@ apps/api/src/generated/
 packages/*/src/generated/
 apps/web/next-env.d.ts
 apps/web/tsconfig.tsbuildinfo
+
+# Orchestrator per-task worktrees (I033 — see scripts/orchestrator/task.sh)
+.worktrees/
