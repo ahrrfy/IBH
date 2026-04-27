@@ -221,6 +221,41 @@ export class ReportsService {
     );
   }
 
+  /**
+   * Top Suppliers report (T38).
+   * Ranks suppliers by total purchases (IQD) for the given period.
+   * Source: vendor_invoices joined with suppliers — same pattern as apAgingReport.
+   * F1: scoped by companyId (RLS upstream + explicit filter here).
+   * F2: read-only aggregation, no journal mutation.
+   * @param companyId tenant scope
+   * @param params.from start of date range (inclusive)
+   * @param params.to end of date range (inclusive)
+   * @param params.limit max rows (default 20)
+   * @returns rows of { supplierId, supplierName, totalPurchases, invoiceCount, lastPurchaseDate }
+   */
+  async topSuppliersReport(
+    companyId: string,
+    params: { from: Date; to: Date; limit?: number },
+  ) {
+    const limit = params.limit ?? 20;
+    return this.prisma.$queryRawUnsafe(
+      `SELECT vi."supplierId" AS "supplierId",
+              s."nameAr" AS "supplierName",
+              SUM(vi."totalIqd")::float AS "totalPurchases",
+              COUNT(*)::int AS "invoiceCount",
+              MAX(vi."invoiceDate") AS "lastPurchaseDate"
+       FROM "vendor_invoices" vi
+       LEFT JOIN "suppliers" s ON s.id = vi."supplierId"
+       WHERE vi."companyId" = $1 AND vi."invoiceDate" BETWEEN $2 AND $3
+       GROUP BY vi."supplierId", s."nameAr"
+       ORDER BY "totalPurchases" DESC
+       LIMIT ${limit}`,
+      companyId,
+      params.from,
+      params.to,
+    );
+  }
+
   async customerLifetimeValue(companyId: string, customerId: string) {
     const rows: any[] = await this.prisma.$queryRawUnsafe(
       `SELECT COUNT(*)::int AS invoice_count,

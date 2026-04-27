@@ -86,6 +86,15 @@ export class ReportsController {
     return this.reports.arAgingReport(session.companyId, asOf ? new Date(asOf) : undefined);
   }
 
+  @Get('top-suppliers')
+  @RequirePermission('Report', 'read')
+  topSuppliers(@CurrentUser() session: UserSession, @Query() q: any) {
+    return this.reports.topSuppliersReport(session.companyId, {
+      ...this.parseRange(q),
+      limit: q.limit ? Number(q.limit) : 20,
+    });
+  }
+
   @Get('ap-aging')
   @RequirePermission('Report', 'read')
   apAging(@CurrentUser() session: UserSession, @Query('asOf') asOf?: string) {
