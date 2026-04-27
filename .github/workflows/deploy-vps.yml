@@ -13,6 +13,9 @@ jobs:
   deploy:
     name: Deploy to ibherp.cloud
     runs-on: ubuntu-latest
+    # Hard cap so a hung build/migrate doesn't keep the runner for 6h.
+    # The script itself bounds individual steps; this is the outer safety net.
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -38,6 +41,20 @@ jobs:
       - name: Verify SSH connectivity
         run: ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes "root@${{ secrets.VPS_HOST }}" 'whoami; hostname -f; uptime'
 
+      - name: Pre-flight disk check on VPS
+        # Cheap canary: if the VPS is already wedged on disk, fail fast here
+        # instead of after a 25-min build that errors mid-stream. Mirrors the
+        # threshold inside deploy-on-vps.sh — kept in sync intentionally.
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            pct=$(df -P / | awk "NR==2 {gsub(\"%\",\"\"); print \$5}")
+            echo "VPS disk usage: ${pct}%"
+            if [ "$pct" -ge 85 ]; then
+              echo "::error::VPS disk ${pct}% — run vps-disk-cleanup.yml before deploying"
+              exit 1
+            fi
+          '
+
       - name: Run deploy script on VPS
         # Why scp + ssh exec instead of 'ssh ... bash -s < script.sh':
         # The script does `docker compose exec -T <svc> <cmd>` several times.
@@ -49,9 +66,10 @@ jobs:
         # the first exec. We saw exactly this: deploy stopped right after
         # the nginx reload exec, never reached migrations. Hid I022 for
         # 6 weeks. Run the script as a real file instead.
+        timeout-minutes: 30
         run: |
           scp -i ~/.ssh/id_ed25519 infra/scripts/deploy-on-vps.sh "root@${{ secrets.VPS_HOST }}:/tmp/deploy-on-vps.sh"
-          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" 'bash /tmp/deploy-on-vps.sh && rm -f /tmp/deploy-on-vps.sh'
+          ssh -i ~/.ssh/id_ed25519 -o ServerAliveInterval=30 -o ServerAliveCountMax=10 "root@${{ secrets.VPS_HOST }}" 'bash /tmp/deploy-on-vps.sh && rm -f /tmp/deploy-on-vps.sh'
 
       - name: Cleanup
         if: always()
