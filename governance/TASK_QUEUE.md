@@ -528,10 +528,11 @@
 ---
 
 #### T32 — External Delivery Companies BE
-- **Status:** 🔄 IN_PROGRESS
+- **Status:** ✅ DONE
 - **Owner:** claude-opus-4-7-20260427-T32
-- **Branch:** `feat/t32-delivery-companies-be`
-- **Started:** 2026-04-27T00:00:00Z
+- **Branch:** merged via PR #103
+- **Completed:** 2026-04-27
+- **Commit:** `a07d846`
 - **Deps:** []
 - **File scope:**
   - `apps/api/prisma/schema.prisma` (extend `DeliveryCompany`, `DeliveryZone`, `DeliveryCompanyRate`)
