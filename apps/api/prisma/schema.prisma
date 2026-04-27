@@ -3055,6 +3055,25 @@ model LicenseEvent {
   @@map("license_events")
 }
 
+// ============================================================
+// T69 — License Expiry Reminder Log (idempotency ledger)
+// ============================================================
+// Append-only side-table that records every reminder dispatched
+// by the expiry-watcher cron. The unique (subscriptionId, threshold)
+// constraint guarantees that a given threshold band (30/14/7/3/1/0)
+// fires at most once per subscription, even if the cron runs twice
+// in the same window or an operator triggers a manual scan.
+model LicenseReminderLog {
+  id             String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  subscriptionId String   @db.Char(26)
+  threshold      Int // days-until-expiry band: 30 | 14 | 7 | 3 | 1 | 0
+  sentAt         DateTime @default(now())
+
+  @@unique([subscriptionId, threshold])
+  @@index([subscriptionId])
+  @@map("license_reminder_log")
+}
+
 // Reorder Points
 model ReorderPoint {
   id                  String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
