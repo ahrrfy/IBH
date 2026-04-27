@@ -1,5 +1,101 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff — 2026-04-27 (Session 7 — Branch hygiene + Dependabot triage + auto-merge enable) ✅ CLOSED
+
+## Branch
+`main` — متزامن. لا فروع محلية.
+آخر commit: `1cbfdea` (chore(ci/deps): bump actions/setup-node from 4 to 6 (#63))
+
+## ما تم إنجازه اليوم (Session 7)
+
+### 1. تنظيف فروع شامل (47 فرع → 1 فرع feature + Dependabot فقط)
+- دمج PR #56 (D13 Security loop) → main
+- حذف 37 فرع بعيد مدموج فعلاً عبر PRs مدموجة سابقاً
+- حذف 7 فروع `ahead=0` (محتواها في main)
+- حذف 12 فرع محلي قديم
+- النتيجة: قبل = 47 فرع · بعد = 0 فروع feature يدوية + 18 Dependabot فقط
+
+### 2. تحليل عميق للـ 9 فروع المشكوك فيها
+لكل واحد: فحص ملفات، ahead/behind، تطابق مع main، تجربة merge جاف.
+- **6 مكررات** — محتواها في main عبر PRs مدموجة بأسماء مختلفة
+- **1 انحدار** (`claude/new-session-g4gXq` — كان يحذف 3 سطور gitignore مهمة)
+- **2 محصودة جزئياً** عبر PR #81 (cherry-pick):
+  - من `claude/implement-todo-item-rr0Pw`: `bootstrap-vps.yml` (366 سطر) ✅
+  - من `feat/t27-pos-build-claude`: تبيّن أن pos-release.yml + tauri windows config **مدموجَين بالفعل** عبر PR #33
+
+### 3. اكتشاف schema-rot في 4 e2e tests
+عند تجربة دمج 4 e2e tests من claude/implement-todo-item — فشل CI بأخطاء TypeScript:
+- `StockLedgerEntry.qtyIn/qtyOut/refType` لم تعد موجودة (الآن `qtyChange` المُوقَّع)
+- `ProductVariant.product` relation محذوفة
+- `GrnService` → `GRNService` (casing)
+
+أُسقطت من PR #81 وفُتح Issue #85 لإعادة كتابتها ضد الـ schema الحالي.
+
+### 4. تصنيف 25 Dependabot PR وفتح حلقة auto-merge
+- **مدموج** (4): #57 (npm_and_yarn security group), #59 (pnpm/action-setup), #61 (codeql-action), #63 (setup-node)
+- **مغلق** (#64): real CI failures (web minor-and-patch typecheck + e2e)
+- **معلّق** (1): #73 — typecheck + e2e فشل (api minor-and-patch — يحتاج تحقق)
+- **يحتاج rebase** (1): #78 — تعارض دائم على lock file
+- **18 Major upgrades** متروكة لمراجعة منفصلة (Prisma 6→7, TS 5→6, tailwind 3→4, react-router 6→7, إلخ)
+
+### 5. تفعيل Auto-Merge على مستوى الريبو (D14)
+- `allow_auto_merge: false → true`
+- `delete_branch_on_merge: false → true`
+- النتيجة: الـ workflow `dependabot-automerge.yml` (الذي شُحن في PR #56) يعمل الآن **فعلاً** — أي minor/patch Dependabot PR ينجح في CI سيُدمج تلقائياً ويُحذف فرعه.
+- أُرسل `@dependabot recreate` لـ 14 PR متبقية لإعادة rebase ضد main المحدّث؛ الآمنة منها ستُدمج بمفردها.
+
+## ما لم يكتمل
+- **PR #73** (api/minor-and-patch group) — typecheck + e2e فشل. السبب: غير محدد، يحتاج فحص محلي
+- **PR #78** (root/minor-and-patch) — تعارض دائم في lock file بعد أكثر من recreate
+- **18 PR Major upgrades** — تتطلب اختبار يدوي مكثّف لكل واحدة (Prisma, TS, tailwind, إلخ). متروكة لمراجعات مستقبلية
+- **4 e2e tests معطوبة** (Issue #85) — تحتاج إعادة كتابة ضد الـ schema الحالي
+
+## القرارات الجديدة
+- **D14**: تفعيل Auto-Merge + Delete-branch-on-merge على مستوى الريبو — راجع `governance/DECISIONS_LOG.md`
+
+## الملفات المتأثرة (1 ملف فعلي على main)
+1. `.github/workflows/bootstrap-vps.yml` (جديد — من PR #81)
+
+> الباقي حدث في PRs و GitHub settings (لا تعديل في working tree)
+
+## الاختبارات المنفذة
+- ✅ CI (typecheck + build + e2e + CodeQL + gitleaks + GitGuardian) **نجح** على PR #81 و PRs المدموجة #57/#59/#61/#63
+- ⏳ E2E tests الـ 4 المُسقَطة — لم تُختبر (schema-rotted، أُسقطت)
+- ℹ️ لم نشغّل `npm run build/test` محلياً — لم نلمس كود TS/JS، فقط workflows + GitHub config + cherry-picks
+
+## المخاطر المفتوحة
+- 🟡 **PR #73 يحتوي تحديثات patch قد تكون مفيدة** — لكن CI يفشل. يحتاج فحص محلي قبل recreate
+- 🟡 **18 Major upgrades مفتوحة** — كل أسبوع Dependabot يفتح المزيد. خطة batch مطلوبة لتجنب الانفجار
+- 🟢 **Auto-merge مفعّل** — قد يدمج تحديث minor خاطئ إذا CI gates ناقصة. الـ branch protection على main يحدّ من ذلك
+
+## ممنوع تغييره في الجلسة القادمة
+- D14 مقفل — لا تعطّل `allow_auto_merge` بدون قرار جديد
+- لا تدمج PR #73 أو أي major upgrade بدون اختبار محلي يدوي
+- Issue #85 يحتفظ بـ commit hash `3134b61` كمصدر للمحتوى الأصلي
+
+## الخطوة التالية بالضبط
+
+```bash
+# 1. التحقق من الحلقة التلقائية لـ Dependabot
+gh pr list --author 'app/dependabot' --state open --json number,title,mergeStateStatus | head -30
+
+# 2. مراقبة أي PR تم دمجه تلقائياً منذ نهاية الجلسة
+gh pr list --author 'app/dependabot' --state merged --search 'merged:>=2026-04-27' --limit 20
+
+# 3. فحص PR #73 محلياً — لماذا typecheck يفشل؟
+gh pr checkout 73
+cd apps/api && pnpm install && pnpm typecheck
+
+# 4. اختيار major upgrade واحد للاختبار (ابدأ بأقلها مخاطر — مثلاً lucide-react)
+gh pr view 66 --web
+
+# 5. أو بدء العمل على Issue #85 — إعادة كتابة 4 e2e tests
+git show 3134b61:apps/api/test/grn-inventory-posting.e2e-spec.ts > /tmp/grn-orig.ts
+# ثم أعد كتابتها ضد الـ schema الحالي
+```
+
+---
+
 # Session Handoff — 2026-04-26 (Session 6 — GitHub Security self-healing loop) ✅ CLOSED
 
 ## Branch

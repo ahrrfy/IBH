@@ -18,6 +18,7 @@
 
 | # | المشكلة | الأولوية | الموجة | المسؤول | الحالة |
 |---|---|---|---|---|---|
+| I031 | 4 e2e tests معطوبة (schema-rotted) — `grn-inventory-posting`, `period-close-7step`, `vendor-invoice-posting`, `license-heartbeat`. كانت في فرع `claude/implement-todo-item-rr0Pw` المهجور، وأُسقطت من PR #81 لأنها لا تتوافق مع الـ schema الحالي (`StockLedgerEntry.qtyChange` بدل `qtyIn/qtyOut`، `ProductVariant.product` محذوفة، `GRNService` casing). المحتوى الأصلي في commit `3134b61`. | 🟡 مهم | Wave 3-4 | Backend/QA | مفتوح — راجع GitHub Issue #85 (2026-04-27) |
 | I001 | تحديد schema كامل لـ PostgreSQL (Prisma) قبل M01 | 🔴 حرج | Wave 1 | Tech Lead | ✅ **مغلق** — 86 جدول في schema.prisma + migrations 0001-0008 مُطبَّقة. راجع I027 (seed كامل نجح). |
 | I002 | اختيار مكتبة ULID للـ NestJS (ulid vs @paralleldrive/cuid2) | 🟡 مهم | Wave 1 | Tech Lead | ✅ **مغلق** — `ulid@^2.3.0` مُختاَر ومُستخدَم في `apps/api/package.json`. `gen_ulid()` PostgreSQL function في migration 0007. |
 | I003 | تحديد strategy لـ POS conflict resolution عند الـ sync | 🟡 مهم | Wave 2 | Tech Lead | مفتوح — لم يُنفَّذ POS sync بعد (Wave 2 للإنتاج). clientUlid idempotency مُطبَّقة على POS receipts كـ first layer. |
