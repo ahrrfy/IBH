@@ -5,9 +5,16 @@ import { Footer } from '@/components/footer';
 export default async function CheckoutSuccessPage({
   searchParams,
 }: {
-  searchParams: Promise<{ orderId?: string }>;
+  searchParams: Promise<{ orderId?: string; trackingId?: string }>;
 }) {
-  const { orderId } = await searchParams;
+  const { orderId, trackingId } = await searchParams;
+  // T55 — prefer the public trackingId for guest tracking; fall back to
+  // orderId-based authenticated tracking when present.
+  const trackHref = trackingId
+    ? `/track/order/${trackingId}`
+    : orderId
+      ? `/orders/${orderId}`
+      : null;
 
   return (
     <>
@@ -28,9 +35,9 @@ export default async function CheckoutSuccessPage({
           )}
 
           <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-            {orderId && (
+            {trackHref && (
               <Link
-                href={`/orders/${orderId}`}
+                href={trackHref}
                 className="bg-sky-700 hover:bg-sky-800 text-white px-6 py-2.5 rounded-lg font-semibold"
               >
                 تتبع الطلب

@@ -47,6 +47,8 @@ import { LicensingModule } from './modules/licensing/licensing.module';
 import { AiModule }        from './modules/ai/ai.module';
 import { ReportingModule } from './modules/reporting/reporting.module';
 import { StorefrontModule } from './modules/storefront/storefront.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { OnlineOrdersModule } from './modules/sales/online-orders/online-orders.module';
 
 @Module({
   imports: [
@@ -126,6 +128,10 @@ import { StorefrontModule } from './modules/storefront/storefront.module';
 
     // ── Public Storefront (T54) ─────────────────────────────────────────────
     StorefrontModule,
+
+    // ── E-commerce ↔ ERP integration (T55) ─────────────────────────────────
+    PaymentsModule,
+    OnlineOrdersModule,
   ],
 })
 export class AppModule {}

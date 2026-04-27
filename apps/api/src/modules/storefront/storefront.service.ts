@@ -7,6 +7,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../platform/prisma/prisma.service';
 import { SequenceService } from '../../engines/sequence/sequence.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { OnlineOrdersService } from '../sales/online-orders/online-orders.service';
 import {
   assertStorefrontConfig,
   readStorefrontConfig,
@@ -40,6 +41,7 @@ export class StorefrontService {
     private readonly prisma: PrismaService,
     private readonly sequence: SequenceService,
     private readonly inventory: InventoryService,
+    private readonly onlineOrders: OnlineOrdersService,
   ) {
     this.cfg = readStorefrontConfig();
   }
@@ -364,21 +366,25 @@ export class StorefrontService {
 
       const so = await tx.salesOrder.create({
         data: {
-          companyId:   this.cfg.companyId,
-          branchId:    this.cfg.branchId,
-          number:      orderNumber,
+          companyId:     this.cfg.companyId,
+          branchId:      this.cfg.branchId,
+          number:        orderNumber,
           customerId,
-          warehouseId: this.cfg.warehouseId,
-          orderDate:   new Date(),
-          status:      'draft',
-          channel:     'online',
-          subtotalIqd: subtotal,
-          discountIqd: new Prisma.Decimal(0),
-          taxIqd:      new Prisma.Decimal(0),
-          totalIqd:    total,
-          notes:       buildNotes(input),
-          createdBy:   '00000000000000000000000000',
-          updatedBy:   '00000000000000000000000000',
+          warehouseId:   this.cfg.warehouseId,
+          orderDate:     new Date(),
+          status:        'draft',
+          channel:       'online',
+          subtotalIqd:   subtotal,
+          discountIqd:   new Prisma.Decimal(0),
+          taxIqd:        new Prisma.Decimal(0),
+          totalIqd:      total,
+          notes:         buildNotes(input),
+          // T55 — capture chosen payment method up front; trackingId/status
+          // are set inside OnlineOrdersService.processNewOnlineOrder().
+          paymentMethod: input.paymentMethod,
+          paymentStatus: 'pending',
+          createdBy:     '00000000000000000000000000',
+          updatedBy:     '00000000000000000000000000',
           lines: { create: linesData },
         },
         include: { lines: true },
@@ -397,12 +403,36 @@ export class StorefrontService {
       return so;
     });
 
+    // T55 — drive post-creation lifecycle outside the SO transaction so that
+    // a flaky gateway / delivery service never rolls back an already-valid
+    // order. processNewOnlineOrder is best-effort internally; callers get
+    // back paymentUrl/qr/trackingUrl when available.
+    let lifecycle: {
+      orderId:     string;
+      trackingId:  string;
+      paymentUrl?: string;
+      qr?:         string;
+      trackingUrl: string;
+    } | null = null;
+    try {
+      lifecycle = await this.onlineOrders.processNewOnlineOrder(result.id);
+    } catch (err) {
+      // Surface as a soft failure: the order exists and is reservable. Ops
+      // can re-run lifecycle from an admin tool. We do NOT throw out — the
+      // customer gets a confirmation either way.
+      // eslint-disable-next-line no-console
+      console.warn('[T55] processNewOnlineOrder failed for', result.id, err);
+    }
+
     return {
-      id:       result.id,
-      number:   result.number,
-      total:    Number(result.totalIqd),
-      status:   result.status,
-      trackUrl: `/orders/${result.id}`,
+      id:          result.id,
+      number:      result.number,
+      total:       Number(result.totalIqd),
+      status:      result.status,
+      trackingId:  lifecycle?.trackingId,
+      trackUrl:    lifecycle?.trackingUrl ?? `/orders/${result.id}`,
+      paymentUrl:  lifecycle?.paymentUrl,
+      qr:          lifecycle?.qr,
     };
   }
 }
