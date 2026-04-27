@@ -5,6 +5,94 @@
 
 ---
 
+## ⚡ القاعدة الأهم — التوزيع الذرّي للمهام
+
+> **بعد 2026-04-27**: لا يجوز ادّعاء مهمة بتعديل Markdown يدوياً. التعارض الذي حصل (وكيلان على نفس T) سببه أن `.md` ليس قفلاً ذرّياً.
+>
+> **الحل**: orchestrator يستخدم Git refs على GitHub كقفل ذرّي حقيقي. أول `git push origin <branch>` يفوز، البقية تفشل تلقائياً.
+
+### كل وكيل يستخدم 4 أوامر فقط
+
+```bash
+# 1) اعرف ما هو متاح ومن يعمل على ماذا
+bash scripts/orchestrator/task.sh status
+
+# 2) ادّعِ مهمة (smart-pick أو بـ ID محدد)
+bash scripts/orchestrator/task.sh claim          # أول AVAILABLE deps متحققة
+bash scripts/orchestrator/task.sh claim T34      # أو مهمة محددة
+
+# 3) اشتغل على الـ branch الذي أنشأه السكربت — مهمة واحدة، PR واحد
+git status   # تأكد أنك على feat/tNN-...
+
+# 4) عند الانتهاء — السكربت يدير كل شيء (typecheck → ready → auto-merge → حذف الـ branch)
+bash scripts/orchestrator/task.sh complete
+```
+
+**`complete` تلقائياً**:
+1. يدفع آخر commits
+2. يُشغّل `tsc --noEmit` على api و web — يفشل لو خطأ TS واحد
+3. يُحوّل الـ Draft إلى Ready
+4. يضبط `--auto` merge (ينتظر CI أخضر)
+5. يستطلع حتى MERGED → ينقل المحلي إلى main → يحذف الـ branch محلياً وعن بُعد
+
+### لو شيء انكسر
+
+```bash
+bash scripts/orchestrator/task.sh release   # تخلَّ عن المهمة بنظافة
+```
+
+### القواعد الصارمة
+
+- ❌ **ممنوع** تعديل `governance/TASK_QUEUE.md` يدوياً لادّعاء مهمة. الادّعاء = `git push` فقط.
+- ❌ **ممنوع** العمل على branch لم ينشئه السكربت لمهمة T.
+- ❌ **ممنوع** استخدام `gh pr merge` مباشرة على PR مهمة — استخدم `task.sh complete`.
+- ❌ **ممنوع** بدء عمل قبل `claim` — حتى exploration commits.
+- ✅ **مسموح**: العمل اليدوي على الكود بعد `claim` بقدر ما تريد، ثم `complete` ليُغلق كل شيء.
+
+### كيف يضمن الذرّية
+
+| المرحلة | الآلية | لماذا ذرّية |
+|---|---|---|
+| اختيار branch | `feat/tNN-<slug-من-عنوان-المهمة>` | كل الوكلاء يحسبون نفس الـ slug من نفس العنوان |
+| الادّعاء | `git push -u origin <branch>` | إنشاء ref على GitHub atomic — أول واحد يفوز |
+| بعد الفشل | السكربت يخرج بـ exit 1 + تنظيف محلي | لا يبقى أثر للوكيل الخاسر |
+| Draft PR | يُفتح بعد نجاح push فقط | إشارة بصرية لباقي الجلسات |
+| Merge | `gh pr merge --auto --squash --delete-branch` | يفعل بعد CI أخضر فقط |
+
+### أمثلة سيناريوهات
+
+**سيناريو 1** — وكيلان يضربان نفس اللحظة على T34:
+```
+Agent A: bash task.sh claim T34
+Agent B: bash task.sh claim T34   # في نفس الثانية
+
+Agent A: git push origin feat/t34-sales-quotations    → 200 OK
+Agent B: git push origin feat/t34-sales-quotations    → ! [rejected] (already exists)
+                                                        → exits 1
+                                                        → "Lost the race for T34"
+                                                        → يُعيد المحاولة على T35
+```
+
+**سيناريو 2** — وكيل يُكمل عمله بشكل صحيح:
+```
+$ bash scripts/orchestrator/task.sh complete
+→ apps/api typecheck            ✅
+→ apps/web typecheck            ✅
+→ Setting auto-merge on PR #92  ✅
+→ Waiting for CI + merge...     (poll every 30s)
+→ ✅ Task complete. PR #92 merged. Branch deleted.
+```
+
+**سيناريو 3** — typecheck فشل عند complete:
+```
+$ bash scripts/orchestrator/task.sh complete
+→ apps/api typecheck            ❌ TS errors
+ERROR: API typecheck FAILED
+# الـ branch لم يُدمج. أصلح الأخطاء ثم أعد complete.
+```
+
+---
+
 ## 🟢 عند بداية أي جلسة جديدة
 
 نفّذ هذه الخطوات بالترتيب — لا تبدأ أي عمل قبلها:
