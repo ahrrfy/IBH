@@ -19,7 +19,7 @@
     "@erp/domain-events": "workspace:*",
     "@erp/shared-types": "workspace:*",
     "@erp/validation-schemas": "workspace:*",
-    "@nestjs/bull": "^10.2.0",
+    "@nestjs/bull": "^11.0.4",
     "@nestjs/cache-manager": "^2.3.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^3.3.0",
