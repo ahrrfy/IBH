@@ -4,16 +4,17 @@
 
 ## ما تم إنجازه اليوم
 
-- ✅ **PR #104** مفتوح ومرشح للدمج — T35 Slice 1 (Sales Order New page + comboboxes):
+- ✅ **T35 مدموج على main** — commit `6b041d3` عبر PR #113 (auto-merge بعد CI أخضر):
   - `apps/web/src/components/customer-combobox.tsx` (جديد) — بحث + رصيد + حد ائتمان + تحذير تجاوز
   - `apps/web/src/components/product-combobox.tsx` (جديد) — بحث + stock-on-hand لكل مخزن + شارة "نفد المخزون"
   - `apps/web/src/app/(app)/sales/orders/new/page.tsx` (جديد) — form كامل: عميل/مخزن/تاريخ/بنود/مجموع حي + insufficient-stock warning + POST `/sales-orders`
-- ✅ **تنظيف:** نُسخ احتياطي ملفات T32 untracked في بداية الجلسة (انتهى لاحقاً عند merge PR #103)
-- ✅ **اكتشاف:** الصفحات `/sales/orders` list/detail تستدعي `/sales/orders` (خطأ) لكن BE هو `@Controller('sales-orders')` — تعارض pre-existing موثَّق في PR #104 (خارج النطاق)
+- ⚠️ **rescue حرج:** PR #104 الأصلي أُغلق دون merge (orchestrator duplicate detection). branch القديم `feat/t35-sales-order-new` كان مبنياً على main متقادمة جداً — لو دُفع كما هو لكان حذف **4053 سطر** من T33/T34/T57 المدموج. الحل: cherry-pick implementation فقط على branch v2 من main الحالي → PR #113.
+- ✅ **تنظيف:** نُسخ احتياطي ملفات T32 untracked في بداية الجلسة (انتهى عند merge PR #103)
+- ⚠️ **اكتشاف pre-existing:** الصفحات `/sales/orders` list/detail تستدعي `/sales/orders` (خطأ) لكن BE هو `@Controller('sales-orders')` — صفحتي الجديدة تستخدم المسار الصحيح. تعارض pre-existing خارج النطاق.
 
 ## ما لم يكتمل
 
-- ⏳ **PR #104** ينتظر CI أخضر + merge
+- ✅ T35 Slice 1 مدموج (لا شيء معلق منه)
 - ⏳ **T34 detail page** — حاولت كتابتها لكن جلسة موازية (sonnet-4-6) أكملتها أثناء عملي → أُلغي branch `feat/t34-quotation-detail` محلياً
 - ⏳ **T35 Slice 2** — last-sold-price-per-customer + suggested qty + live credit-limit block + customer auto-fill (يحتاج BE endpoints جديدة)
 
