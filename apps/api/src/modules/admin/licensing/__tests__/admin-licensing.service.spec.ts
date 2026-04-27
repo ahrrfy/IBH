@@ -135,6 +135,63 @@ function makeAudit() {
   };
 }
 
+/**
+ * Stub PlanChangeService for the admin-licensing tests. The real service
+ * is exhaustively covered by `platform/licensing/__tests__/plan-change.service.spec.ts`.
+ * Here we just verify the admin endpoint delegates correctly and emits
+ * the right audit row.
+ */
+function makePlanChange(prismaForEvents: any) {
+  return {
+    changePlan: async ({ subscriptionId, newPlanId }: any) => {
+      const sub = prismaForEvents.subscription.findUnique
+        ? await prismaForEvents.subscription.findUnique({ where: { id: subscriptionId } })
+        : null;
+      if (!sub) {
+        const { NotFoundException: NF } = require('@nestjs/common');
+        throw new NF({ code: 'SUBSCRIPTION_NOT_FOUND' });
+      }
+      if (sub.planId === newPlanId) {
+        const { BadRequestException: BR } = require('@nestjs/common');
+        throw new BR({ code: 'PLAN_UNCHANGED' });
+      }
+      const newPlan = await prismaForEvents.plan.findUnique({ where: { id: newPlanId } });
+      const oldPlan = await prismaForEvents.plan.findUnique({ where: { id: sub.planId } });
+      const direction =
+        (newPlan?.monthlyPriceIqd ?? 0) >= (oldPlan?.monthlyPriceIqd ?? 0)
+          ? 'upgraded'
+          : 'downgraded';
+      await prismaForEvents.subscription.update({
+        where: { id: subscriptionId },
+        data: { planId: newPlanId },
+      });
+      await prismaForEvents.licenseEvent.create({
+        data: {
+          subscriptionId,
+          eventType: direction,
+          payload: { fromPlanId: sub.planId, toPlanId: newPlanId },
+        },
+      });
+      await prismaForEvents.licenseEvent.create({
+        data: {
+          subscriptionId,
+          eventType: 'prorated_charge',
+          payload: { amountIqd: '0', currency: 'IQD' },
+        },
+      });
+      return {
+        subscription: { id: sub.id, companyId: sub.companyId, planId: newPlanId, status: sub.status, priceIqd: '0' },
+        prorationLineItems: [],
+        netDeltaIqd: '0',
+        daysInPeriod: 30,
+        daysRemaining: 15,
+        effectiveDate: new Date().toISOString(),
+        direction,
+      };
+    },
+  } as any;
+}
+
 const SESSION = { userId: 'U1', companyId: 'C1' } as any;
 
 describe('AdminLicensingService', () => {
@@ -182,7 +239,7 @@ describe('AdminLicensingService', () => {
     const { plans, companies, subs } = fixtures();
     const { prisma } = makePrisma(subs, plans, companies);
     const { audit } = makeAudit();
-    const svc = new AdminLicensingService(prisma, audit);
+    const svc = new AdminLicensingService(prisma, audit, makePlanChange(prisma));
 
     const res = await svc.listTenants({});
     expect(res.total).toBe(2);
@@ -196,7 +253,7 @@ describe('AdminLicensingService', () => {
     const { plans, companies, subs } = fixtures();
     const { prisma } = makePrisma(subs, plans, companies);
     const { audit } = makeAudit();
-    const svc = new AdminLicensingService(prisma, audit);
+    const svc = new AdminLicensingService(prisma, audit, makePlanChange(prisma));
 
     const res = await svc.listTenants({ status: 'trial' });
     expect(res.items.length).toBe(1);
@@ -207,7 +264,7 @@ describe('AdminLicensingService', () => {
     const { plans, companies, subs } = fixtures();
     const { prisma } = makePrisma(subs, plans, companies);
     const { audit } = makeAudit();
-    const svc = new AdminLicensingService(prisma, audit);
+    const svc = new AdminLicensingService(prisma, audit, makePlanChange(prisma));
 
     const res = await svc.listTenants({ search: 'الثانية' });
     expect(res.items.length).toBe(1);
@@ -218,7 +275,7 @@ describe('AdminLicensingService', () => {
     const { plans, companies, subs } = fixtures();
     const { prisma, events } = makePrisma(subs, plans, companies);
     const { audit, calls } = makeAudit();
-    const svc = new AdminLicensingService(prisma, audit);
+    const svc = new AdminLicensingService(prisma, audit, makePlanChange(prisma));
 
     const updated = await svc.setStatus('S1', 'suspended', 'no payment', SESSION);
     expect(updated.status).toBe('suspended');
@@ -232,7 +289,7 @@ describe('AdminLicensingService', () => {
     const { plans, companies, subs } = fixtures();
     const { prisma } = makePrisma(subs, plans, companies);
     const { audit } = makeAudit();
-    const svc = new AdminLicensingService(prisma, audit);
+    const svc = new AdminLicensingService(prisma, audit, makePlanChange(prisma));
 
     await expect(svc.setStatus('S1', 'active', undefined, SESSION)).rejects.toBeInstanceOf(
       BadRequestException,
@@ -243,7 +300,7 @@ describe('AdminLicensingService', () => {
     const { plans, companies, subs } = fixtures();
     const { prisma } = makePrisma(subs, plans, companies);
     const { audit } = makeAudit();
-    const svc = new AdminLicensingService(prisma, audit);
+    const svc = new AdminLicensingService(prisma, audit, makePlanChange(prisma));
 
     await expect(svc.setStatus('NOPE', 'suspended', undefined, SESSION)).rejects.toBeInstanceOf(
       NotFoundException,
@@ -254,7 +311,7 @@ describe('AdminLicensingService', () => {
     const { plans, companies, subs } = fixtures();
     const { prisma, events } = makePrisma(subs, plans, companies);
     const { audit } = makeAudit();
-    const svc = new AdminLicensingService(prisma, audit);
+    const svc = new AdminLicensingService(prisma, audit, makePlanChange(prisma));
 
     const before = subs.find((s) => s.id === 'S2')!.trialEndsAt!.getTime();
     const updated = await svc.extendTrial('S2', 14, SESSION);
@@ -268,7 +325,7 @@ describe('AdminLicensingService', () => {
     const { plans, companies, subs } = fixtures();
     const { prisma } = makePrisma(subs, plans, companies);
     const { audit } = makeAudit();
-    const svc = new AdminLicensingService(prisma, audit);
+    const svc = new AdminLicensingService(prisma, audit, makePlanChange(prisma));
 
     await expect(svc.extendTrial('S2', 0, SESSION)).rejects.toBeInstanceOf(BadRequestException);
     await expect(svc.extendTrial('S2', 400, SESSION)).rejects.toBeInstanceOf(BadRequestException);
@@ -278,7 +335,7 @@ describe('AdminLicensingService', () => {
     const { plans, companies, subs } = fixtures();
     const { prisma, events } = makePrisma(subs, plans, companies);
     const { audit, calls } = makeAudit();
-    const svc = new AdminLicensingService(prisma, audit);
+    const svc = new AdminLicensingService(prisma, audit, makePlanChange(prisma));
 
     await svc.changePlan('S1', 'P2', SESSION);
     expect(events.find((e) => e.eventType === 'upgraded')).toBeTruthy();
@@ -289,7 +346,7 @@ describe('AdminLicensingService', () => {
     const { plans, companies, subs } = fixtures();
     const { prisma } = makePrisma(subs, plans, companies);
     const { audit } = makeAudit();
-    const svc = new AdminLicensingService(prisma, audit);
+    const svc = new AdminLicensingService(prisma, audit, makePlanChange(prisma));
 
     await expect(svc.changePlan('S1', 'P1', SESSION)).rejects.toBeInstanceOf(BadRequestException);
   });
@@ -298,7 +355,7 @@ describe('AdminLicensingService', () => {
     const { plans, companies, subs } = fixtures();
     const { prisma } = makePrisma(subs, plans, companies);
     const { audit } = makeAudit();
-    const svc = new AdminLicensingService(prisma, audit);
+    const svc = new AdminLicensingService(prisma, audit, makePlanChange(prisma));
 
     await svc.setStatus('S1', 'suspended', undefined, SESSION);
     await svc.setStatus('S1', 'active', undefined, SESSION);

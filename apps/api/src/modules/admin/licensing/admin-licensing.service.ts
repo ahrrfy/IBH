@@ -17,6 +17,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
+import { PlanChangeService } from '../../../platform/licensing/plan-change.service';
 import type { UserSession } from '@erp/shared-types';
 
 export type SubscriptionStatusFilter =
@@ -40,6 +41,7 @@ export class AdminLicensingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly planChange: PlanChangeService,
   ) {}
 
   /**
@@ -207,78 +209,44 @@ export class AdminLicensingService {
     return updated;
   }
 
-  /** Change a subscription's plan (upgrade or downgrade). */
+  /**
+   * Change a subscription's plan (upgrade or downgrade).
+   *
+   * Delegates the proration math, LicenseEvent log entries, feature-cache
+   * invalidation and customer notification to T68's `PlanChangeService`.
+   * The admin endpoint shape is unchanged: the same controller signature
+   * still resolves to a Subscription-shaped response so the existing
+   * super-admin UI keeps working.
+   */
   async changePlan(
     subscriptionId: string,
     newPlanId: string,
     session: UserSession,
   ) {
-    const [sub, newPlan] = await Promise.all([
-      this.prisma.subscription.findUnique({ where: { id: subscriptionId } }),
-      this.prisma.plan.findUnique({ where: { id: newPlanId } }),
-    ]);
-    if (!sub) {
-      throw new NotFoundException({
-        code: 'SUBSCRIPTION_NOT_FOUND',
-        messageAr: 'الاشتراك غير موجود',
-      });
-    }
-    if (!newPlan) {
-      throw new NotFoundException({
-        code: 'PLAN_NOT_FOUND',
-        messageAr: 'الخطة غير موجودة',
-      });
-    }
-    if (sub.planId === newPlanId) {
-      throw new BadRequestException({
-        code: 'PLAN_UNCHANGED',
-        messageAr: 'الخطة غير متغيّرة',
-      });
-    }
-
-    const isUpgrade =
-      Number(newPlan.monthlyPriceIqd) >=
-      Number(
-        (await this.prisma.plan.findUnique({ where: { id: sub.planId } }))
-          ?.monthlyPriceIqd ?? 0,
-      );
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const u = await tx.subscription.update({
-        where: { id: subscriptionId },
-        data: {
-          planId: newPlanId,
-          priceIqd:
-            sub.billingCycle === 'annual'
-              ? newPlan.annualPriceIqd
-              : newPlan.monthlyPriceIqd,
-        },
-      });
-      await tx.licenseEvent.create({
-        data: {
-          subscriptionId,
-          eventType: isUpgrade ? 'upgraded' : 'downgraded',
-          payload: {
-            fromPlanId: sub.planId,
-            toPlanId: newPlanId,
-            toPlanCode: newPlan.code,
-          },
-          createdBy: session.userId,
-        },
-      });
-      return u;
+    const result = await this.planChange.changePlan({
+      subscriptionId,
+      newPlanId,
+      actorUserId: session.userId,
     });
 
     await this.audit.log({
       companyId: session.companyId,
       userId: session.userId,
-      action: isUpgrade ? 'SUBSCRIPTION_UPGRADED' : 'SUBSCRIPTION_DOWNGRADED',
+      action:
+        result.direction === 'downgraded'
+          ? 'SUBSCRIPTION_DOWNGRADED'
+          : 'SUBSCRIPTION_UPGRADED',
       entityType: 'Subscription',
       entityId: subscriptionId,
-      metadata: { fromPlanId: sub.planId, toPlanId: newPlanId },
+      metadata: {
+        fromPlanId: null, // captured in the LicenseEvent payload
+        toPlanId: newPlanId,
+        netDeltaIqd: result.netDeltaIqd,
+        direction: result.direction,
+      },
     });
 
-    return updated;
+    return result.subscription;
   }
 
   /** Manually extend the trial period on a subscription. */
