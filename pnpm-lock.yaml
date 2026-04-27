@@ -325,8 +325,8 @@ importers:
         specifier: ^5.56.0
         version: 5.100.5(react@19.2.5)
       lucide-react:
-        specifier: ^0.453.0
-        version: 0.453.0(react@19.2.5)
+        specifier: ^0.577.0
+        version: 0.577.0(react@19.2.5)
       next:
         specifier: ^15.0.0
         version: 15.5.15(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
