@@ -1,5 +1,62 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff — 2026-04-27 (Session 13 — Orchestrator + T58 License Schema)
+
+## ما تم إنجازه
+
+### 1. Wave 2-5 Task Plan (T31-T71)
+**41 مهمة جديدة** في `governance/TASK_QUEUE.md` (1103 سطر) — Wave 2 (T31-T40) العمليات اليومية الذكية، Wave 3 (T41-T57) الذكاء التشغيلي، Wave 5 (T58-T71) الترخيص والاشتراكات. كل مهمة embedded فيها 4 طبقات: Real-time + Bidirectional + Autonomous + Proactive.
+
+### 2. Atomic Task Orchestrator — معالجة I034 (PR #101 · `f2741cf`)
+- `scripts/orchestrator/task.sh` بأربعة أوامر (status/claim/complete/release)
+- القفل الذرّي = `git push origin <branch>` (أول واحد يفوز)
+- branch slug deterministic مشتق من عنوان المهمة → كل الوكلاء يحسبون نفس الاسم
+- `complete` يُجري typecheck + auto-merge + حذف الـ branch
+- `governance/SESSION_PROTOCOL.md` و `.github/PULL_REQUEST_TEMPLATE.md` محدّثان
+- لاحقاً قُوِّي بـ PR #108 (worktree-isolation guard) عبر Session 12
+
+### 3. T58 — Subscription & Licensing Schema (PR #112 · `4cae19e`)
+الأساس لـ Wave 5 كاملة:
+- 6 جداول جديدة (`plans`, `plan_features`, `subscriptions`, `subscription_features`, `license_keys`, `hardware_fingerprints`, `license_events`)
+- 3 enums (`SubscriptionStatus`, `BillingCycle`, `LicenseEventType`)
+- migration `0011_licensing` idempotent مع append-only trigger على `license_events`
+- يتعايش مع `License` legacy model (T66 سيهاجره لاحقاً)
+- Verification: prisma format/generate clean · api+web tsc clean · CI all green
+
+### 4. تنظيف الفروع غير الذرّية
+نُقلت commits T35 من `feat/t35-sales-order-new` إلى `feat/t35-sales-orders-new-create` بدون فقدان تاريخ. الـ PRs القديمة (#100, #102, #104) أُغلقت.
+
+## PRs مدموجة في الجلسة
+| # | المهمة | sha |
+|---|---|---|
+| #99 | T31 wire ConnectionStatus | 32a37f7 |
+| #101 | **orchestrator** | f2741cf |
+| #103 | T32 External Delivery Companies BE | a07d846 |
+| #106 | T33 Delivery Web UI | 67f921d |
+| #107 | I033 worktree guard (Session 12) | baefed2 |
+| #109 | T34 Sales Quotations UI | 5bfa546 |
+| #110 | T57 Public Delivery Tracking | d434af7 |
+| #112 | **T58 License Schema** | 4cae19e |
+| #113 | T35 Sales Order New | 6b041d3 |
+
+## الخطوة التالية
+
+```bash
+git pull origin main
+bash scripts/orchestrator/task.sh status
+bash scripts/orchestrator/task.sh claim       # smart-pick
+```
+
+**Wave 5 الآن مفتوحة** — T59 (Guard), T60 (Plans seeds), T62 (Hardware Fingerprint) كلها deps T58 ✓.
+**Wave 2 ما تبقى:** T36 POS Sale, T38 Reports BE, T39 Fix Broken Pages.
+
+## مخاطر/ملاحظات
+- **I034 مُغلق** عبر PR #101 + #108
+- **Dependabot PRs (#90-#98)**: 9 معلّقة، تحتاج batch review منفصل
+- **branch flipping** كان مشكلة أثناء T58 (وكلاء موازيون يفعلون git operations في نفس الـ working tree) — العلاج: chain commands بـ `&&` في bash واحد، أو استخدام `--isolation worktree` في الـ Agent tool
+
+---
+
 # Session Handoff — 2026-04-27 (Session 12 — I033 root-cause fix + parallel-session chaos postmortem) ✅ CLOSED
 
 ## ما تم إنجازه

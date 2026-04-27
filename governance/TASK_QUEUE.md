@@ -939,13 +939,16 @@
 ---
 
 #### T58 — License Schema + Migration
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** []
-- **Priority:** 🔴 CRITICAL — يفتح الموجة 5 كاملة
+- **Priority:** 🔴 CRITICAL — فتح الموجة 5 كاملة
+- **PR:** [#112](https://github.com/ahrrfy/IBH/pull/112) (squash-merged 4cae19e on 2026-04-27)
+- **Branch:** `feat/t58-license-schema-migration` (deleted)
 - **File scope:**
-  - `apps/api/prisma/schema.prisma` (Plan, PlanFeature, Subscription, SubscriptionFeature, LicenseKey, LicenseEvent, HardwareFingerprint)
-  - Migration `<ts>_licensing/`
-- **Estimate:** 180min
+  - `apps/api/prisma/schema.prisma` (+195 lines: Plan, PlanFeature, Subscription, SubscriptionFeature, LicenseKey, LicenseEvent, HardwareFingerprint + 3 enums)
+  - `apps/api/prisma/migrations/0011_licensing/migration.sql` (+270 lines, idempotent, append-only trigger on license_events)
+- **Verification:** prisma format/generate clean · api+web tsc clean · CI all green
+- **Unblocks:** T59 (Guard), T60 (Plans seeds), T62 (Hardware Fingerprint)
 
 ---
 
