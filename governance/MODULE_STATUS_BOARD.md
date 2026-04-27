@@ -1,4 +1,4 @@
-﻿# MODULE_STATUS_BOARD.md
+# MODULE_STATUS_BOARD.md
 ## لوحة حالة الوحدات
 ### يُحدَّث بعد كل جلسة
 
@@ -8,24 +8,21 @@
 
 ---
 
-## 📊 نظرة عامة — 2026-04-27 (آخر تحديث — Wave 5 Closeout)
+## 📊 نظرة عامة — 2026-04-27 (آخر تحديث — Wave 6 Closeout — Licensing + Autopilot)
 
 | المقياس | القيمة |
 |---|---|
-| Waves مكتملة (كود) | **6 / 6** |
+| Waves مكتملة (كود) | **6 / 6** ✅ |
 | Modules مكتملة (كود) | **18 / 18** ✅ |
-| T-tasks مكتملة (Wave 1-5) | **53 / 53** ✅ (T01-T53 كلها مدموجة) |
-| T-tasks TODO (Wave 6) | **18** (T54-T71 — E-commerce + Licensing + AI) |
-| Migrations | 9 |
-| Prisma Models | ~86 |
-| TypeScript files | ~120+ |
-| Lines of code | ~20,000+ |
-| Acceptance tests (written) | **38+** (e2e suites مدموجة: W1, W3, W6) |
-| Acceptance tests (passing) | 35/36 في CI (1 .skip في pos-session) |
-| Production HTTP 200 | ✅ مؤكد 2026-04-27 (Wave 5 closeout smoke test — 9 paths, all 307) |
-| Open PRs | **5** (major — مجمّدة I032) |
-| Major PRs مجمّدة | **18** (موثّقة في I032 — Wave 6) |
-| Open T-tasks (Wave 1-5) | **0** ✅ Wave 5 complete 2026-04-27 |
+| T-tasks مكتملة (Wave 1-6) | **71 / 71** ✅ (T01-T71 كلها مدموجة) |
+| T-tasks TODO | **0** ✅ |
+| Migrations | 13+ (T68 + T70 + T71 added in Wave 6) |
+| Prisma Models | ~95 (License + Autopilot domain added) |
+| TypeScript files | ~150+ |
+| Lines of code | ~25,000+ |
+| Acceptance tests (written) | **80+** (Licensing/Autopilot suites added) |
+| Production HTTP 200 | ✅ مؤكد 2026-04-27 |
+| Open T-tasks (Wave 1-6) | **0** ✅ Wave 6 complete 2026-04-27 |
 
 ## 🔧 Dependency Health — 2026-04-27
 
@@ -106,18 +103,30 @@
 | M42 Smart Inventory Engine | ✅ DONE | T42 PR#126 | Reorder alerts + dead stock detection |
 | M43 Sales Commissions + Incentives | ✅ DONE | T43 PR#127 | Tiered rates + settlement |
 
-## ✅ Wave 6 — CRM + AI + Licensing + Reports
+## ✅ Wave 6 — CRM + AI + Licensing + Storefront + Autopilot — **مكتملة 2026-04-27** ✅
 
-| الوحدة | الحالة | ملاحظات |
-|---|---|---|
-| M09 Leads + Scoring (0-100) | 🟢 | |
-| M09 Activities + Pipeline + Forecast | 🟢 | Kanban view |
-| M11 Reports (17 reports) | 🟢 | |
-| M11 Dashboards (5 dashboards) | 🟢 | |
-| M12 Licensing (RSA/HMAC signed) | 🟢 | Heartbeat + grace |
-| M13 AI Tier 2 (Anomaly Detection) | 🟢 | 4 detection types |
-| M13 AI Tier 1 (NL Query stub) | 🟢 | Graceful degradation |
-| M13 AI Forecasting | 🟢 | Moving avg fallback |
+| الوحدة | الحالة | Task | ملاحظات |
+|---|---|---|---|
+| M09 Leads + Scoring (0-100) | ✅ DONE | T44 PR#128 | RFM + Customer 360 |
+| M09 Activities + Pipeline + Forecast | ✅ DONE | core | Kanban view |
+| M11 Reports (17 reports) | ✅ DONE | T38 (5 + scaffolds) | |
+| M11 Dashboards (5 dashboards) | ✅ DONE | T50 PR#140 | Financial KPIs |
+| M12 License Schema + Plans | ✅ DONE | T58 PR#112 + T60 PR#150 | 4 plans · 21 features · seeded idempotent |
+| M12 License Guard + Feature Cache | ✅ DONE | T59 PR#149 | Redis 5min TTL · T31 invalidation |
+| M12 Trial Engine (30+7 grace) | ✅ DONE | T61 PR#155 | BullMQ cron · auto-degrade |
+| M12 Hardware Fingerprint (Tauri) | ✅ DONE | T62 PR#151 | SHA-256 + RSA verify · max devices |
+| M12 License Admin Dashboard | ✅ DONE | T63 PR#156 | Tenants + Plans + Audit · super-admin |
+| M12 Activation API (RSA-2048) | ✅ DONE | T64 PR#158 | issue/activate/renew/revoke + offline verify |
+| M12 Feature Flags (real-time UI) | ✅ DONE | T65 PR#157 | useFeature + FeatureGate · T31 push |
+| M12 Defense-in-depth Enforcement | ✅ DONE | T66 PR#159 | API + Web + POS offline (7d grace) + Mobile |
+| M12 License Analytics (MRR/Churn/LTV) | ✅ DONE | T67 PR#160 | Recharts dashboards |
+| M12 Plan Proration (Decimal) | ✅ DONE | T68 PR#162 | Half-up · prorated_charge events |
+| M12 License Expiry Notifications | ✅ DONE | T69 PR#152 | Daily cron · 30/14/7/3/1 reminders |
+| M12 Multi-tenant Billing Dashboard | ✅ DONE | T70 PR#163 | LicenseInvoice + LicensePayment · manual recording |
+| M71 Autonomous Operations Engine | ✅ DONE | T71 PR#161 | Framework + 3 jobs + 47 stubs · exception dashboard |
+| M13 AI Tier 2 (Anomaly Detection) | 🟢 | core | 4 detection types |
+| M13 AI Tier 1 (NL Query stub) | 🟢 | core | Graceful degradation |
+| M13 AI Forecasting | 🟢 | core | Moving avg fallback |
 
 ---
 
@@ -125,8 +134,8 @@
 
 | الوحدة | الحالة | Task | ملاحظات |
 |---|---|---|---|
-| Frontend Admin Web (Next.js 15) | 🟢 | T02-T19, T34, T35, T40, T57 merged | CRUD + Quotations + Orders New + Delivery Tracking + Nav Audit مكتملة |
-| M15 Storefront (E-commerce) | 🟢 | T25, T54-T56 merged | Dockerfile + compose + nginx vhost shop.ibherp.cloud · يحتاج DNS + certbot على VPS |
+| Frontend Admin Web (Next.js 15) | 🟢 | T02-T19, T34, T35, T57 merged | CRUD + Quotations + Orders New + Delivery Tracking مكتملة |
+| M15 Storefront (E-commerce) | 🟢 | T25 merged | Dockerfile + compose + nginx vhost shop.ibherp.cloud · يحتاج DNS + certbot على VPS |
 | POS Desktop (Tauri) | 🟡 scaffold | T27 merged | GitHub release workflow جاهز · يحتاج signing + SQLCipher activation |
 | Mobile apps (React Native Expo) | 🟡 scaffold | T28 merged | EAS workflow جاهز · يحتاج EXPO_TOKEN + Apple/Google credentials |
 | WhatsApp Bridge (Fastify) | 🟢 | T26 merged | مدمج في docker-compose · يحتاج WHATSAPP_TOKEN في .env على VPS |
@@ -136,7 +145,6 @@
 | الوحدة | الموجة | ملاحظات |
 |---|---|---|
 | AI Brain (Python FastAPI) | Wave 6 | Ollama + Qwen 7B + PyOD + Prophet — بعد 6 أشهر تشغيل حقيقي |
-| License Guard + Feature Gating | Wave 6 | T59-T71 (T58 DONE PR#112 — schema ready) |
 
 ---
 
@@ -166,7 +174,7 @@
 | Monorepo + pnpm + Turbo | ✅ |
 | 8 governance files | ✅ |
 | apps/api NestJS | 🟢 code complete |
-| Prisma + 9 migrations | 🟢 code complete |
+| Prisma + 6 migrations | 🟢 code complete |
 | Docker Compose (VPS + Dev) | ✅ |
 | Nginx + SSL | ✅ |
 | API Dockerfile multi-stage | ✅ |
@@ -178,4 +186,4 @@
 
 ---
 
-*آخر تحديث: 2026-04-27 — Wave 5 Closeout · T35-T53 كلها مدموجة (19 PRs + 2 HOTFIXes) · Typecheck: api ✅ web ✅ · Smoke test: 9 paths all 307 ✅ · الخطوة التالية: Wave 6 — T59 (License Guard) + T60 (Plans) + T62 (HW Fingerprint)*
+*آخر تحديث: 2026-04-27 — Wave 5 Closeout · T35-T53 كلها مدموجة (19 PRs) · HOTFIXes: PR#130 (posting), PR#139 (@types/react dedup) · الخطوة التالية: Wave 6 — E-commerce (T54-T57) + Licensing (T58-T71)*
