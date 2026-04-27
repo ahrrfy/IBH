@@ -19,7 +19,7 @@ jobs:
     name: gitleaks scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           # Full history needed so we scan ALL commits, not just the latest tree.
           # Catches secrets that landed in older commits even if they were
