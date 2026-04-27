@@ -487,6 +487,11 @@ model User {
   deletedAt   DateTime?
   deletedBy   String?   @db.Char(26)
 
+  // T47 — RBAC Enterprise Upgrade
+  // Per-user data scope: { ownBranchOnly: bool, warehouseIds: string[], amountCap: number? }
+  // null = no extra scope restriction (governed by role + ABAC only).
+  dataScope Json?
+
   company       Company        @relation(fields: [companyId], references: [id])
   branch        Branch?        @relation(fields: [branchId], references: [id])
   userRoles     UserRole[]
@@ -509,10 +514,40 @@ model Role {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // T47 — RBAC Enterprise: hierarchy + temporal validity
+  parentRoleId String? @db.Char(26)
+  parentRole   Role?   @relation("RoleHierarchy", fields: [parentRoleId], references: [id], onDelete: SetNull)
+  childRoles   Role[]  @relation("RoleHierarchy")
+  validFrom    DateTime?
+  validUntil   DateTime?
+
   userRoles UserRole[]
+  sodRules  RoleSeparationOfDuties[]
 
   @@unique([companyId, name])
+  @@index([parentRoleId])
   @@map("roles")
+}
+
+// ============================================================
+// T47 — Separation of Duties (SoD)
+// Defines pairs/sets of conflicting actions that the same user
+// holding this role MUST NOT perform on the same target entity
+// within the configured lookback window (default: 24h).
+// ============================================================
+model RoleSeparationOfDuties {
+  id                 String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  roleId             String   @db.Char(26)
+  // Array of fully qualified actions, e.g. ["po.create", "po.approve"].
+  // ANY two from the same record are mutually exclusive on the same entity.
+  conflictingActions Json
+  description        String?  @db.VarChar(500)
+  createdAt          DateTime @default(now())
+
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@index([roleId])
+  @@map("role_separation_of_duties")
 }
 
 model UserRole {

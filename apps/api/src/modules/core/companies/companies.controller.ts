@@ -85,9 +85,30 @@ export class CompaniesController {
   @RequirePermission('Role', 'update')
   async updateRolePermissions(
     @Param('id') id: string,
-    @Body('permissions') permissions: Record<string, number>,
+    @Body() body: {
+      permissions: Record<string, number>;
+      // T47 — RBAC Enterprise: optional extension fields
+      parentRoleId?: string | null;
+      validFrom?: string | null;
+      validUntil?: string | null;
+      sodRules?: Array<{
+        conflictingActions: string[];
+        description?: string;
+      }>;
+    },
     @CurrentUser() user: UserSession,
   ) {
-    return this.companiesService.updateRolePermissions(id, user.companyId, permissions, user);
+    return this.companiesService.updateRolePermissions(
+      id,
+      user.companyId,
+      body.permissions,
+      user,
+      {
+        parentRoleId: body.parentRoleId,
+        validFrom: body.validFrom,
+        validUntil: body.validUntil,
+        sodRules: body.sodRules,
+      },
+    );
   }
 }

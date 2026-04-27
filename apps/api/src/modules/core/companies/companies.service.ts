@@ -183,6 +183,17 @@ export class CompaniesService {
         isSystem:       true,
         permissions:    true,
         createdAt:      true,
+        // T47 — expose hierarchy + temporal + SoD so the UI can render them.
+        parentRoleId:   true,
+        validFrom:      true,
+        validUntil:     true,
+        sodRules: {
+          select: {
+            id:                 true,
+            conflictingActions: true,
+            description:        true,
+          },
+        },
       },
     });
   }
@@ -237,6 +248,12 @@ export class CompaniesService {
     companyId: string,
     permissions: Prisma.InputJsonValue,
     session: UserSession,
+    extras?: {
+      parentRoleId?: string | null;
+      validFrom?: string | null;
+      validUntil?: string | null;
+      sodRules?: Array<{ conflictingActions: string[]; description?: string }>;
+    },
   ) {
     // Only non-system, company-owned roles can be modified
     const role = await this.prisma.role.findFirst({
@@ -250,9 +267,92 @@ export class CompaniesService {
       });
     }
 
-    const updated = await this.prisma.role.update({
-      where: { id: roleId },
-      data: { permissions },
+    // ── T47 — validate hierarchy + temporal extras ────────────────────────
+    if (extras?.parentRoleId !== undefined && extras.parentRoleId !== null) {
+      if (extras.parentRoleId === roleId) {
+        throw new NotFoundException({
+          code: 'INVALID_PARENT',
+          messageAr: 'لا يمكن أن يكون الدور أباً لنفسه',
+        });
+      }
+      const parent = await this.prisma.role.findFirst({
+        where: {
+          id: extras.parentRoleId,
+          OR: [{ companyId }, { companyId: null }],
+        },
+      });
+      if (!parent) {
+        throw new NotFoundException({
+          code: 'PARENT_NOT_FOUND',
+          messageAr: 'الدور الأب غير موجود',
+        });
+      }
+      // Reject obvious cycles up the proposed parent chain (depth ≤ 10).
+      let cursor: string | null = parent.parentRoleId ?? null;
+      let depth = 0;
+      while (cursor && depth < 10) {
+        if (cursor === roleId) {
+          throw new NotFoundException({
+            code: 'HIERARCHY_CYCLE',
+            messageAr: 'ربط هذا الدور كأب يخلق دورة في تسلسل الأدوار',
+          });
+        }
+        const next: { parentRoleId: string | null } | null =
+          await this.prisma.role.findUnique({
+            where: { id: cursor },
+            select: { parentRoleId: true },
+          });
+        cursor = next?.parentRoleId ?? null;
+        depth += 1;
+      }
+    }
+
+    const validFrom = extras?.validFrom ? new Date(extras.validFrom) : extras?.validFrom === null ? null : undefined;
+    const validUntil = extras?.validUntil ? new Date(extras.validUntil) : extras?.validUntil === null ? null : undefined;
+    if (validFrom instanceof Date && Number.isNaN(validFrom.getTime())) {
+      throw new NotFoundException({ code: 'INVALID_DATE', messageAr: 'تاريخ بدء غير صحيح' });
+    }
+    if (validUntil instanceof Date && Number.isNaN(validUntil.getTime())) {
+      throw new NotFoundException({ code: 'INVALID_DATE', messageAr: 'تاريخ انتهاء غير صحيح' });
+    }
+    if (validFrom instanceof Date && validUntil instanceof Date && validFrom > validUntil) {
+      throw new NotFoundException({
+        code: 'INVALID_DATE_RANGE',
+        messageAr: 'تاريخ البدء بعد تاريخ الانتهاء',
+      });
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const u = await tx.role.update({
+        where: { id: roleId },
+        data: {
+          permissions,
+          ...(extras?.parentRoleId !== undefined ? { parentRoleId: extras.parentRoleId } : {}),
+          ...(validFrom !== undefined ? { validFrom } : {}),
+          ...(validUntil !== undefined ? { validUntil } : {}),
+        },
+      });
+
+      // Replace-all semantics for SoD rules — simplest correct behaviour for
+      // a settings page. Future: per-rule add/remove if usage demands it.
+      if (extras?.sodRules) {
+        await tx.roleSeparationOfDuties.deleteMany({ where: { roleId } });
+        for (const rule of extras.sodRules) {
+          const actions = (rule.conflictingActions ?? [])
+            .map((a) => String(a).trim())
+            .filter((a) => a.length > 0);
+          if (actions.length < 2) continue;
+          await tx.roleSeparationOfDuties.create({
+            data: {
+              roleId,
+              conflictingActions: actions,
+              description: rule.description ?? null,
+            },
+          });
+        }
+      }
+
+      return u;
     });
 
     await this.audit.log({
@@ -263,7 +363,13 @@ export class CompaniesService {
       entityType: 'Role',
       entityId:   roleId,
       before:     { permissions: role.permissions },
-      after:      { permissions },
+      after:      {
+        permissions,
+        parentRoleId: extras?.parentRoleId,
+        validFrom:    extras?.validFrom,
+        validUntil:   extras?.validUntil,
+        sodRulesCount: extras?.sodRules?.length ?? 0,
+      },
     });
 
     return updated;
