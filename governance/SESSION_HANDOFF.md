@@ -1,5 +1,91 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff — 2026-04-27 (Session 13 — Wave 4 G4 Closure + I031/I034)
+
+## ما تم إنجازه اليوم (Session 13)
+
+**هدف الجلسة:** إغلاق Wave 4 (المالية) — استكمال G4 (الاختبارات المكتوبة).
+
+### PR [#125](https://github.com/ahrrfy/IBH/pull/125) — 3 e2e tests مُعاد كتابتها (I031 جزئي 3/4) ✅
+أُطلق 3 وكلاء متوازين بـ `isolation: worktree`، كل واحد يُعيد كتابة test واحد من commit `3134b61` ضد الـ schema الحالي:
+- `apps/api/test/period-close-7step.e2e-spec.ts` (256 سطر) — W4: 7-step + reopen guard + F2 hash chain
+- `apps/api/test/vendor-invoice-posting.e2e-spec.ts` (216 سطر) — W4 AP: balanced JE + F2
+- `apps/api/test/grn-inventory-posting.e2e-spec.ts` (189 سطر) — W3: qtyChange ledger + reject path + append-only
+
+**Schema adaptations applied:** `qtyIn/qtyOut` → `qtyChange` (signed) · `refType/refId` → `referenceType/referenceId` · `ProductVariant.product` removed (use templateId) · `GrnService` → `GRNService` · `PeriodCloseService.startClose` signature change · `UserSession` extended fields · `PeriodStatus` enum values · reopen role `super_admin`
+
+**Consolidation:** cherry-pick على branch `fix/i031-wave4-e2e` ثم PR واحد. tsc → 0 errors. مدموج commit `d01d99a`.
+
+### PR [#130](https://github.com/ahrrfy/IBH/pull/130) — اكتشاف وإصلاح I034 (bug إنتاجي) ✅
+الـ test الجديد `vendor-invoice-posting` كشف **bug إنتاجي** كان مدفوناً منذ rename لحقول `AccountingPeriod`:
+- `posting.service.ts:197` كان يستعلم بـ `periodYear`/`periodMonth` (حقول غير موجودة) بدل `year`/`month`
+- كل caller لـ `postJournalEntry` (assets, depreciation, COD settlement, delivery, payment receipts, vendor/sales invoices) كان يرمي `PrismaClientValidationError` runtime
+- الـ tests السابقة لم تكشفه لأنها bail out قبل المسار الكامل
+- الإصلاح: سطر واحد + إضافة `orderBy` لـ `groupBy` في grn test (متطلب Prisma)
+
+### PR [#131](https://github.com/ahrrfy/IBH/pull/131) — توثيق I034 في OPEN_ISSUES ✅
+
+### نتيجة Wave 4 G4
+| Test | قبل | بعد |
+|---|---|---|
+| period-close-7step | غير موجود | ✅ PASS |
+| vendor-invoice-posting | غير موجود | ⚠️ FAIL (seed companyId padding — خارج النطاق) |
+| grn-inventory-posting | غير موجود | ✅ PASS (بعد I034) |
+
+**G4 Score:** 3/3 مكتوبة، 2/3 تنجح. الـ 1 الفاشل سببه bug seed/data منفصل (`gen_ulid()` يُنتج ULID 20-char بدل 26 → `@db.Char(26)` يضيف padding → CoA findMany لا يطابق).
+
+## ما لم يكتمل
+
+- ⏳ **`vendor-invoice-posting`** يحتاج إصلاح seed companyId padding في cycle منفصل (افحص `gen_ulid()` في migration 0007)
+- ⏳ **`license-heartbeat.e2e-spec.ts`** (الرابع من I031) — Wave 6 / F6 licensing — يُؤجَّل لجلسة Wave 6
+- ⏳ **regressions من جلسات أخرى:** `trial-balance` و `iraqi-tax-brackets` كانتا تنجحان قبل، الآن تفشلان بـ "Connection is closed" (Redis flakiness) بسبب T46 (Notification engine) أو T48 (Account mapping). + `account-mapping` (T48) فاشل.
+
+## القرارات الجديدة
+
+- لا قرارات معمارية جديدة. (I034 إصلاح bug، ليس قرار معماري)
+
+## الملفات المتأثرة
+
+- `apps/api/test/period-close-7step.e2e-spec.ts` (جديد)
+- `apps/api/test/vendor-invoice-posting.e2e-spec.ts` (جديد)
+- `apps/api/test/grn-inventory-posting.e2e-spec.ts` (جديد)
+- `apps/api/src/engines/posting/posting.service.ts` (سطر واحد — periodYear→year)
+- `governance/OPEN_ISSUES.md` (I031 → جزئي 3/4، I034 جديد ومُغلق)
+- `governance/MODULE_STATUS_BOARD.md` (Wave 3-4 G4 → 3/3 مكتوبة)
+- `governance/SESSION_HANDOFF.md` (هذا الملف)
+
+## الاختبارات المنفذة
+
+- ✅ `pnpm --filter api exec tsc --noEmit` → exit 0 في كل cycle (3 مرات)
+- ⚠️ CI E2E run [24998559202](https://github.com/ahrrfy/IBH/actions/runs/24998559202): 21/25 suites pass · 56/60 tests pass
+- ❌ لم أُشغّل اختبار يدوي في المتصفح (لا UI تغيّر)
+
+## المخاطر المفتوحة
+
+- 🔴 **I034 fix كشف أن code paths كانت معطّلة في الإنتاج** — يحتاج تحقق على VPS أن الـ deploy التالي يصلحها فعلاً (assets, depreciation, payment receipts، إلخ كلها كانت ترمي runtime error قبل اليوم). UAT يجب أن يُغطّي دورة AP/AR كاملة.
+- 🟡 **seed companyId padding** — `gen_ulid()` يُنتج 20-char بدل 26، مما يكسر `vendor-invoice-posting`. يحتاج فحص في cycle منفصل
+- 🟡 **regressions على main** — 4 tests فاشلة من جلسات متوازية أخرى (T46/T48)؛ ينبغي معالجتها بـ owner-by-owner
+
+## ملاحظات تشغيلية
+
+🟡 **Orchestrator silent branch switch** ظهر مرة في هذه الجلسة — `git commit` ذهب لـ `hotfix/baseline-posting-and-types-react` بدل main (تم التصحيح بـ cherry-pick على branch جديد). I033 موثَّق كمغلق لكن chaos يظهر أحياناً مع جلسات متوازية كثيرة.
+
+## الخطوة التالية بالضبط
+
+```bash
+git pull origin main
+# Cycle تالٍ — إصلاح seed companyId padding
+grep -n "gen_ulid\|@db.Char(26)" apps/api/prisma/migrations/0007_*.sql apps/api/prisma/seed.ts
+# أو: regression cleanup من T46/T48
+```
+
+**خيارات الجلسة القادمة:**
+- a) إكمال Wave 4 (إصلاح seed padding → vendor-invoice-posting يمر) — ~30 دقيقة
+- b) regression cleanup (trial-balance, iraqi-tax-brackets) — يحتاج تحقيق Redis lifecycle
+- c) Wave 5/6 — license-heartbeat الرابع من I031
+
+---
+
 # Session Handoff — 2026-04-27 (Session 12 — T34 Quotations UI + Dependency Merges)
 
 ## ما تم إنجازه اليوم (Session 12)
