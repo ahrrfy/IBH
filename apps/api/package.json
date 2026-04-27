@@ -34,6 +34,7 @@
     "@nestjs/websockets": "^11.1.19",
     "@prisma/client": "^6.0.0",
     "argon2": "^0.44.0",
+    "bull": "^4.16.5",
     "bullmq": "^5.76.2",
     "cache-manager": "^5.7.0",
     "class-transformer": "^0.5.1",

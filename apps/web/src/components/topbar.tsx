@@ -1,10 +1,11 @@
 'use client';
 
 import {
-  Bell, Search, ChevronDown, User as UserIcon,
+  Search, ChevronDown, User as UserIcon,
   Settings as SettingsIcon, LogOut, Home, ChevronLeft,
   Building2,
 } from 'lucide-react';
+import { NotificationBell } from './notification-bell';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -57,7 +58,6 @@ export function Topbar() {
   const router = useRouter();
   const pathname = usePathname() || '';
   const [menuOpen, setMenuOpen] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -87,7 +87,6 @@ export function Topbar() {
     function onClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
-        setNotifOpen(false);
       }
     }
     window.addEventListener('keydown', onKey);
@@ -159,32 +158,11 @@ export function Topbar() {
 
       {/* Notifications + user menu */}
       <div className="flex items-center gap-1" ref={menuRef}>
-        <div className="relative">
-          <button
-            onClick={() => { setNotifOpen((v) => !v); setMenuOpen(false); }}
-            className="relative flex h-9 w-9 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
-            aria-label="الإشعارات"
-          >
-            <Bell className="h-4 w-4" />
-            <span className="absolute top-2 left-2 h-1.5 w-1.5 rounded-full bg-rose-500" />
-          </button>
-          {notifOpen && (
-            <div className="absolute left-0 mt-2 w-80 rounded-lg border border-slate-200 bg-white shadow-panel">
-              <div className="border-b border-slate-200 px-4 py-3 font-semibold text-slate-900">
-                الإشعارات
-              </div>
-              <div className="max-h-80 overflow-y-auto">
-                <div className="px-4 py-6 text-center text-sm text-slate-500">
-                  لا توجد إشعارات جديدة
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <NotificationBell />
 
         <div className="relative">
           <button
-            onClick={() => { setMenuOpen((v) => !v); setNotifOpen(false); }}
+            onClick={() => { setMenuOpen((v) => !v); }}
             className="flex items-center gap-2 rounded-lg px-2 h-9 hover:bg-slate-100"
           >
             <div className="h-7 w-7 rounded-full bg-sky-700 text-white grid place-items-center text-xs font-bold">

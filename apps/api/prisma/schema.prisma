@@ -3003,3 +3003,44 @@ model ReorderPoint {
   @@unique([variantId, warehouseId])
   @@map("reorder_points")
 }
+
+// ─── Notifications (T46) ───────────────────────────────────────────────────
+// Per-user notifications dispatched by the Notification Dispatch Engine.
+// `data` carries event-specific payload (e.g. invoiceId, amount). `readAt`
+// is null until the user marks it read; the in-app bell counts unread rows
+// per (userId).
+model Notification {
+  id        String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId String    @db.Char(26)
+  userId    String    @db.Char(26)
+  eventType String    @db.VarChar(80)
+  title     String    @db.VarChar(200)
+  body      String    @db.VarChar(2000)
+  data      Json      @default("{}")
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([companyId, eventType])
+  @@map("notifications")
+}
+
+// ─── NotificationPreference (T46) ──────────────────────────────────────────
+// Per-user, per-event preference. `channels` is the enabled subset of
+// ['inApp','whatsapp','email','sms']. Quiet hours apply to whatsapp/sms only;
+// in-app and email always deliver immediately. Times are HH:MM strings in the
+// user's local timezone (defer logic computes next-morning UTC delay).
+model NotificationPreference {
+  id               String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  userId           String   @db.Char(26)
+  eventType        String   @db.VarChar(80)
+  channels         String[] // ['inApp','whatsapp','email','sms']
+  quietHoursStart  String?  @db.VarChar(5) // "22:00"
+  quietHoursEnd    String?  @db.VarChar(5) // "07:00"
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([userId, eventType])
+  @@index([userId])
+  @@map("notification_preferences")
+}
