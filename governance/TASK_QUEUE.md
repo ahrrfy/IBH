@@ -556,8 +556,11 @@
 ---
 
 #### T33 — Delivery Web UI (Bidirectional + Live Tracking)
-- **Status:** ⏳ TODO
-- **Deps:** [T31, T32]
+- **Status:** 🔄 IN_PROGRESS
+- **Owner:** claude-sonnet-4-6-20260427-T33
+- **Branch:** `feat/t33-delivery-web-ui`
+- **Started:** 2026-04-27T16:00:00Z
+- **Deps:** [T31 ✅, T32 ✅]
 - **File scope:**
   - `apps/web/src/app/(app)/delivery/page.tsx` (dashboard live)
   - `apps/web/src/app/(app)/delivery/dispatches/page.tsx` (list + filters)
