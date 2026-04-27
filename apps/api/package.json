@@ -61,17 +61,17 @@
     "@nestjs/testing": "^11.1.19",
     "@types/compression": "^1.8.1",
     "@types/express": "^5.0.0",
-    "@types/jest": "^29.5.0",
+    "@types/jest": "^30.0.0",
     "@types/node": "^22.0.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/passport-local": "^1.0.38",
     "@types/qrcode": "^1.5.6",
-    "jest": "^29.7.0",
+    "jest": "^30.0.0",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.9",
     "ts-node": "^10.9.2",
     "tsx": "^4.19.0",
-    "typescript": "^5.5.0"
+    "typescript": "^6.0.3"
   },
   "prisma": {
     "seed": "tsx prisma/seed-bootstrap.ts"
