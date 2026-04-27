@@ -317,6 +317,57 @@ async function main() {
   }
   console.log(`✅ Posting profiles: ${profiles.length}`);
 
+  // ─── 11b. Account Mappings (T48 — Financial Accounts Configurator) ──────
+  // One row per (company, eventType). These replace hardcoded GL literals
+  // baked into posting code paths in sales/purchases/inventory/payroll/etc.
+  // Codes here MUST match codes seeded into the Iraqi CoA above.
+  const accountMappings: Array<{ eventType: string; code: string; description: string }> = [
+    // Sales — F2: every sale event = balanced JE via posting engine
+    { eventType: 'sale.cash',           code: '2411', description: 'Cash debit on cash sale' },
+    { eventType: 'sale.credit',         code: '221',  description: 'AR debit on credit sale' },
+    { eventType: 'sale.revenue.cash',   code: '511',  description: 'Cash sales revenue' },
+    { eventType: 'sale.revenue.cr',     code: '512',  description: 'Credit sales revenue' },
+    { eventType: 'sale.cogs',           code: '611',  description: 'COGS' },
+    { eventType: 'sale.inventory',      code: '212',  description: 'Inventory credit on sale' },
+    { eventType: 'sale.return.cogs',    code: '611',  description: 'COGS reversal on sales return' },
+    // Purchases / Vendor invoices
+    { eventType: 'purchase.ap',         code: '321',  description: 'AP credit on vendor invoice' },
+    { eventType: 'purchase.inventory',  code: '212',  description: 'Inventory debit on GRN' },
+    { eventType: 'purchase.vat.in',     code: '341',  description: 'Input VAT receivable' },
+    { eventType: 'purchase.freight',    code: '643',  description: 'Freight inwards expense' },
+    { eventType: 'purchase.misc.income',code: '593',  description: 'Misc income on purchase' },
+    { eventType: 'grn.clearing',        code: '331',  description: 'GRN clearing / GR-IR' },
+    // Payroll
+    { eventType: 'payroll.gross',       code: '621',  description: 'Gross salary expense' },
+    { eventType: 'payroll.tax',         code: '342',  description: 'Income tax withheld payable' },
+    { eventType: 'payroll.ss',          code: '331',  description: 'Social security payable' },
+    { eventType: 'payroll.net',         code: '2411', description: 'Net salary payable (cash/bank)' },
+    // Fixed assets
+    { eventType: 'asset.cash',          code: '2411', description: 'Cash credit on asset purchase' },
+    { eventType: 'asset.ap',            code: '321',  description: 'AP credit on asset purchase' },
+    { eventType: 'asset.maintenance',   code: '636',  description: 'Asset maintenance expense' },
+    { eventType: 'asset.gain',          code: '593',  description: 'Misc income on asset disposal' },
+    // Banking
+    { eventType: 'bank.charge',         code: '662',  description: 'Bank charges expense' },
+    { eventType: 'bank.interest',       code: '593',  description: 'Bank interest income (misc)' },
+    // AR receipts
+    { eventType: 'ar.control',          code: '221',  description: 'AR control account' },
+  ];
+  for (const m of accountMappings) {
+    if (!codeToId[m.code]) continue; // skip if CoA code missing in this company
+    await prisma.accountMapping.upsert({
+      where: { companyId_eventType: { companyId: company.id, eventType: m.eventType } },
+      create: {
+        companyId:   company.id,
+        eventType:   m.eventType,
+        accountCode: m.code,
+        description: m.description,
+      },
+      update: { accountCode: m.code, description: m.description },
+    });
+  }
+  console.log(`✅ Account mappings: ${accountMappings.length}`);
+
   // ─── 12. Walk-in Customer ───────────────────────────────────────────────
   const exists = await prisma.customer.findFirst({ where: { companyId: company.id, code: 'WALK-IN' } });
   if (!exists) {

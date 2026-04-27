@@ -14,9 +14,10 @@ import { SequenceModule } from '../../engines/sequence/sequence.module';
 import { PostingModule } from '../../engines/posting/posting.module';
 import { PolicyModule } from '../../engines/policy/policy.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { FinanceModule } from '../finance/finance.module';
 
 @Module({
-  imports: [AuditModule, SequenceModule, PostingModule, PolicyModule, InventoryModule],
+  imports: [AuditModule, SequenceModule, PostingModule, PolicyModule, InventoryModule, FinanceModule],
   controllers: [
     CustomersController,
     QuotationsController,
