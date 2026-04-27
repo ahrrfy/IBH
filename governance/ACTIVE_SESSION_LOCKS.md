@@ -73,7 +73,10 @@ Before marking a session closed:
 
 ## Active Locks (live)
 
-**لا قفول نشطة — جميع T-tasks مغلقة. الريبو نظيف.**
+| Session ID | Agent | Branch | Owned Scope | Allowed Files | Forbidden Files | Status |
+|---|---|---|---|---|---|---|
+| claude-opus-4-7-20260427-T31 | Claude Code (Opus 4.7) | `feat/t31-realtime-infra` | T31 — Real-time Infrastructure (WebSocket + Event Relay) | `apps/api/src/platform/realtime/**`, `apps/api/src/app.module.ts`, `apps/api/package.json`, `apps/web/src/lib/realtime/**`, `apps/web/src/components/connection-status.tsx`, `apps/web/src/app/(app)/layout.tsx`, `apps/web/package.json`, `pnpm-lock.yaml`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | All other modules/pages | Active |
 
-_(T01 closed PR#6 fa3aeee · T13 closed PR#13 58d9d30 · T25 closed PR#28 f4f358d)_
-_(All 30 T-tasks closed 2026-04-26 — full history in TASK_QUEUE.md)_
+_(Historical:_
+
+T01 closed PR#6 fa3aeee · T13 closed PR#13 58d9d30 · T25 closed PR#28 f4f358d · All 30 T-tasks closed 2026-04-26 — full history in TASK_QUEUE.md)_
