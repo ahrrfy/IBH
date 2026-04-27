@@ -162,7 +162,7 @@ describe('Purchases — GRN inventory posting invariants (e2e)', () => {
     const grouped = await prisma.stockLedgerEntry.groupBy({
       by: ['variantId', 'warehouseId', 'companyId'],
       _count: { _all: true },
-      having: { id: { _count: { gt: 1 } } },
+      having: { _count: { _all: { gt: 1 } } },
       orderBy: [{ variantId: 'asc' }],
       take: 5,
     });
