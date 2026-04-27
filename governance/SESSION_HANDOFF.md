@@ -1,5 +1,76 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff — 2026-04-27 (Session 14 — I033 Worktree Isolation + Wave 2 Cycles 1-3)
+
+## ما تم إنجازه (Session 14)
+
+**هدف الجلسة:** إصلاح bug جذري في orchestrator (I033) حلّ شكوى المالك "الوكيل لا يكمل المهمة"، ثم بدء استكمال Wave 2 بالعمل التوازي عبر النمط الجديد.
+
+### الجزء الأول — إغلاق I033 (السبب الجذري للتشويش)
+
+PR [#115](https://github.com/ahrrfy/IBH/pull/115) — **FIX-I033: orchestrator worktree isolation**
+- `cmd_claim` ينشئ worktree معزولاً تحت `.worktrees/<tid>/` لكل مهمة
+- `cmd_complete` و `cmd_release` يستخدمان `git worktree remove` بدل `git checkout`
+- Typechecks تعمل داخل الـ worktree، لا تلوّث main
+- إضافة `TASK_SINGLE_SESSION_LOCK=1` كقفل اختياري صارم
+- إضافة `LEGACY_INPLACE=1` كمخرج طوارئ
+- `.gitignore`: `.worktrees/`
+- تحديث `governance/SESSION_PROTOCOL.md` بمثال `cd .worktrees/<tid>`
+
+PR [#117](https://github.com/ahrrfy/IBH/pull/117) — **FIX-I033 followup: relax cmd_claim guard**
+اكتُشف عند أول claim توازي حقيقي: حراسة PR #108 كانت ترفض claim ثانٍ من main worktree حتى لو كانت worktrees الإخوة معزولة. تخفيف الحراسة لتفحص main worktree فقط.
+
+**النتيجة:** الجلسات المتوازية لم تعد تتعارض. `cf6a344` ("claim(T33)" يحوي كود T38) لن يتكرر.
+
+### الجزء الثاني — Wave 2 Cycles 1-3
+
+كل cycle: 2-3 ملفات/agent (CLAUDE.md compliant)، typecheck نظيف، CI أخضر، deploy نجح.
+
+| PR | المهمة | المحتوى |
+|---|---|---|
+| [#116](https://github.com/ahrrfy/IBH/pull/116) | T38(c1) | report slug: `top-suppliers` (1/17) |
+| [#119](https://github.com/ahrrfy/IBH/pull/119) | T35(c1) | Sales Orders MVP form + Zod |
+| [#118](https://github.com/ahrrfy/IBH/pull/118) | T39(c1) | CRM Leads `new` + `[id]/edit` |
+| [#132](https://github.com/ahrrfy/IBH/pull/132) | T38(c2) | `sales-by-product` + `sales-by-customer` (2-3/17) |
+| [#138](https://github.com/ahrrfy/IBH/pull/138) | T38(c3) | `ar-aging` + `stock-on-hand` (4-5/17) |
+| [#133](https://github.com/ahrrfy/IBH/pull/133) | T39(c2) | Marketing Campaigns `new` + `[id]` + `[id]/edit` |
+
+**8 PRs كلها مدموجة في main + production HTTP 200.**
+
+### اكتشافات معمارية (T39 cycle 3 محظور مرتين)
+
+1. **`/job-orders/[id]/edit` محظور بالتصميم** — Backend لا يحوي `PATCH/PUT /job-orders/:id`. Job orders documents مالية بحالة (status state machine + locked pricing + BOM cost layers). تعديل حر = F2 violation. **توصية:** حذف رابط `/edit` من sidebar/list أو استبداله بزر "إلغاء + إنشاء جديد".
+
+2. **CRM Opportunities غير موجود** — لا model، لا controller. الـ TASK_QUEUE ذكره كصفحات مكسورة لكن الـ module نفسه لم يُبنى. **قرار مالك مطلوب:** بناء opportunities backend (T-جديد + DECISIONS_LOG) أم حذف من spec T39؟
+
+## حالة Wave 2 الفعلية بعد الجلسة
+
+| | حالة |
+|---|---|
+| T31–T34 | ✅ DONE |
+| T35 | 🟡 cycle 1 done — يحتاج cycle 2 لميزات الذكاء |
+| T36 | 🔄 PR #124 (جلسة موازية) — مفتاح لإغلاق T37 + T40 |
+| T37 | 🚫 BLOCKED على T36 |
+| T38 | 🟡 5/17 slugs done — 12 متبقّي |
+| T39 | 🟡 5 صفحات done (Leads + Campaigns) — يحتاج تنقيح spec |
+| T40 | 🚫 BLOCKED على T36 + T39 |
+
+## جلسة موازية (PRs مفتوحة الآن)
+
+T36 (#124) · T42 (#126) · T43 (#127) · T44 (#128) · T45 (#134) · T49 (#135) · T51 (#129) · T54 (#136) · session-13-close (#114).
+
+Wave 3 مدموج جزئياً عبر الجلسة الموازية: T41 ✅ · T46 ✅ · T47 ✅ · T48 ✅. وكذلك HOTFIX-I035 (#139).
+
+## الخطوة التالية للجلسة القادمة
+
+1. انتظار merge PR #124 (T36 — POS) → يفتح T37 + T40
+2. T35 cycle 2 (smart features في customer-combobox + product-combobox)
+3. T38 cycles 4-8 (4 slugs بكل cycle لإكمال 12 المتبقّي)
+4. **قرار مالك:** CRM Opportunities backend (T-جديد) أم حذف من T39
+5. إصلاح seed `gen_ulid()` padding (من Session 13) — يُغلق آخر e2e
+
+---
+
 # Session Handoff — 2026-04-27 (Session 13 — Wave 4 G4 Closure + I031/I034)
 
 ## ما تم إنجازه اليوم (Session 13)
