@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Param, Query, HttpCode, HttpStatus } from 
 import { CurrentUser } from '../../../engines/auth/decorators/current-user.decorator';
 import { RequirePermission } from '../../../engines/auth/decorators/require-permission.decorator';
 import type { UserSession } from '@erp/shared-types';
-import { ShiftsService, OpenShiftDto, CloseShiftDto, ShiftsQuery } from './shifts.service';
+import { ShiftsService, OpenShiftDto, CloseShiftDto, ShiftsQuery, DenominationCount } from './shifts.service';
 
 @Controller('pos/shifts')
 export class ShiftsController {
@@ -30,6 +30,23 @@ export class ShiftsController {
   @RequirePermission('pos.shift.operate')
   openShift(@Body() dto: OpenShiftDto, @CurrentUser() user: UserSession) {
     return this.service.openShift(dto, user);
+  }
+
+  /**
+   * Blind cash count preview. The cashier submits their denomination tally
+   * without ever seeing the expected drawer total on screen. The server
+   * returns expected vs counted vs variance, plus whether the variance
+   * exceeds tolerance and therefore needs manager approval.
+   */
+  @Post(':id/close/preview')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermission('pos.shift.operate')
+  previewBlindClose(
+    @Param('id') id: string,
+    @Body() body: { denominationCounts: DenominationCount[] },
+    @CurrentUser() user: UserSession,
+  ) {
+    return this.service.previewBlindClose(id, body.denominationCounts ?? [], user);
   }
 
   @Post(':id/close')

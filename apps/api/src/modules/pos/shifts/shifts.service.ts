@@ -12,6 +12,68 @@ export interface DenominationCount {
   count: number;
 }
 
+/** IQD denominations supported by the blind cash count. */
+export const IQD_DENOMINATIONS = [250, 500, 1000, 5000, 10000, 25000, 50000] as const;
+
+/**
+ * Pure variance calculator — kept side-effect free so it can be
+ * unit-tested in isolation (no Prisma, no DB).
+ *
+ * variance = countedCash − expectedCash
+ *   positive  → cash over (drawer has more than system says)
+ *   negative  → cash short (drawer is missing money)
+ *   zero      → exact match
+ *
+ * @param input.openingCashIqd  cash in drawer at shift open
+ * @param input.cashReceipts    sum of completed cash receipts on this shift
+ * @param input.cashRefunds     sum of voided/refunded cash receipts on this shift
+ * @param input.cashInMovements deposits/transfers into the drawer mid-shift
+ * @param input.cashOutMovements withdrawals/pickups/petty cash out
+ * @param input.countedDenominations cashier's blind denomination tally
+ * @param input.toleranceIqd    company policy threshold above which the
+ *                              variance must be approved by a manager
+ */
+export function computeBlindVariance(input: {
+  openingCashIqd: Prisma.Decimal | number | string;
+  cashReceipts: Prisma.Decimal | number | string;
+  cashRefunds: Prisma.Decimal | number | string;
+  cashInMovements: Prisma.Decimal | number | string;
+  cashOutMovements: Prisma.Decimal | number | string;
+  countedDenominations: DenominationCount[];
+  toleranceIqd: number;
+}): {
+  countedCashIqd: string;
+  expectedCashIqd: string;
+  varianceIqd: string;
+  isShort: boolean;
+  isOver: boolean;
+  isExact: boolean;
+  exceedsTolerance: boolean;
+  requiresManagerApproval: boolean;
+} {
+  const counted = input.countedDenominations.reduce(
+    (acc, c) => acc.plus(new Prisma.Decimal(c.denom).times(c.count)),
+    new Prisma.Decimal(0),
+  );
+  const expected = new Prisma.Decimal(input.openingCashIqd)
+    .plus(input.cashReceipts)
+    .minus(input.cashRefunds)
+    .plus(input.cashInMovements)
+    .minus(input.cashOutMovements);
+  const variance = counted.minus(expected);
+  const exceedsTolerance = variance.abs().greaterThan(input.toleranceIqd);
+  return {
+    countedCashIqd: counted.toString(),
+    expectedCashIqd: expected.toString(),
+    varianceIqd: variance.toString(),
+    isShort: variance.isNegative(),
+    isOver: variance.isPositive() && !variance.isZero(),
+    isExact: variance.isZero(),
+    exceedsTolerance,
+    requiresManagerApproval: exceedsTolerance,
+  };
+}
+
 export interface OpenShiftDto {
   posDeviceId: string;
   cashierId?: string;
@@ -127,6 +189,96 @@ export class ShiftsService {
       }
       throw err;
     }
+  }
+
+  /**
+   * Blind-count preview: cashier types denominations *without* seeing the
+   * system-expected total. Backend computes expected from receipts +
+   * cash-movements and returns the variance. The frontend uses
+   * `requiresManagerApproval` to decide whether to gate the close behind a
+   * manager passcode/approval. This method is read-only — no DB writes.
+   *
+   * Business rule: keep the cashier blind from the expected figure on the
+   * UI side; backend always computes truth here and on `closeShift`.
+   */
+  async previewBlindClose(
+    shiftId: string,
+    denominationCounts: DenominationCount[],
+    session: UserSession,
+  ) {
+    const shift = await this.prisma.shift.findFirst({
+      where: { id: shiftId, companyId: session.companyId },
+      include: { device: true },
+    });
+    if (!shift) throw new NotFoundException('الوردية غير موجودة');
+    if (shift.status !== 'open') {
+      throw new BadRequestException('الوردية غير مفتوحة');
+    }
+
+    // Reject denominations not in the official IQD list — defends against
+    // tampered clients sending arbitrary denomination values.
+    for (const c of denominationCounts) {
+      if (!IQD_DENOMINATIONS.includes(c.denom as (typeof IQD_DENOMINATIONS)[number])) {
+        throw new BadRequestException(`فئة غير صالحة: ${c.denom}`);
+      }
+      if (!Number.isInteger(c.count) || c.count < 0) {
+        throw new BadRequestException('عدد الأوراق يجب أن يكون عدداً صحيحاً غير سالب');
+      }
+    }
+
+    const cashReceiptsAgg = await this.prisma.pOSReceiptPayment.aggregate({
+      _sum: { amountIqd: true },
+      where: {
+        method: 'cash',
+        receipt: { shiftId: shift.id, status: 'completed' },
+      },
+    });
+    const refundedCashAgg = await this.prisma.pOSReceiptPayment.aggregate({
+      _sum: { amountIqd: true },
+      where: {
+        method: 'cash',
+        receipt: { shiftId: shift.id, status: { in: ['voided', 'refunded'] } },
+      },
+    });
+    const cashInAgg = await this.prisma.cashMovement.aggregate({
+      _sum: { amountIqd: true },
+      where: {
+        shiftId: shift.id,
+        toAccountId: shift.device.cashAccountId,
+        movementType: { in: ['deposit'] },
+      },
+    });
+    const cashOutAgg = await this.prisma.cashMovement.aggregate({
+      _sum: { amountIqd: true },
+      where: {
+        shiftId: shift.id,
+        fromAccountId: shift.device.cashAccountId,
+        movementType: { in: ['withdrawal', 'interim_pickup', 'petty_cash'] },
+      },
+    });
+
+    const toleranceIqd = await this.policy.getNumber(
+      session.companyId,
+      'shift_close_tolerance',
+      5000,
+    );
+
+    const result = computeBlindVariance({
+      openingCashIqd: shift.openingCashIqd,
+      cashReceipts: cashReceiptsAgg._sum.amountIqd ?? 0,
+      cashRefunds: refundedCashAgg._sum.amountIqd ?? 0,
+      cashInMovements: cashInAgg._sum.amountIqd ?? 0,
+      cashOutMovements: cashOutAgg._sum.amountIqd ?? 0,
+      countedDenominations: denominationCounts,
+      toleranceIqd,
+    });
+
+    return {
+      shiftId: shift.id,
+      shiftNumber: shift.shiftNumber,
+      toleranceIqd,
+      ...result,
+    };
   }
 
   async closeShift(shiftId: string, dto: CloseShiftDto, session: UserSession) {
