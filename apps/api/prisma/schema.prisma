@@ -1682,9 +1682,10 @@ model POSReceipt {
   createdAt           DateTime      @default(now())
   createdBy           String        @db.Char(26)
 
-  shift    Shift               @relation(fields: [shiftId], references: [id])
-  lines    POSReceiptLine[]
-  payments POSReceiptPayment[]
+  shift        Shift               @relation(fields: [shiftId], references: [id])
+  lines        POSReceiptLine[]
+  payments     POSReceiptPayment[]
+  conflictLogs PosConflictLog[]
 
   @@unique([companyId, number])
   @@unique([clientUlid])
@@ -1727,6 +1728,33 @@ model POSReceiptPayment {
   @@map("pos_receipt_payments")
 }
 
+
+/// I003 — POS offline sync conflict log (append-only, F2 spirit)
+/// Created when a POS receipt syncs and server-side data diverges from POS data.
+/// The receipt is ALWAYS posted (business continuity). This table captures the
+/// divergence for manager review.
+model PosConflictLog {
+  id            String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId     String    @db.Char(26)
+  branchId      String    @db.Char(26)
+  receiptId     String    @db.Char(26)
+  clientUlid    String?   @db.VarChar(26)
+  conflictType  String    @db.VarChar(50)
+  variantId     String?   @db.Char(26)
+  posValue      String    @db.VarChar(200)
+  serverValue   String    @db.VarChar(200)
+  resolution    String    @db.VarChar(30)
+  notes         String?   @db.VarChar(500)
+  resolvedBy    String?   @db.Char(26)
+  resolvedAt    DateTime?
+  createdAt     DateTime  @default(now())
+
+  receipt POSReceipt @relation(fields: [receiptId], references: [id])
+
+  @@index([companyId, resolution, createdAt])
+  @@index([receiptId])
+  @@map("pos_conflict_logs")
+}
 model CashMovement {
   id             String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
   companyId      String   @db.Char(26)

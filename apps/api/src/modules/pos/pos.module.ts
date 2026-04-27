@@ -7,6 +7,8 @@ import { ReceiptsController } from './receipts/receipts.controller';
 import { ReceiptsService } from './receipts/receipts.service';
 import { CashMovementsController } from './cash/cash-movements.controller';
 import { CashMovementsService } from './cash/cash-movements.service';
+import { PosConflictsController } from './conflicts/conflicts.controller';
+import { PosConflictsService } from './conflicts/conflicts.service';
 import { AuditModule } from '../../engines/audit/audit.module';
 import { SequenceModule } from '../../engines/sequence/sequence.module';
 import { PostingModule } from '../../engines/posting/posting.module';
@@ -15,8 +17,20 @@ import { InventoryModule } from '../inventory/inventory.module';
 
 @Module({
   imports: [AuditModule, SequenceModule, PostingModule, PolicyModule, InventoryModule],
-  controllers: [POSDevicesController, ShiftsController, ReceiptsController, CashMovementsController],
-  providers: [POSDevicesService, ShiftsService, ReceiptsService, CashMovementsService],
-  exports: [ShiftsService, ReceiptsService],
+  controllers: [
+    POSDevicesController,
+    ShiftsController,
+    ReceiptsController,
+    CashMovementsController,
+    PosConflictsController,
+  ],
+  providers: [
+    POSDevicesService,
+    ShiftsService,
+    ReceiptsService,
+    CashMovementsService,
+    PosConflictsService,
+  ],
+  exports: [ShiftsService, ReceiptsService, PosConflictsService],
 })
 export class POSModule {}

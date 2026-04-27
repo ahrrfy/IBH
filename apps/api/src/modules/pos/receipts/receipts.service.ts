@@ -5,6 +5,7 @@ import { SequenceService } from '../../../engines/sequence/sequence.service';
 import { PostingService } from '../../../engines/posting/posting.service';
 import { PolicyService } from '../../../engines/policy/policy.service';
 import { InventoryService } from '../../inventory/inventory.service';
+import { PosConflictsService } from '../conflicts/conflicts.service';
 import { Prisma, PaymentMethod } from '@prisma/client';
 import type { UserSession } from '@erp/shared-types';
 
@@ -48,6 +49,7 @@ export class ReceiptsService {
     private readonly posting: PostingService,
     private readonly policy: PolicyService,
     private readonly inventory: InventoryService,
+    private readonly conflicts: PosConflictsService,
   ) {}
 
   async createReceipt(dto: CreateReceiptDto, session: UserSession) {
@@ -344,21 +346,98 @@ export class ReceiptsService {
     }, { timeout: 15000 });
   }
 
+  /**
+   * Sync a batch of offline POS receipts to the server.
+   *
+   * Strategy: Last-Write-Wins + conflict log (I003).
+   * - The receipt is ALWAYS posted (business continuity — cashier already gave the product).
+   * - Conflicts (price mismatch >5%, insufficient stock, inactive product) are detected
+   *   before posting, logged append-only, and flagged for manager review.
+   * - Stock goes negative only when the company policy allows it (prevent_negative_stock=false).
+   *
+   * @param receipts - Offline receipts collected by the POS device
+   * @param session  - Session performing the sync
+   * @returns Summary with per-receipt results and conflict counts
+   */
   async syncOfflineBatch(receipts: OfflineReceiptDto[], session: UserSession) {
-    const results: Array<{ clientUlid?: string; ok: boolean; id?: string; error?: string }> = [];
+    const results: Array<{
+      clientUlid?: string;
+      ok: boolean;
+      id?: string;
+      error?: string;
+      conflicts?: number;
+    }> = [];
+
     for (const r of receipts) {
       try {
+        // ── Step 1: Detect conflicts BEFORE posting (read-only) ──────────
+        const shift = await this.prisma.shift.findFirst({
+          where: { id: r.shiftId, companyId: session.companyId },
+          include: { device: true },
+        });
+
+        const warehouseId = shift?.device?.warehouseId ?? '';
+
+        const detectedConflicts = warehouseId
+          ? await this.conflicts.detectConflicts({
+              receiptId: '', // placeholder — filled after receipt is created
+              clientUlid: r.clientUlid,
+              branchId: shift!.branchId,
+              lines: r.lines.map((l) => ({
+                variantId: l.variantId,
+                qty: Number(l.qty),
+                unitPriceIqd: Number(l.unitPriceIqd),
+              })),
+              warehouseId,
+            })
+          : [];
+
+        // ── Step 2: Post the receipt regardless of conflicts ─────────────
         const created = await this.createReceipt({ ...r, isOffline: true }, session);
-        results.push({ clientUlid: r.clientUlid, ok: true, id: created.id });
+
+        // ── Step 3: Persist conflict log (append-only, F2 spirit) ────────
+        if (detectedConflicts.length > 0 && shift) {
+          await this.conflicts.persistConflicts(
+            session.companyId,
+            {
+              receiptId: created.id,
+              clientUlid: r.clientUlid,
+              branchId: shift.branchId,
+              lines: r.lines.map((l) => ({
+                variantId: l.variantId,
+                qty: Number(l.qty),
+                unitPriceIqd: Number(l.unitPriceIqd),
+              })),
+              warehouseId,
+            },
+            detectedConflicts,
+          );
+        }
+
+        results.push({
+          clientUlid: r.clientUlid,
+          ok: true,
+          id: created.id,
+          conflicts: detectedConflicts.length,
+        });
       } catch (err: any) {
         results.push({
           clientUlid: r.clientUlid,
           ok: false,
           error: err?.message ?? 'error',
+          conflicts: 0,
         });
       }
     }
-    return { synced: results.filter((r) => r.ok).length, total: receipts.length, results };
+
+    const totalConflicts = results.reduce((acc, r) => acc + (r.conflicts ?? 0), 0);
+
+    return {
+      synced: results.filter((r) => r.ok).length,
+      total: receipts.length,
+      conflicts: totalConflicts,
+      results,
+    };
   }
 
   async holdReceipt(receiptId: string, session: UserSession) {
