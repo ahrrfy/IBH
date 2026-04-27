@@ -1,5 +1,51 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff — 2026-04-27 (Session 12 — I033 root-cause fix + parallel-session chaos postmortem) ✅ CLOSED
+
+## ما تم إنجازه
+
+### الإصلاح الجذري (I033)
+- ✅ **PR #108** مدموج (`baefed2`) — حراسة في `scripts/orchestrator/task.sh:cmd_claim` ترفض الـ claim إذا أي branch مهمة آخر مفتوح في أي worktree
+- ✅ **OPEN_ISSUES.md** — إضافة I033 مع شرح كامل للجذر (5 أسطر `git checkout` على worktree مشترك)
+
+### Wave 2 المُنجَز بالتوازي
+- T32 (PR #103, deployed) · T33 (PR #106 + #107) · T34 (PR #109) · T35 (PR #113) · T57 (PR #110)
+- T58 license schema مدفوع لـ `feat/t58-license-schema-migration` (4 commits) — يحتاج PR
+
+### تنظيف
+- ✅ 4 stale branches محذوفة (local + remote)
+- ✅ rogue rebase aborted، main نظيف ومتزامن
+
+## ما لم يكتمل
+
+- ⏳ T38 `top-suppliers` slug — مفقود في commit مختلط `cf6a344`
+- ⏳ `cmd_complete` و `cmd_release` لا يزالان `git checkout` (أقل ضرراً من claim)
+- ⏳ SESSION_PROTOCOL.md worktree-per-session — كُتب 3 مرات وأُعيد revertه؛ يحتاج PR منفصل
+
+## القرارات الجديدة
+
+- **D15** (ضمنياً عبر PR #108): `git refs as lock` يحمي GitHub فقط؛ `git worktree` هو الطبقة الصحيحة للعزل المحلي
+
+## الاختبارات
+
+- ✅ `bash -n scripts/orchestrator/task.sh` نظيف
+- ✅ PR #108 CI: Typecheck + Build · E2E · CodeQL · gitleaks · GitGuardian — كلها pass
+- ✅ T32 prod: HTTP 200
+
+## الخطوة التالية بالضبط
+
+```bash
+# قبل أي claim — أنشئ worktree معزول
+cd "$(git rev-parse --show-toplevel)"
+git fetch origin main --quiet
+git worktree add "../$(basename $PWD)-claude-$(date +%s)" origin/main
+cd ../<the-new-dir>
+bash scripts/orchestrator/task.sh status
+bash scripts/orchestrator/task.sh claim
+```
+
+---
+
 # Session Handoff — 2026-04-27 (Session 11 — T35 Sales Order New page)
 
 ## ما تم إنجازه اليوم
