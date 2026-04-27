@@ -15,7 +15,7 @@ import { ConfigService } from '@nestjs/config';
 import { authenticator } from 'otplib';
 import * as QRCode from 'qrcode';
 import {
-  createCipheriv, createDecipheriv, randomBytes, scryptSync, createHash,
+  createCipheriv, createDecipheriv, randomBytes, randomInt, scryptSync, createHash,
 } from 'crypto';
 import { PrismaService } from '../../platform/prisma/prisma.service';
 
@@ -203,10 +203,10 @@ export class TotpService {
 
   private randomBackupCode(): string {
     // 8 chars, alphanumeric uppercase, no ambiguous (0,O,1,I)
+    // Use randomInt for unbiased selection (modulo on randomBytes can bias for non-power-of-2 alphabets)
     const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let s = '';
-    const bytes = randomBytes(8);
-    for (let i = 0; i < 8; i++) s += alphabet[bytes[i] % alphabet.length];
+    for (let i = 0; i < 8; i++) s += alphabet[randomInt(0, alphabet.length)];
     return s;
   }
 

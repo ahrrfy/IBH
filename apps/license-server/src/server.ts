@@ -13,6 +13,7 @@
  * falls back to its 30-day grace check (offline-friendly).
  */
 import Fastify from 'fastify';
+import rateLimit from '@fastify/rate-limit';
 import { z } from 'zod';
 import 'dotenv/config';
 import {
@@ -32,6 +33,14 @@ const ADMIN_TOKEN = process.env.LICENSE_ADMIN_TOKEN ?? '';
 const revoked = new Set<string>();
 
 const fastify = Fastify({ logger: true });
+
+// Rate-limit: protects /heartbeat and /issue from abuse (per-IP).
+// /health is excluded so liveness probes always succeed.
+await fastify.register(rateLimit, {
+  max: 60,
+  timeWindow: '1 minute',
+  allowList: (req) => req.url === '/health',
+});
 
 fastify.get('/health', async () => ({ status: 'ok', service: 'license-server' }));
 

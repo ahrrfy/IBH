@@ -51,7 +51,8 @@ export class PortalService {
     }
     if (typeof dto.email === 'string') {
       const e = dto.email.trim();
-      if (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) {
+      // Length cap before regex to prevent ReDoS on adversarial inputs (RFC 5321: 254 max)
+      if (e && (e.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))) {
         throw new BadRequestException({ code: 'VALIDATION_ERROR', messageAr: 'البريد الإلكتروني غير صالح' });
       }
       data.email = e || undefined;

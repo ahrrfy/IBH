@@ -108,3 +108,4 @@ apps/web/tsconfig.tsbuildinfo
 
 # Orchestrator per-task worktrees (I033 — see scripts/orchestrator/task.sh)
 .worktrees/
+.claude/worktrees/

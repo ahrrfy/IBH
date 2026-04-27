@@ -62,6 +62,11 @@ export interface ApiRequestInit extends Omit<RequestInit, 'body'> {
 }
 
 function buildUrl(path: string, query?: ApiRequestInit['query']): string {
+  // Reject absolute URLs / protocol-relative URLs to prevent SSRF / CSRF
+  // (the api() helper is for same-origin /api/* endpoints only).
+  if (/^[a-z][a-z0-9+.-]*:/i.test(path) || path.startsWith('//')) {
+    throw new Error(`api(): absolute URLs are not allowed (got: ${path.slice(0, 50)})`);
+  }
   // API uses URI versioning: /api/v1/...
   // Accept paths in any of these forms and normalize:
   //   '/auth/login'          → '/api/v1/auth/login'
