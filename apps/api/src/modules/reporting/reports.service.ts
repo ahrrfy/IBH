@@ -61,38 +61,73 @@ export class ReportsService {
     );
   }
 
+  /**
+   * Sales by Product report (T38).
+   * Ranks product variants by total sold (IQD) for the given period.
+   * Source: sales_invoice_lines joined with sales_invoices and product templates.
+   * F1: scoped by companyId (RLS upstream + explicit filter here).
+   * F2: read-only aggregation, no journal mutation.
+   * @param companyId tenant scope
+   * @param params.from start of date range (inclusive)
+   * @param params.to end of date range (inclusive)
+   * @param params.limit max rows (default 20)
+   * @param params.orderBy 'revenue' (default) or 'qty'
+   * @returns rows of { productId, productName, totalSold, qtySold, invoiceCount, lastSaleDate }
+   */
   async salesByProduct(
     companyId: string,
     params: { from: Date; to: Date; limit?: number; orderBy?: 'revenue' | 'qty' },
   ) {
-    const orderCol = params.orderBy === 'qty' ? 'qty' : 'revenue';
-    const limit = params.limit ?? 50;
+    const orderCol = params.orderBy === 'qty' ? '"qtySold"' : '"totalSold"';
+    const limit = params.limit ?? 20;
     return this.prisma.$queryRawUnsafe(
-      `SELECT sil."variantId", p."nameAr" AS product_name,
-              SUM(sil."qty")::float AS qty, SUM(sil."lineTotalIqd")::float AS revenue
+      `SELECT sil."variantId" AS "productId",
+              p."nameAr" AS "productName",
+              SUM(sil."lineTotalIqd")::float AS "totalSold",
+              SUM(sil."qty")::float AS "qtySold",
+              COUNT(DISTINCT sil."invoiceId")::int AS "invoiceCount",
+              MAX(si."invoiceDate") AS "lastSaleDate"
        FROM "sales_invoice_lines" sil
        JOIN "sales_invoices" si ON si.id = sil."invoiceId"
        JOIN "product_variants" pv ON pv.id = sil."variantId"
        JOIN "product_templates" p ON p.id = pv."templateId"
        WHERE si."companyId" = $1 AND si."invoiceDate" BETWEEN $2 AND $3
        GROUP BY sil."variantId", p."nameAr"
-       ORDER BY ${orderCol} DESC LIMIT ${limit}`,
+       ORDER BY ${orderCol} DESC
+       LIMIT ${limit}`,
       companyId,
       params.from,
       params.to,
     );
   }
 
+  /**
+   * Sales by Customer report (T38).
+   * Ranks customers by total sales (IQD) for the given period.
+   * Source: sales_invoices joined with customers — same pattern as topSuppliersReport.
+   * F1: scoped by companyId (RLS upstream + explicit filter here).
+   * F2: read-only aggregation, no journal mutation.
+   * @param companyId tenant scope
+   * @param params.from start of date range (inclusive)
+   * @param params.to end of date range (inclusive)
+   * @param params.limit max rows (default 20)
+   * @returns rows of { customerId, customerName, totalSales, invoiceCount, lastInvoiceDate, avgInvoiceValue }
+   */
   async salesByCustomer(companyId: string, params: { from: Date; to: Date; limit?: number }) {
-    const limit = params.limit ?? 50;
+    const limit = params.limit ?? 20;
     return this.prisma.$queryRawUnsafe(
-      `SELECT si."customerId", c."nameAr" AS customer_name,
-              COUNT(*)::int AS invoice_count, SUM(si."totalIqd")::float AS revenue
+      `SELECT si."customerId" AS "customerId",
+              c."nameAr" AS "customerName",
+              SUM(si."totalIqd")::float AS "totalSales",
+              COUNT(*)::int AS "invoiceCount",
+              MAX(si."invoiceDate") AS "lastInvoiceDate",
+              AVG(si."totalIqd")::float AS "avgInvoiceValue"
        FROM "sales_invoices" si
        LEFT JOIN "customers" c ON c.id = si."customerId"
        WHERE si."companyId" = $1 AND si."invoiceDate" BETWEEN $2 AND $3
        GROUP BY si."customerId", c."nameAr"
-       ORDER BY revenue DESC LIMIT ${limit}`,
+       ORDER BY "totalSales" DESC
+       LIMIT ${limit}`,
       companyId,
       params.from,
       params.to,

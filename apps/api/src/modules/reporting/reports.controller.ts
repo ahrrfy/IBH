@@ -25,7 +25,7 @@ export class ReportsController {
   salesByProduct(@CurrentUser() session: UserSession, @Query() q: any) {
     return this.reports.salesByProduct(session.companyId, {
       ...this.parseRange(q),
-      limit: q.limit ? Number(q.limit) : 50,
+      limit: q.limit ? Number(q.limit) : 20,
       orderBy: q.orderBy,
     });
   }
@@ -35,7 +35,7 @@ export class ReportsController {
   salesByCustomer(@CurrentUser() session: UserSession, @Query() q: any) {
     return this.reports.salesByCustomer(session.companyId, {
       ...this.parseRange(q),
-      limit: q.limit ? Number(q.limit) : 50,
+      limit: q.limit ? Number(q.limit) : 20,
     });
   }
 
