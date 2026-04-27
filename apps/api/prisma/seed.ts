@@ -16,6 +16,7 @@
  */
 import { PrismaClient, AccountCategory, AccountType, WarehouseType } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { seedPlans } from './seed/plans.seed';
 
 const prisma = new PrismaClient();
 
@@ -380,6 +381,9 @@ async function main() {
     });
   }
   console.log('✅ Walk-in customer');
+
+  // ─── 13. Subscription Plans (T60) ────────────────────────────────────────
+  await seedPlans(prisma);
 
   console.log('\n🎉 Seed complete!');
   console.log('   Login: see SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD env vars');
