@@ -1,8 +1,33 @@
 # SESSION_HANDOFF.md
 
-# Session Handoff — 2026-04-27 (Session 11 — T35 Sales Order New page)
+# Session Handoff — 2026-04-27 (Session 12 — T34 Quotations UI + Dependency Merges)
 
-## ما تم إنجازه اليوم
+## ما تم إنجازه اليوم (Session 12)
+
+### T34 — Sales Quotations UI ✅ (PR #109 — `5bfa546`)
+- 4 صفحات: list + new + detail (send/accept/reject/convert) + edit (draft-only guard)
+- `sidebar.tsx`: إضافة `عروض الأسعار` (FileText)
+
+### Dependencies مدموجة ✅
+- PR #91 — CI: fetch-metadata 2→3 · PR #90 — CI: actions/checkout 4→6
+- PR #94 — lucide-react 0.577.0 web + lockfile fix (`4e7b71a`)
+- PR #92 — lucide-react 0.577.0 storefront + lockfile fix (`676b404`)
+- PR #105 — T35 مكرر → مغلق (المحتوى في #113)
+
+**main الآن:** `676b404` — نظيف، لا branches معلّقة
+
+### PRs مجمّدة (major — I032)
+#98 @vitejs/plugin-react · #97 zod 4 · #96 ulid 3 · #95 next 16 · #93 @types/node 25
+
+### الخطوة التالية
+```bash
+git pull origin main
+bash scripts/next-task.sh  # T36 أو T39
+```
+
+---
+
+## (Session 11 archive) ما تم إنجازه
 
 - ✅ **T35 مدموج على main** — commit `6b041d3` عبر PR #113 (auto-merge بعد CI أخضر):
   - `apps/web/src/components/customer-combobox.tsx` (جديد) — بحث + رصيد + حد ائتمان + تحذير تجاوز
