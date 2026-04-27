@@ -3254,3 +3254,54 @@ model CommissionEntry {
   @@index([companyId, status])
   @@map("commission_entries")
 }
+
+// ─── T42 — Smart Inventory Engine ───────────────────────────────────────────
+// Inventory health flags raised by the Q01..Q12 quality rules. One row per
+// (variant, warehouse, ruleCode) — re-running the engine UPSERTs the row so
+// only the latest state is kept. Append a row to InventoryFlagHistory if you
+// need a longitudinal trail later (out of scope for T42).
+
+model InventoryFlag {
+  id           String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId    String   @db.Char(26)
+  variantId    String   @db.Char(26)
+  warehouseId  String   @db.Char(26)
+  ruleCode     String   @db.VarChar(8)   // Q01 .. Q12
+  severity     String   @db.VarChar(16)  // info | warning | critical
+  messageAr    String   @db.VarChar(500)
+  messageEn    String?  @db.VarChar(500)
+  metric       Decimal? @db.Decimal(18, 3)
+  threshold    Decimal? @db.Decimal(18, 3)
+  payload      Json     @default("{}")
+  detectedAt   DateTime @default(now())
+  resolvedAt   DateTime?
+  resolvedBy   String?  @db.Char(26)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([variantId, warehouseId, ruleCode])
+  @@index([companyId, ruleCode, severity])
+  @@index([companyId, resolvedAt])
+  @@map("inventory_flags")
+}
+
+// Audit trail of nightly auto-reorder scans. Each run records what we
+// scanned, how many flags were created, and how many draft POs were drafted.
+
+model AutoReorderRun {
+  id              String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String    @db.Char(26)
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+  status          String    @db.VarChar(16) // running | completed | failed
+  triggeredBy     String?   @db.Char(26)    // userId or null for cron
+  scannedSkus     Int       @default(0)
+  flagsCreated    Int       @default(0)
+  flagsResolved   Int       @default(0)
+  draftPosCreated Int       @default(0)
+  errorMessage    String?   @db.VarChar(2000)
+  payload         Json      @default("{}")
+
+  @@index([companyId, startedAt])
+  @@map("auto_reorder_runs")
+}
