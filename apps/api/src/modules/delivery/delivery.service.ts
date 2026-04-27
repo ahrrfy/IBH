@@ -4,6 +4,7 @@ import { AuditService } from '../../engines/audit/audit.service';
 import { SequenceService } from '../../engines/sequence/sequence.service';
 import { PostingService } from '../../engines/posting/posting.service';
 import { InventoryService } from '../inventory/inventory.service';
+import { AutoAssignService } from './delivery-companies/auto-assign.service';
 import { Prisma, DeliveryStatus } from '@prisma/client';
 import type { UserSession } from '@erp/shared-types';
 
@@ -22,6 +23,11 @@ type CreateDto = {
   shippingFeeIqd?: number | string;
   codAmountIqd?: number | string;
   notes?: string;
+  // T32 — explicit overrides; if omitted, auto-assign runs
+  deliveryCompanyId?: string;
+  deliveryZoneId?: string;
+  weightKg?: number;
+  skipAutoAssign?: boolean;
 };
 
 type ListFilters = {
@@ -61,6 +67,7 @@ export class DeliveryService {
     private readonly sequence: SequenceService,
     private readonly posting: PostingService,
     private readonly inventory: InventoryService,
+    private readonly autoAssign: AutoAssignService,
   ) {}
 
   private assertTransition(from: DeliveryStatus, to: DeliveryStatus) {
@@ -109,28 +116,89 @@ export class DeliveryService {
 
     const number = await this.sequence.next(companyId, 'DLV');
 
+    // T32 — auto-assign external delivery company unless caller provides one
+    // or explicitly opts out. When dto.deliveryCompanyId is supplied we trust it
+    // and only enrich shippingCostIqd/commissionIqd by looking up the rate.
+    let assignedCompanyId: string | null = dto.deliveryCompanyId ?? null;
+    let assignedZoneId: string | null = dto.deliveryZoneId ?? null;
+    let shippingCost = new Prisma.Decimal(0);
+    let cachedCommissionPct = new Prisma.Decimal(0);
+    let assignmentReason: string | null = null;
+
+    if (!assignedCompanyId && !dto.skipAutoAssign) {
+      const pick = await this.autoAssign.pick(
+        {
+          companyId,
+          deliveryCity:   dto.deliveryCity ?? null,
+          deliveryZoneId: dto.deliveryZoneId ?? null,
+          weightKg:       dto.weightKg ?? null,
+          invoiceTotalIqd: codAmount.gt(0) ? codAmount : null,
+        },
+        codAmount.gt(0), // require COD support if there's a COD amount
+      );
+      assignedCompanyId = pick.deliveryCompanyId;
+      assignedZoneId    = pick.deliveryZoneId;
+      shippingCost      = pick.shippingCostIqd;
+      assignmentReason  = pick.reason;
+    } else if (assignedCompanyId) {
+      assignmentReason = 'manual';
+    }
+
+    if (assignedCompanyId) {
+      const co = await this.prisma.deliveryCompany.findFirst({
+        where: { id: assignedCompanyId, companyId },
+        select: { commissionPct: true, flatFeePerOrderIqd: true, isActive: true, autoSuspendedAt: true },
+      });
+      if (!co) {
+        throw new BadRequestException({
+          code: 'DLV_COMPANY_INVALID',
+          messageAr: 'شركة التوصيل غير موجودة',
+        });
+      }
+      if (!co.isActive || co.autoSuspendedAt) {
+        throw new BadRequestException({
+          code: 'DLV_COMPANY_INACTIVE',
+          messageAr: 'شركة التوصيل غير نشطة',
+        });
+      }
+      cachedCommissionPct = co.commissionPct as unknown as Prisma.Decimal;
+      // If caller forced a company without auto-assign computing cost, fall back to flat fee
+      if (shippingCost.eq(0) && (co.flatFeePerOrderIqd as unknown as Prisma.Decimal).gt(0)) {
+        shippingCost = co.flatFeePerOrderIqd as unknown as Prisma.Decimal;
+      }
+    }
+
+    const cachedCommission = codAmount.gt(0) && cachedCommissionPct.gt(0)
+      ? codAmount.mul(cachedCommissionPct).div(100)
+      : new Prisma.Decimal(0);
+
     const result = await this.prisma.$transaction(async (tx) => {
       const delivery = await tx.deliveryOrder.create({
         data: {
           companyId,
-          branchId:        dto.branchId ?? session.branchId ?? '',
+          branchId:          dto.branchId ?? session.branchId ?? '',
           number,
-          salesOrderId:    dto.salesOrderId ?? null,
-          invoiceId:       dto.invoiceId ?? null,
-          customerId:      dto.customerId,
-          warehouseId:     dto.warehouseId,
-          status:          DeliveryStatus.pending_dispatch,
-          plannedDate:     dto.plannedDate ? new Date(dto.plannedDate) : null,
-          deliveryAddress: dto.deliveryAddress,
-          deliveryCity:    dto.deliveryCity ?? null,
-          deliveryLat:     dto.deliveryLat ?? null,
-          deliveryLng:     dto.deliveryLng ?? null,
-          createdBy:       session.userId,
-          contactPhone: dto.contactPhone ?? null,
-          shippingFeeIqd: this.toDecimal(dto.shippingFeeIqd),
-          codAmountIqd: codAmount,
-          codCollectedIqd: new Prisma.Decimal(0),
-          notes: dto.notes ?? null,
+          salesOrderId:      dto.salesOrderId ?? null,
+          invoiceId:         dto.invoiceId ?? null,
+          customerId:        dto.customerId,
+          warehouseId:       dto.warehouseId,
+          status:            DeliveryStatus.pending_dispatch,
+          plannedDate:       dto.plannedDate ? new Date(dto.plannedDate) : null,
+          deliveryAddress:   dto.deliveryAddress,
+          deliveryCity:      dto.deliveryCity ?? null,
+          deliveryLat:       dto.deliveryLat ?? null,
+          deliveryLng:       dto.deliveryLng ?? null,
+          createdBy:         session.userId,
+          contactPhone:      dto.contactPhone ?? null,
+          shippingFeeIqd:    this.toDecimal(dto.shippingFeeIqd),
+          codAmountIqd:      codAmount,
+          codCollectedIqd:   new Prisma.Decimal(0),
+          notes:             dto.notes ?? null,
+          deliveryCompanyId: assignedCompanyId ?? null,
+          deliveryZoneId:    assignedZoneId ?? null,
+          assignmentReason:  assignmentReason,
+          shippingCostIqd:   shippingCost,
+          commissionIqd:     cachedCommission,
         },
       });
 
@@ -152,7 +220,14 @@ export class DeliveryService {
         action: 'delivery.create',
         entityType: 'DeliveryOrder',
         entityId: delivery.id,
-        metadata: { number, customerId: dto.customerId },
+        metadata: {
+          number,
+          customerId: dto.customerId,
+          deliveryCompanyId: assignedCompanyId,
+          deliveryZoneId:    assignedZoneId,
+          assignmentReason,
+          shippingCost:      shippingCost.toString(),
+        },
       });
 
       return delivery;
