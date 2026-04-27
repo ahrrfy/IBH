@@ -16,6 +16,7 @@ import { WorkflowModule } from './engines/workflow/workflow.module';
 import { PrismaModule }   from './platform/prisma/prisma.module';
 import { RedisModule }    from './platform/redis/redis.module';
 import { HealthModule }   from './platform/health/health.module';
+import { RealtimeModule } from './platform/realtime/realtime.module';
 
 // Business Modules (Wave 1)
 import { CoreModule }      from './modules/core/core.module';
@@ -82,6 +83,7 @@ import { ReportingModule } from './modules/reporting/reporting.module';
     PrismaModule,
     RedisModule,
     HealthModule,
+    RealtimeModule,
 
     // ── Engines (M01) ──────────────────────────────────────────────────────
     AuthModule,
