@@ -21,10 +21,15 @@ export default function LeadDetailPage() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <Link href="/crm/leads" className="text-sm text-sky-700 hover:underline">← العودة للقائمة</Link>
-        <h1 className="mt-2 text-3xl font-bold">{data.nameAr}</h1>
-        <p className="text-sm text-slate-500">{data.source ?? '—'} · {data.stage ?? '—'}</p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <Link href="/crm/leads" className="text-sm text-sky-700 hover:underline">← العودة للقائمة</Link>
+          <h1 className="mt-2 text-3xl font-bold">{data.nameAr}</h1>
+          <p className="text-sm text-slate-500">{data.source ?? '—'} · {data.stage ?? '—'}</p>
+        </div>
+        <Link href={`/crm/leads/${id}/edit`} className="rounded border px-4 py-2 text-sm text-sky-700 hover:bg-sky-50">
+          تعديل
+        </Link>
       </header>
 
       <section className="grid gap-4 md:grid-cols-2">
