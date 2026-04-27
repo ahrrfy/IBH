@@ -498,10 +498,11 @@
 ---
 
 #### T31 — Real-time Infrastructure (الأساس لكل ما بعده)
-- **Status:** 🔄 IN_PROGRESS
-- **Owner:** claude-opus-4-7-20260427-T31
-- **Branch:** `feat/t31-realtime-infra`
-- **Started:** 2026-04-27T00:00:00Z
+- **Status:** ✅ DONE
+- **Owner:** prior session
+- **Branch:** merged via PR #87 (recovered from PR #84)
+- **Commit:** `d9e5a5d`
+- **Completed:** 2026-04-27 (pre-session)
 - **Deps:** []
 - **Priority:** 🔴 CRITICAL — يجب أن تكتمل قبل T32+
 - **File scope:**
@@ -527,7 +528,10 @@
 ---
 
 #### T32 — External Delivery Companies BE
-- **Status:** ⏳ TODO
+- **Status:** 🔄 IN_PROGRESS
+- **Owner:** claude-opus-4-7-20260427-T32
+- **Branch:** `feat/t32-delivery-companies-be`
+- **Started:** 2026-04-27T00:00:00Z
 - **Deps:** []
 - **File scope:**
   - `apps/api/prisma/schema.prisma` (extend `DeliveryCompany`, `DeliveryZone`, `DeliveryCompanyRate`)
