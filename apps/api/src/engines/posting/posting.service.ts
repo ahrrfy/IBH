@@ -194,7 +194,7 @@ export class PostingService {
     const year = params.entryDate.getFullYear();
     const month = params.entryDate.getMonth() + 1;
     const period = await client.accountingPeriod.findFirst({
-      where: { companyId: params.companyId, periodYear: year, periodMonth: month },
+      where: { companyId: params.companyId, year, month },
       select: { id: true },
     });
 
