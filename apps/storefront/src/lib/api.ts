@@ -92,3 +92,34 @@ export async function verifyOtp(phone: string, code: string) {
     body: JSON.stringify({ phone, code }),
   });
 }
+
+// ─── Public delivery tracking (no auth) ───────────────────────────────────────
+
+export interface PublicTracking {
+  number: string;
+  status:
+    | 'pending_dispatch'
+    | 'assigned'
+    | 'in_transit'
+    | 'delivered'
+    | 'failed'
+    | 'returned'
+    | 'cancelled';
+  deliveryCity: string | null;
+  plannedDate: string | null;
+  dispatchedAt: string | null;
+  deliveredAt: string | null;
+  failureReason: string | null;
+  externalWaybillNo: string | null;
+  deliveryCompany: { nameAr: string; phone: string | null; whatsapp: string | null } | null;
+  statusLogs: Array<{
+    fromStatus: string | null;
+    toStatus: string;
+    changedAt: string;
+    notes: string | null;
+  }>;
+}
+
+export async function getPublicTracking(waybill: string) {
+  return api<PublicTracking>(`/delivery/public/track/${encodeURIComponent(waybill)}`);
+}

@@ -11,12 +11,19 @@ import {
 import { DeliveryService } from './delivery.service';
 import { CurrentUser } from '../../engines/auth/decorators/current-user.decorator';
 import { RequirePermission } from '../../engines/auth/decorators/require-permission.decorator';
+import { Public } from '../../engines/auth/decorators/public.decorator';
 import type { UserSession } from '@erp/shared-types';
 import { DeliveryStatus } from '@prisma/client';
 
 @Controller('delivery')
 export class DeliveryController {
   constructor(private readonly svc: DeliveryService) {}
+
+  @Public()
+  @Get('public/track/:number')
+  publicTrack(@Param('number') number: string) {
+    return this.svc.findPublicByNumber(number);
+  }
 
   @Get()
   @RequirePermission('Delivery', 'read')
