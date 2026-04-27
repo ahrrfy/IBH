@@ -7,6 +7,10 @@
 #
 # Security updates are NEVER grouped (open immediately, separately) —
 # Dependabot does this automatically regardless of `groups`.
+#
+# Major version freezes (2026-04-27):
+#   18 major-bump PRs were closed and frozen in I032 (governance/OPEN_ISSUES.md).
+#   Re-enable each ignore rule when the corresponding migration session is ready.
 
 version: 2
 
@@ -26,6 +30,17 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    # Major version freezes — re-enable by removing the ignore rule when ready.
+    # Security PRs are still created even for ignored versions (Dependabot override).
+    ignore:
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]   # v4 needs full CSS rewrite (I032)
+      - dependency-name: "react-router-dom"
+        update-types: ["version-update:semver-major"]   # v7 = Remix merge, breaking API (I032)
+      - dependency-name: "recharts"
+        update-types: ["version-update:semver-major"]   # v3 breaking chart API (I032)
+      - dependency-name: "@nestjs/swagger"
+        update-types: ["version-update:semver-major"]   # 8→11 three major versions (I032)
     commit-message:
       prefix: chore(deps)
       include: scope
@@ -46,6 +61,17 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]   # v6 needs ecosystem stabilisation (I032)
+      - dependency-name: "prisma"
+        update-types: ["version-update:semver-major"]   # v7 needs full ORM migration (I032)
+      - dependency-name: "@prisma/client"
+        update-types: ["version-update:semver-major"]   # paired with prisma (I032)
+      - dependency-name: "@nestjs/bull"
+        update-types: ["version-update:semver-major"]   # v11 queue API changes (I032)
+      - dependency-name: "@nestjs/config"
+        update-types: ["version-update:semver-major"]   # v4 ConfigModule changes (I032)
     commit-message:
       prefix: chore(api/deps)
       include: scope
@@ -66,6 +92,19 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]   # (I032)
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]   # (I032)
+      - dependency-name: "tailwind-merge"
+        update-types: ["version-update:semver-major"]   # v3 requires Tailwind 4 (I032)
+      - dependency-name: "lucide-react"
+        update-types: ["version-update:semver-major"]   # v1 renamed many icons (I032)
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]   # v25 type changes (I032)
+      - dependency-name: "react-router-dom"
+        update-types: ["version-update:semver-major"]   # (I032)
     commit-message:
       prefix: chore(web/deps)
       include: scope
@@ -86,6 +125,13 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]   # (I032)
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]   # (I032)
+      - dependency-name: "react-router-dom"
+        update-types: ["version-update:semver-major"]   # (I032)
     commit-message:
       prefix: chore(pos/deps)
       include: scope
@@ -126,6 +172,13 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]   # (I032)
+      - dependency-name: "lucide-react"
+        update-types: ["version-update:semver-major"]   # (I032)
+      - dependency-name: "zod"
+        update-types: ["version-update:semver-major"]   # v4 breaking validation API (I032)
     commit-message:
       prefix: chore(storefront/deps)
       include: scope
