@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Get,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { TotpService } from './totp.service';
 import { Public } from './decorators/public.decorator';
@@ -106,7 +107,10 @@ export class AuthController {
 
   // ─── Refresh Token ────────────────────────────────────────────────────
 
+  // Rate-limit refresh endpoint specifically (10/min/IP) to prevent
+  // brute-force attempts to guess refresh tokens. Tighter than the global default.
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(

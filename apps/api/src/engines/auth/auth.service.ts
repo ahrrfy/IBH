@@ -17,6 +17,15 @@ import { REDIS_CLIENT, REDIS_KEYS } from '../../platform/redis/redis.constants';
 import { Inject } from '@nestjs/common';
 import type Redis from 'ioredis';
 import type { LoginRequest, LoginResponse, AuthenticatedUser, JwtPayload } from '@erp/shared-types';
+import type { Prisma } from '@prisma/client';
+
+/** Shape of the User row fetched in login flows — includes company + userRoles */
+type LoginUser = Prisma.UserGetPayload<{
+  include: {
+    company: { select: { id: true; code: true; nameAr: true; plan: true; isActive: true } };
+    userRoles: { include: { role: { select: { name: true; permissions: true } } } };
+  };
+}>;
 
 // Result of step 1 (password verified) — second step requires TOTP code
 export interface MfaChallenge {
@@ -201,7 +210,7 @@ export class AuthService {
 
   /** Internal — both direct + post-MFA paths converge here */
   private async completeLogin(params: {
-    user: any;
+    user: LoginUser;
     roles: string[];
     deviceId: string;
     ipAddress: string;

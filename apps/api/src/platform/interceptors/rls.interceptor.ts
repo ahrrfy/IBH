@@ -4,6 +4,7 @@ import {
   ExecutionContext,
   CallHandler,
   Logger,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { PrismaService } from '../prisma/prisma.service';
@@ -61,13 +62,17 @@ export class RlsInterceptor implements NestInterceptor {
           });
         })
         .catch(err => {
-          this.logger.error('Failed to set RLS context', err);
-          // Allow request to proceed — RLS policies still protect at DB level
-          next.handle().subscribe({
-            next:     (value) => observer.next(value),
-            error:    (e)     => observer.error(e),
-            complete: ()      => observer.complete(),
-          });
+          // FAIL-CLOSED: if we can't set the RLS session vars we cannot guarantee
+          // company-scoped queries — refuse the request rather than risk cross-company
+          // data exposure if any policy uses USING (true) as a fallback.
+          this.logger.error('Failed to set RLS context — refusing request', err);
+          observer.error(
+            new InternalServerErrorException({
+              code: 'RLS_CONTEXT_FAILED',
+              messageAr: 'تعذّر تأمين سياق الجلسة — حاول لاحقاً',
+              messageEn: 'Failed to establish security context — please retry',
+            }),
+          );
         });
     });
   }

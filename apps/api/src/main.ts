@@ -110,7 +110,10 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: false,
+      // Reject requests with extra fields rather than silently strip them.
+      // Prevents prototype-pollution / hidden-payload attacks; forces clients
+      // to send only documented fields.
+      forbidNonWhitelisted: true,
       transform: true,
       transformOptions: { enableImplicitConversion: true },
     }),

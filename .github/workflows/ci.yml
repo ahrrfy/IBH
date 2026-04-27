@@ -28,6 +28,8 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Check migration prefix uniqueness
+        run: bash scripts/check-migration-prefixes.sh
       - name: Generate Prisma client
         run: pnpm --filter api exec prisma generate
       - name: Build workspace packages first
