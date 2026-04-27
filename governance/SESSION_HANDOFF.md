@@ -1,9 +1,43 @@
 # SESSION_HANDOFF.md
 
-# Session Handoff — 2026-04-27 (Session 15 + 16 — Wave 6 + Audit P0 + Ops Workflows)
+# Session Handoff — 2026-04-27 (Session 15 + 16 + 17 — Wave 6 + Audit P0 + Ops Workflows + Disk Cleanup)
 
 ## Branch: main
-## Latest commit: 05c2e29 — chore(lockfile): resync after I032 Batch 3 TypeScript 5→6 bump
+## Latest commit: ccc167b — docs(governance): session 16 close — audit P0 fixes + ops workflows
+
+---
+
+## Session 17 addendum — VPS disk cleanup + permanent prevention (I043)
+
+User flagged VPS disk grew from 15GB to 120GB. Live SSH diagnosis on
+`srv1548487.hstgr.cloud` traced the bloat: `/var/lib/docker = 114GB`, of which
+**108.5GB was Docker build cache** accumulated from active development deploys
+(api + web + tauri builds × dozens of pushes). PostgreSQL volume only 708MB,
+all critical data intact.
+
+Live cleanup ran end-to-end via Hostinger web terminal:
+`docker image prune -af` + `docker builder prune -af` + `docker container prune -f`
++ truncate `*-json.log` + `journalctl --vacuum-size=500M` + `apt-get clean`.
+Result: **120GB → 19GB used (-101GB, ~84% reduction)**, all 15 containers still
+running, no data lost.
+
+### Prevention layer landed (this session)
+1. **`.github/workflows/vps-disk-cleanup.yml`** — manual `workflow_dispatch` for
+   on-demand cleanup. Includes `dry_run` input. Idempotent. Mirrors the live
+   commands that worked.
+2. **`.github/workflows/vps-disk-setup.yml`** — one-time `workflow_dispatch` that
+   installs `/etc/docker/daemon.json` (log-opts: max-size=50m, max-file=3,
+   compress=true) + `/etc/cron.weekly/al-ruya-disk-cleanup` (auto-prune every
+   Sunday, logs to `/var/log/al-ruya-disk-cleanup.log` with self-truncation
+   at 10MB).
+3. **D15 in `DECISIONS_LOG.md`** — formal disk-management policy.
+4. **I043 in `OPEN_ISSUES.md`** — closed with full root-cause analysis and
+   pointer to the prevention workflows.
+
+### ⚠️ Action required from owner
+Run `vps-disk-setup.yml` **once** from GitHub Actions UI to activate the
+permanent prevention. Until that runs, the current cleanup is a one-shot —
+build cache will accumulate again as deploys continue.
 
 ---
 

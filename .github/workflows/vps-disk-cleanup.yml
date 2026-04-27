@@ -1,0 +1,117 @@
+name: VPS Disk Cleanup
+
+# Manual workflow_dispatch — frees VPS disk by pruning Docker build cache,
+# unused images, stopped containers, container json-logs, journald, apt cache.
+#
+# What it WILL NOT touch:
+# - Docker volumes (PostgreSQL data, MinIO data, Redis AOF)
+# - Running containers
+# - Images in use by running containers
+#
+# Background: I043 — disk grew 15GB→120GB in ~2 weeks, 108.5GB was stale
+# Docker build cache from successive deploys. After running this we observed
+# 120GB→19GB. Recommended cadence: monthly, or whenever disk crosses 60%.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (show what would be cleaned, do not delete)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+concurrency:
+  group: vps-disk-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Clean VPS disk
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -T 5 -t rsa,ecdsa,ed25519 -H "$VPS_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Snapshot BEFORE
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            echo "===== DISK USAGE BEFORE ====="
+            df -h /
+            echo ""
+            echo "===== DOCKER BREAKDOWN BEFORE ====="
+            docker system df
+          '
+
+      - name: Run cleanup
+        if: ${{ inputs.dry_run != 'true' }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            set -e
+            echo "===== Pruning unused images ====="
+            docker image prune -af
+            echo ""
+            echo "===== Pruning build cache ====="
+            docker builder prune -af
+            echo ""
+            echo "===== Pruning stopped containers ====="
+            docker container prune -f
+            echo ""
+            echo "===== Truncating container json-logs ====="
+            for f in /var/lib/docker/containers/*/*-json.log; do
+              [ -f "$f" ] && : > "$f" 2>/dev/null || true
+            done
+            echo "done"
+            echo ""
+            echo "===== Vacuuming journald to 500M ====="
+            journalctl --vacuum-size=500M
+            echo ""
+            echo "===== Cleaning apt cache ====="
+            apt-get clean
+            rm -rf /var/cache/apt/archives/*.deb 2>/dev/null || true
+          '
+
+      - name: Dry-run preview
+        if: ${{ inputs.dry_run == 'true' }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            echo "===== DRY RUN — what WOULD be reclaimed ====="
+            echo ""
+            echo "--- Image prune (dangling + unused) ---"
+            docker image prune -a --filter "until=0h" --force --dry-run 2>/dev/null || \
+              docker images --filter "dangling=true" -q | wc -l | xargs -I{} echo "{} dangling images"
+            echo ""
+            echo "--- Build cache size ---"
+            docker system df -v 2>/dev/null | grep -A1 "Build cache" || true
+            echo ""
+            echo "--- Stopped containers ---"
+            docker ps -a --filter status=exited --filter status=created --format "table {{.Names}}\t{{.Status}}"
+            echo ""
+            echo "--- Journal disk usage ---"
+            journalctl --disk-usage
+          '
+
+      - name: Snapshot AFTER
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            echo "===== DISK USAGE AFTER ====="
+            df -h /
+            echo ""
+            echo "===== DOCKER BREAKDOWN AFTER ====="
+            docker system df
+          '
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519

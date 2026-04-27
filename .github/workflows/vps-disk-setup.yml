@@ -1,0 +1,118 @@
+name: VPS Disk Setup (one-time)
+
+# One-time setup workflow — installs preventive disk policies on the VPS:
+#   1. /etc/docker/daemon.json with log-opts (max-size=50m, max-file=3)
+#      so container json-logs can never grow unbounded again.
+#   2. /etc/cron.weekly/al-ruya-disk-cleanup — weekly auto-prune of unused
+#      images and build cache (Sunday 03:00 UTC).
+#
+# Idempotent: re-running overwrites with the same content; no harm.
+# Manual trigger only — should not run on every push.
+#
+# Background: I043 — Docker build cache + unbounded container logs filled
+# 100GB+ of disk over 2 weeks of active development. This workflow makes
+# such accumulation impossible going forward.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup:
+    name: Install disk policies on ibherp.cloud
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -T 5 -t rsa,ecdsa,ed25519 -H "$VPS_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Install /etc/docker/daemon.json
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            set -e
+            mkdir -p /etc/docker
+            # Backup existing config if present and not already backed up
+            if [ -f /etc/docker/daemon.json ] && [ ! -f /etc/docker/daemon.json.bak ]; then
+              cp /etc/docker/daemon.json /etc/docker/daemon.json.bak
+              echo "backed up existing daemon.json -> daemon.json.bak"
+            fi
+            cat > /etc/docker/daemon.json <<EOF
+          {
+            "log-driver": "json-file",
+            "log-opts": {
+              "max-size": "50m",
+              "max-file": "3",
+              "compress": "true"
+            }
+          }
+          EOF
+            echo "wrote /etc/docker/daemon.json:"
+            cat /etc/docker/daemon.json
+          '
+
+      - name: Reload Docker daemon (no restart)
+        # SIGHUP picks up daemon.json without bouncing containers.
+        # New containers get the new log limits; existing containers keep their
+        # current driver until next recreate (fine — old logs already truncated).
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            systemctl reload docker || systemctl restart docker
+            echo "docker reloaded"
+            docker info --format "{{json .LoggingDriver}}"
+          '
+
+      - name: Install weekly cleanup cron
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            cat > /etc/cron.weekly/al-ruya-disk-cleanup <<'"'"'CRONEOF'"'"'
+          #!/bin/bash
+          # Weekly automatic Docker prune for al-ruya-erp.
+          # Installed by .github/workflows/vps-disk-setup.yml.
+          # Runs every Sunday ~06:25 UTC via /etc/cron.weekly.
+          # Logs to /var/log/al-ruya-disk-cleanup.log (rotated by logrotate).
+          set -u
+          LOG=/var/log/al-ruya-disk-cleanup.log
+          {
+            echo "===== $(date -u +%FT%TZ) ====="
+            echo "--- BEFORE ---"
+            df -h / | tail -1
+            docker system df 2>/dev/null
+            echo "--- prune unused images ---"
+            docker image prune -af 2>&1 | tail -5
+            echo "--- prune build cache ---"
+            docker builder prune -af 2>&1 | tail -5
+            echo "--- prune stopped containers ---"
+            docker container prune -f 2>&1 | tail -5
+            echo "--- AFTER ---"
+            df -h / | tail -1
+            docker system df 2>/dev/null
+            echo ""
+          } >> "$LOG" 2>&1
+          # Keep log under 10MB by truncating when it grows past that.
+          if [ -f "$LOG" ] && [ "$(stat -c%s "$LOG")" -gt 10485760 ]; then
+            tail -c 5242880 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+          fi
+          CRONEOF
+            chmod +x /etc/cron.weekly/al-ruya-disk-cleanup
+            ls -la /etc/cron.weekly/al-ruya-disk-cleanup
+            echo "cron job installed"
+          '
+
+      - name: Smoke-test cleanup script
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            echo "Running cleanup script once to verify it works..."
+            /etc/cron.weekly/al-ruya-disk-cleanup
+            echo "--- last 30 lines of log ---"
+            tail -30 /var/log/al-ruya-disk-cleanup.log
+          '
+
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519
