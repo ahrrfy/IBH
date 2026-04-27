@@ -748,6 +748,27 @@ model PostingProfile {
 }
 
 // ============================================================
+// ACCOUNT MAPPING (T48 — Financial Accounts Configurator)
+// Replaces hardcoded GL codes with per-event configurable lookups.
+// One mapping per (company, eventType). Code is validated against
+// chart_of_accounts at write time in the service layer.
+// ============================================================
+
+model AccountMapping {
+  id          String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId   String   @db.Char(26)
+  eventType   String   @db.VarChar(80) // e.g. 'sale.cash', 'sale.credit', 'sale.cogs', 'inventory.in'
+  accountCode String   @db.VarChar(10)
+  description String?  @db.VarChar(200)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([companyId, eventType])
+  @@index([companyId])
+  @@map("account_mappings")
+}
+
+// ============================================================
 // COST CENTERS
 // ============================================================
 
