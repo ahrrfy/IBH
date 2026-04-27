@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   ShoppingCart,
+  FileText,
   Undo2,
   CreditCard,
   Package,
@@ -28,6 +29,7 @@ import { useAuth } from '@/lib/auth';
 
 const NAV = [
   { href: '/dashboard',              label: 'الرئيسية',    icon: LayoutDashboard },
+  { href: '/sales/quotations',       label: 'عروض الأسعار', icon: FileText },
   { href: '/sales/invoices',         label: 'المبيعات',    icon: ShoppingCart },
   { href: '/sales/returns',          label: 'مرتجعات المبيعات', icon: Undo2 },
   { href: '/pos/shifts',             label: 'نقطة البيع',  icon: CreditCard },

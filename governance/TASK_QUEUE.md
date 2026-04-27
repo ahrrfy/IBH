@@ -580,7 +580,12 @@
 ---
 
 #### T34 — Sales Quotations (BE + UI ذكي)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
+- **Owner:** claude-sonnet-4-6-20260427-T34
+- **Branch:** `feat/t34-sales-quotations`
+- **Started:** 2026-04-27T15:00:00Z
+- **Completed:** 2026-04-27T16:00:00Z
+- **Commit:** `512cd38` (PR pending)
 - **Deps:** [T31]
 - **File scope:**
   - `apps/api/src/modules/sales/quotations/*` (full module)

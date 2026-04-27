@@ -12,7 +12,7 @@ import {
   Home,
   ShoppingCart, CreditCard, Package, ShoppingBag,
   Landmark, Building2, Users, Hammer,
-  Handshake, Megaphone, BarChart3, Settings,
+  Handshake, Megaphone, BarChart3, Settings, Truck,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
@@ -34,6 +34,7 @@ const MODULE_ICONS: Record<ModuleKey, React.ElementType> = {
   marketing: Megaphone,
   reports:   BarChart3,
   settings:  Settings,
+  delivery:  Truck,
 };
 
 const MODULE_LABELS: Record<ModuleKey, string> = {
@@ -49,6 +50,7 @@ const MODULE_LABELS: Record<ModuleKey, string> = {
   marketing: 'التسويق',
   reports:   'التقارير',
   settings:  'الإعدادات',
+  delivery:  'التوصيل',
 };
 
 export function ActivityBar() {
