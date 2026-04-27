@@ -35,6 +35,7 @@ const NAV = [
   { href: '/sales/returns',          label: 'مرتجعات المبيعات', icon: Undo2 },
   { href: '/pos/shifts',             label: 'نقطة البيع',  icon: CreditCard },
   { href: '/inventory/stock',        label: 'المخزون',     icon: Package },
+  { href: '/inventory/intelligence', label: 'المخزون الذكي', icon: Package },
   { href: '/inventory/transfers',    label: 'تحويلات المخزون', icon: ArrowLeftRight },
   { href: '/purchases/orders',       label: 'المشتريات',   icon: ShoppingBag },
   { href: '/purchases/grn',          label: 'إيصالات الاستلام', icon: PackageCheck },
