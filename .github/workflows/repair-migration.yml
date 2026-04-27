@@ -1,0 +1,109 @@
+name: Repair stuck Prisma migration on VPS
+
+# One-shot manual workflow to recover from a P3009 (failed migration) on
+# production. Marks a named migration as rolled-back/applied and re-runs
+# `prisma migrate deploy`. Use when deploy-vps.yml's silent best-effort
+# resolve loop didn't work.
+#
+# Why this exists separately from deploy-vps.yml:
+# - deploy-vps.yml runs on every push to main; it can't rely on user input
+# - The resolve loop in deploy-on-vps.sh suppresses errors (2>/dev/null || true)
+#   to avoid breaking deploys for unrelated reasons. When that masks a real
+#   problem, this workflow surfaces it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      migration_name:
+        description: 'Exact migration directory name (e.g. 20260427183000_t51_hr_recruitment)'
+        required: true
+        type: string
+      resolve_mode:
+        description: 'rolled-back: re-run migration on next deploy. applied: mark as already applied (use only if you verified the SQL ran)'
+        required: true
+        default: 'rolled-back'
+        type: choice
+        options:
+          - rolled-back
+          - applied
+      run_deploy_after:
+        description: 'Run prisma migrate deploy after resolving (recommended: true)'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  repair:
+    name: Repair migration on ibherp.cloud
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -T 5 -t rsa,ecdsa,ed25519 -H "$VPS_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Show current migration status
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            cd /opt/al-ruya-erp/infra
+            docker compose -f docker-compose.bootstrap.yml exec -T api sh -c \
+              "cd /app/apps/api && ./node_modules/.bin/prisma migrate status" || true
+          '
+
+      - name: Resolve migration (verbose, fail loud)
+        env:
+          MIGRATION: ${{ inputs.migration_name }}
+          MODE: ${{ inputs.resolve_mode }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" "
+            set -e
+            cd /opt/al-ruya-erp/infra
+            echo '→ resolving migration: $MIGRATION (--$MODE)'
+            docker compose -f docker-compose.bootstrap.yml exec -T api sh -c \
+              \"cd /app/apps/api && ./node_modules/.bin/prisma migrate resolve --$MODE $MIGRATION\"
+          "
+
+      - name: Show post-resolve status
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            cd /opt/al-ruya-erp/infra
+            docker compose -f docker-compose.bootstrap.yml exec -T api sh -c \
+              "cd /app/apps/api && ./node_modules/.bin/prisma migrate status" || true
+          '
+
+      - name: Re-run prisma migrate deploy
+        if: inputs.run_deploy_after == 'true'
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            set -e
+            cd /opt/al-ruya-erp/infra
+            echo "→ prisma migrate deploy"
+            docker compose -f docker-compose.bootstrap.yml exec -T api sh -c \
+              "cd /app/apps/api && ./node_modules/.bin/prisma migrate deploy"
+          '
+
+      - name: Health check
+        if: inputs.run_deploy_after == 'true'
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS --max-time 5 https://ibherp.cloud/health > /dev/null; then
+              echo "✅ /health OK on attempt $i"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "❌ /health did not respond"
+          exit 1
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519
