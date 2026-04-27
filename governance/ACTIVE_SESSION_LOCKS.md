@@ -75,8 +75,8 @@ Before marking a session closed:
 
 | Session ID | Agent | Branch | Owned Scope | Allowed Files | Forbidden Files | Status |
 |---|---|---|---|---|---|---|
-| claude-opus-4-7-20260427-T32 | Claude Code (Opus 4.7) | `feat/t32-delivery-companies-be` | T32 — External Delivery Companies BE (schema + CRUD + auto-assign + COD settlement) | `apps/api/prisma/schema.prisma`, `apps/api/prisma/migrations/0010_delivery_companies/**`, `apps/api/src/modules/delivery/**`, `apps/api/src/modules/delivery/delivery-companies/**`, `apps/api/src/modules/delivery/cod-settlement/**`, `apps/api/src/app.module.ts`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | All other modules/pages, web app, prisma seed | Active |
+_(no active locks)_
 
 _(Historical:_
 
-T01 closed PR#6 fa3aeee · T13 closed PR#13 58d9d30 · T25 closed PR#28 f4f358d · All 30 T-tasks closed 2026-04-26 · T31 closed PR#87 d9e5a5d (real-time infra recovered from PR#84) — full history in TASK_QUEUE.md)_
+T01 closed PR#6 fa3aeee · T13 closed PR#13 58d9d30 · T25 closed PR#28 f4f358d · All 30 T-tasks closed 2026-04-26 · T31 closed PR#87 d9e5a5d · T31-topbar PR#99 32a37f7 · T32 closed PR#103 a07d846 — full history in TASK_QUEUE.md)_
