@@ -66,6 +66,21 @@ else
 fi
 
 echo "→ post-nginx checkpoint reached"
+echo "→ resolve any previously-failed migrations (I038)"
+# If a migration was interrupted (OOM, timeout, network blip) it stays in
+# state=failed in _prisma_migrations, which blocks ALL subsequent deploys.
+# We mark it rolled-back so migrate deploy retries it cleanly.
+# The migration SQL uses IF NOT EXISTS / idempotent DDL so a retry is safe.
+# List of known stuck migrations — add new entries here if a deploy fails:
+STUCK_MIGRATIONS=(
+  "20260427183000_t51_hr_recruitment"
+)
+for m in "${STUCK_MIGRATIONS[@]}"; do
+  $COMPOSE exec -T api sh -c \
+    "cd /app/apps/api && ./node_modules/.bin/prisma migrate resolve --rolled-back $m 2>/dev/null || true"
+  echo "   resolved (or was already clean): $m"
+done
+
 echo "→ run any new prisma migrations"
 # Two bugs were here for ~6 weeks (silently, causing missing F2 triggers — I022):
 #   1. cd /app — schema is at /app/apps/api/prisma/schema.prisma, not /app
