@@ -1,0 +1,166 @@
+# Dependabot — automated dependency updates + security PRs.
+#
+# Why grouped: an ungrouped Dependabot opens 30+ PRs per Monday and
+# drowns the queue. Grouping minor/patch into one PR per ecosystem
+# keeps review cost flat. Major bumps stay separate (they need a human
+# decision — breaking changes hit Prisma migrations, Next router, etc.).
+#
+# Security updates are NEVER grouped (open immediately, separately) —
+# Dependabot does this automatically regardless of `groups`.
+
+version: 2
+
+updates:
+  # ── Root workspace (pnpm catalog + tooling) ──
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Baghdad
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - security:auto
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore(deps)
+      include: scope
+
+  # ── apps/api (NestJS + Prisma — financial core) ──
+  - package-ecosystem: npm
+    directory: /apps/api
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Baghdad
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - security:auto
+      - area:api
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore(api/deps)
+      include: scope
+
+  # ── apps/web (Next.js admin panel) ──
+  - package-ecosystem: npm
+    directory: /apps/web
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Baghdad
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - security:auto
+      - area:web
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore(web/deps)
+      include: scope
+
+  # ── apps/pos (Tauri offline POS) ──
+  - package-ecosystem: npm
+    directory: /apps/pos
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Baghdad
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - security:auto
+      - area:pos
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore(pos/deps)
+      include: scope
+
+  # ── apps/desktop (Tauri admin) ──
+  - package-ecosystem: npm
+    directory: /apps/desktop
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Baghdad
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - security:auto
+      - area:desktop
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore(desktop/deps)
+      include: scope
+
+  # ── apps/storefront (Next.js e-commerce) ──
+  - package-ecosystem: npm
+    directory: /apps/storefront
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Baghdad
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - security:auto
+      - area:storefront
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore(storefront/deps)
+      include: scope
+
+  # ── Docker base images (api, nginx, postgres, redis, etc.) ──
+  - package-ecosystem: docker
+    directory: /infra
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Baghdad
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - security:auto
+      - area:infra
+    commit-message:
+      prefix: chore(infra/docker)
+
+  # ── GitHub Actions versions (uses: actions/checkout@v4 etc.) ──
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Asia/Baghdad
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - security:auto
+      - area:ci
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: chore(ci/deps)

@@ -22,9 +22,18 @@ cat governance/OPEN_ISSUES.md                # المشاكل المفتوحة
 gh run list --workflow=deploy-vps.yml --limit 1
 curl -sI https://ibherp.cloud/health -w "%{http_code}\n"
 
-# 3. اختر مهمة تالية بأمان
+# 3. افحص اكتشافات الأمان التلقائية (CodeQL/Dependabot/Secret Scanning)
+gh issue list --label security:auto --state open --limit 10
+# الحرجة منها (🔴) تظهر أيضاً في governance/OPEN_ISSUES.md عبر security-bridge.yml
+
+# 4. اختر مهمة تالية بأمان
 bash scripts/next-task.sh                   # يطبع أول ⏳ TODO متاحة
 ```
+
+> 💡 **الحلقة الذاتية للأمان**: أي finding من GitHub Security يفتح Issue
+> تلقائياً (`security-bridge.yml`)، وأي إصلاح يُغلق Issue + يحدّث
+> `OPEN_ISSUES.md` تلقائياً (`security-close-hook.yml`). راجع
+> `.github/workflows/security-bridge.yml` و `scripts/sync-security-issues.sh`.
 
 ---
 
