@@ -10,6 +10,7 @@ import { AuditService } from '../../../engines/audit/audit.service';
 import { SequenceService } from '../../../engines/sequence/sequence.service';
 import { PostingService } from '../../../engines/posting/posting.service';
 import { InventoryService } from '../../inventory/inventory.service';
+import { AccountMappingService } from '../../finance/account-mapping/account-mapping.service';
 
 interface InvoiceLineInput {
   variantId: string;
@@ -37,6 +38,7 @@ export class SalesInvoicesService {
     private readonly sequence: SequenceService,
     private readonly posting: PostingService,
     private readonly inventory: InventoryService,
+    private readonly accountMapping: AccountMappingService,
   ) {}
 
   async findAll(companyId: string, opts: { page?: number; limit?: number; status?: string; customerId?: string; overdueOnly?: boolean } = {}) {
@@ -268,14 +270,24 @@ export class SalesInvoicesService {
       );
 
       const isCash = inv.paymentTerms === 'cash' || inv.totalIqd.eq(0);
+      // T48: source GL codes from AccountMapping; literals are kept as the
+      // legacy fallback so accounting never breaks on missing config (F2).
+      const [drCash, drAr, crCash, crCr, cogsCode, invCode] = await Promise.all([
+        this.accountMapping.getAccountForEvent(companyId, 'sale.cash'),
+        this.accountMapping.getAccountForEvent(companyId, 'sale.credit'),
+        this.accountMapping.getAccountForEvent(companyId, 'sale.revenue.cash'),
+        this.accountMapping.getAccountForEvent(companyId, 'sale.revenue.cr'),
+        this.accountMapping.getAccountForEvent(companyId, 'sale.cogs'),
+        this.accountMapping.getAccountForEvent(companyId, 'sale.inventory'),
+      ]);
       const lines: Array<{ accountCode: string; debit?: Prisma.Decimal; credit?: Prisma.Decimal; description: string }> = [
         {
-          accountCode: isCash ? '2411' : '221',
+          accountCode: isCash ? (drCash ?? '2411') : (drAr ?? '221'),
           debit: inv.totalIqd,
           description: `Invoice ${inv.number}`,
         },
         {
-          accountCode: isCash ? '511' : '512',
+          accountCode: isCash ? (crCash ?? '511') : (crCr ?? '512'),
           credit: inv.totalIqd,
           description: `Revenue ${inv.number}`,
         },
@@ -283,12 +295,12 @@ export class SalesInvoicesService {
       if (totalCogs.gt(0)) {
         lines.push(
           {
-            accountCode: '611',
+            accountCode: cogsCode ?? '611',
             debit: totalCogs,
             description: `COGS ${inv.number}`,
           },
           {
-            accountCode: '212',
+            accountCode: invCode ?? '212',
             credit: totalCogs,
             description: `Inventory out ${inv.number}`,
           },
@@ -412,12 +424,14 @@ export class SalesInvoicesService {
           description: `Payment for ${inv.number}`,
           lines: [
             {
-              accountCode: '2411',
+              // T48: cash receipt account from mapping
+              accountCode: (await this.accountMapping.getAccountForEvent(companyId, 'sale.cash')) ?? '2411',
               debit: amount,
               description: `Cash receipt ${inv.number}`,
             },
             {
-              accountCode: '221',
+              // T48: AR control account from mapping
+              accountCode: (await this.accountMapping.getAccountForEvent(companyId, 'ar.control')) ?? '221',
               credit: amount,
               description: `AR settlement ${inv.number}`,
             },
@@ -477,13 +491,14 @@ export class SalesInvoicesService {
           refType: 'SalesInvoiceReversal',
           refId: inv.id,
           description: `Reverse ${inv.number}: ${reason}`,
+          // T48: source GL codes from AccountMapping w/ literal fallback
           lines: [
-            { accountCode: '512', debit:  inv.totalIqd, description: 'Reverse revenue' },
-            { accountCode: '221', credit: inv.totalIqd, description: 'Reverse AR' },
+            { accountCode: (await this.accountMapping.getAccountForEvent(companyId, 'sale.revenue.cr')) ?? '512', debit:  inv.totalIqd, description: 'Reverse revenue' },
+            { accountCode: (await this.accountMapping.getAccountForEvent(companyId, 'sale.credit')) ?? '221', credit: inv.totalIqd, description: 'Reverse AR' },
             ...(totalCogs.gt(0)
               ? [
-                  { accountCode: '212', debit:  totalCogs, description: 'Reverse inventory' },
-                  { accountCode: '611', credit: totalCogs, description: 'Reverse COGS' },
+                  { accountCode: (await this.accountMapping.getAccountForEvent(companyId, 'sale.inventory')) ?? '212', debit:  totalCogs, description: 'Reverse inventory' },
+                  { accountCode: (await this.accountMapping.getAccountForEvent(companyId, 'sale.cogs')) ?? '611', credit: totalCogs, description: 'Reverse COGS' },
                 ]
               : []),
           ],
