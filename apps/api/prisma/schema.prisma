@@ -3476,3 +3476,128 @@ model OfferLetter {
   @@index([companyId, status])
   @@map("offer_letters")
 }
+
+// ─── HR Contracts + Policies (T52) ─────────────────────────────────────────
+// Append-only, immutable acknowledgments with hash chain (per F2 audit pattern).
+
+enum ContractTemplateStatus {
+  draft
+  active
+  archived
+}
+
+enum EmploymentContractStatus {
+  draft
+  active
+  expired
+  terminated
+}
+
+enum PolicyStatus {
+  draft
+  published
+  retired
+}
+
+/// Contract template with merge-field placeholders rendered server-side.
+/// Body is markdown/text containing `{{employee.name}}`, `{{salary.amount}}`, etc.
+model ContractTemplate {
+  id          String                 @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId   String                 @db.Char(26)
+  code        String                 @db.VarChar(40)
+  nameAr      String                 @db.VarChar(200)
+  /// Markdown body with `{{path.to.field}}` placeholders.
+  bodyMd      String
+  /// Renewal lookahead in days — used by the 30-day renewal-reminder job.
+  renewDays   Int                    @default(30)
+  status      ContractTemplateStatus @default(draft)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  createdBy   String                 @db.Char(26)
+  updatedBy   String                 @db.Char(26)
+
+  @@unique([companyId, code])
+  @@index([companyId, status])
+  @@map("contract_templates")
+}
+
+/// Per-employee employment contract instance generated from a template.
+/// `renderedBody` is the merged text at issue time; once `status != draft` it
+/// MUST NOT be mutated (immutability is enforced at service layer + audit).
+model EmploymentContract {
+  id            String                   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId     String                   @db.Char(26)
+  templateId    String                   @db.Char(26)
+  employeeId    String                   @db.Char(26)
+  /// Optional link back to the recruitment offer that produced this contract.
+  offerLetterId String?                  @unique @db.Char(26)
+  contractNo    String                   @db.VarChar(40)
+  startDate     DateTime                 @db.Date
+  endDate       DateTime?                @db.Date
+  salaryIqd     Decimal                  @db.Decimal(18, 3)
+  /// Frozen, fully-merged body (no more {{}} placeholders).
+  renderedBody  String
+  /// SHA-256 of `renderedBody` — guards against silent mutation.
+  bodyHash      String                   @db.VarChar(64)
+  status        EmploymentContractStatus @default(draft)
+  signedAt      DateTime?
+  signedBy      String?                  @db.Char(26)
+  /// True once a 30-day renewal reminder has been dispatched (idempotency guard).
+  renewalNotifiedAt DateTime?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  createdBy     String                   @db.Char(26)
+
+  @@unique([companyId, contractNo])
+  @@index([companyId, status])
+  @@index([companyId, endDate])
+  @@map("employment_contracts")
+}
+
+/// Company-wide policy (HR handbook entry) requiring employee acknowledgment.
+model Policy {
+  id          String       @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId   String       @db.Char(26)
+  code        String       @db.VarChar(40)
+  titleAr     String       @db.VarChar(200)
+  bodyMd      String
+  /// Monotonic version number; bumped on every published edit.
+  version     Int          @default(1)
+  /// Set when status becomes `published`; null otherwise.
+  publishedAt DateTime?
+  status      PolicyStatus @default(draft)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  createdBy   String       @db.Char(26)
+  updatedBy   String       @db.Char(26)
+
+  acknowledgments PolicyAcknowledgment[]
+
+  @@unique([companyId, code])
+  @@index([companyId, status])
+  @@map("policies")
+}
+
+/// Append-only consent record. Once written, MUST NOT be updated or deleted.
+/// Hash chains per (companyId, employeeId) so tampering is detectable.
+model PolicyAcknowledgment {
+  id           String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId    String   @db.Char(26)
+  policyId     String   @db.Char(26)
+  /// Specific policy version acknowledged — re-acknowledgment required on bump.
+  policyVersion Int
+  employeeId   String   @db.Char(26)
+  acknowledgedAt DateTime @default(now())
+  /// Hash = SHA256(prevHash + companyId + employeeId + policyId + policyVersion + acknowledgedAt).
+  hash         String   @db.VarChar(64)
+  prevHash     String?  @db.VarChar(64)
+  /// IP of the acknowledging session for audit.
+  sourceIp     String?  @db.VarChar(64)
+
+  policy Policy @relation(fields: [policyId], references: [id])
+
+  @@unique([companyId, employeeId, policyId, policyVersion])
+  @@index([companyId, employeeId])
+  @@index([companyId, policyId])
+  @@map("policy_acknowledgments")
+}
