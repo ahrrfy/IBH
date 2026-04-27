@@ -24,7 +24,7 @@
     "clean":         "pnpm -r clean && rm -rf node_modules"
   },
   "devDependencies": {
-    "typescript":       "^5.5.0",
+    "typescript":       "^6.0.3",
     "@types/node":      "^22.0.0",
     "prettier":         "^3.8.3",
     "eslint":           "^10.0.0",

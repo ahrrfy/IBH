@@ -30,7 +30,8 @@
         "../../packages/validation-schemas/src"
       ]
     },
-    "isolatedModules": true
+    "isolatedModules": true,
+    "allowArbitraryExtensions": true
   },
   "include": [
     "next-env.d.ts",
