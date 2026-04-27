@@ -10,6 +10,7 @@
 import Fastify from 'fastify';
 import axios from 'axios';
 import { z } from 'zod';
+import { createHmac } from 'crypto';
 import 'dotenv/config';
 
 const PORT       = Number(process.env.PORT ?? 8002);
@@ -18,6 +19,13 @@ const WA_TOKEN   = process.env.WHATSAPP_ACCESS_TOKEN ?? '';
 const WA_PHONE   = process.env.WHATSAPP_PHONE_ID ?? '';
 const ERP_URL    = process.env.ERP_API_URL ?? 'http://api:3000';
 const ERP_TOKEN  = process.env.ERP_API_TOKEN ?? '';
+
+// T45: omnichannel order inbox forwarder. When set, every inbound text message
+// is also POSTed to the ERP /sales/omnichannel/ingest/whatsapp endpoint with
+// an HMAC-SHA256 signature header that matches OMNICHANNEL_BRIDGE_SECRET.
+const OMNI_SECRET    = process.env.OMNICHANNEL_BRIDGE_SECRET ?? '';
+const OMNI_COMPANY   = process.env.OMNICHANNEL_COMPANY_ID ?? '';
+const OMNI_ENABLED   = OMNI_SECRET.length > 0 && OMNI_COMPANY.length === 26;
 
 const fastify = Fastify({ logger: true });
 
@@ -50,6 +58,22 @@ fastify.post('/webhook', async (req, reply) => {
         headers: { Authorization: `Bearer ${ERP_TOKEN}` },
         timeout: 5000,
       }).catch((err) => fastify.log.warn({ err: err.message }, 'forward to ERP failed'));
+
+      // T45: also forward text messages to the omnichannel order inbox.
+      if (OMNI_ENABLED && payload.type === 'text' && payload.text) {
+        const omniBody = {
+          companyId:  OMNI_COMPANY,
+          externalId: payload.msgId,
+          fromHandle: payload.from,
+          body:       payload.text,
+        };
+        const raw = JSON.stringify(omniBody);
+        const sig = createHmac('sha256', OMNI_SECRET).update(raw).digest('hex');
+        await axios.post(`${ERP_URL}/api/sales/omnichannel/ingest/whatsapp`, omniBody, {
+          headers: { 'x-bridge-signature': sig, 'content-type': 'application/json' },
+          timeout: 5000,
+        }).catch((err: Error) => fastify.log.warn({ err: err.message }, 'omnichannel forward failed'));
+      }
     }
   } catch (err: any) {
     fastify.log.error({ err: err.message }, 'webhook parse failed');
