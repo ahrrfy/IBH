@@ -37,36 +37,105 @@ export class ApiError extends Error {
   }
 }
 
-// ─── Storefront-specific endpoints ────────────────────────────────────────────
+// ─── Storefront-specific endpoints (T54 — public, unauthenticated) ───────────
+// All catalog + order endpoints live under /public/* and are tenant-scoped on
+// the backend via STOREFRONT_COMPANY_ID.
 
-export async function listProducts(params: { page?: number; categoryId?: string; search?: string } = {}) {
+export interface PublicProductListItem {
+  id: string;
+  slug: string;
+  sku: string;
+  name: string;
+  nameEn?: string | null;
+  priceIqd: number;
+  imageUrl: string | null;
+  images: string[];
+  tags: string[];
+  categoryId: string;
+}
+
+export interface PublicProductList {
+  items: PublicProductListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+  pages: number;
+}
+
+export interface PublicProductVariant {
+  id: string;
+  sku: string;
+  attributeValues: Record<string, string>;
+  imageUrl: string | null;
+  stock: number;
+}
+
+export interface PublicProductDetail {
+  id: string;
+  slug: string;
+  sku: string;
+  name: string;
+  nameEn?: string | null;
+  description?: string | null;
+  priceIqd: number;
+  images: string[];
+  tags: string[];
+  category: { id: string; nameAr: string; nameEn: string | null } | null;
+  variants: PublicProductVariant[];
+  totalStock: number;
+  inStock: boolean;
+}
+
+export interface PublicCategoryNode {
+  id: string;
+  nameAr: string;
+  nameEn: string | null;
+  parentId: string | null;
+  level: number;
+  imageUrl: string | null;
+}
+
+export async function listProducts(
+  params: { page?: number; pageSize?: number; categoryId?: string; search?: string; minPrice?: number; maxPrice?: number } = {},
+): Promise<PublicProductList> {
   const qs = new URLSearchParams();
-  if (params.page)       qs.set('page', String(params.page));
+  if (params.page)       qs.set('page',       String(params.page));
+  if (params.pageSize)   qs.set('pageSize',   String(params.pageSize));
   if (params.categoryId) qs.set('categoryId', params.categoryId);
-  if (params.search)     qs.set('search', params.search);
-  return api(`/products?${qs.toString()}`);
+  if (params.search)     qs.set('search',     params.search);
+  if (params.minPrice != null) qs.set('minPrice', String(params.minPrice));
+  if (params.maxPrice != null) qs.set('maxPrice', String(params.maxPrice));
+  return api<PublicProductList>(`/public/products?${qs.toString()}`);
 }
 
-export async function getProduct(id: string) {
-  return api(`/products/${id}`);
+export async function getProduct(slug: string): Promise<PublicProductDetail> {
+  return api<PublicProductDetail>(`/public/products/${encodeURIComponent(slug)}`);
 }
 
-export async function listCategories() {
-  return api(`/products/categories`);
+export async function listCategories(): Promise<PublicCategoryNode[]> {
+  return api<PublicCategoryNode[]>(`/public/categories/tree`);
 }
 
-export async function lookupBarcode(code: string) {
-  return api(`/products/barcode/${encodeURIComponent(code)}`);
+export async function calculateCart(lines: Array<{ variantId: string; qty: number }>) {
+  return api<{
+    lines: Array<{ variantId: string; qty: number; name: string; image: string | null; unitPriceIqd: number; lineTotalIqd: number; available: boolean }>;
+    subtotal: number;
+    tax: number;
+    total: number;
+  }>(`/public/cart/calculate`, { method: 'POST', body: JSON.stringify({ lines }) });
 }
 
 export async function createOrder(order: {
-  customerPhone: string;
-  customerName: string;
+  customerPhone:   string;
+  customerName:    string;
+  whatsapp?:       string;
+  city:            string;
   deliveryAddress: string;
+  notes?:          string;
   lines: Array<{ variantId: string; qty: number }>;
   paymentMethod: string;
-}) {
-  return api(`/sales/orders`, { method: 'POST', body: JSON.stringify(order) });
+}): Promise<{ id: string; number: string; total: number; status: string; trackUrl: string }> {
+  return api(`/public/orders`, { method: 'POST', body: JSON.stringify(order) });
 }
 
 // ─── Order + auth helpers (appended for M15 storefront) ──────────────────────

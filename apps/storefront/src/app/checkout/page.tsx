@@ -51,13 +51,15 @@ export default function CheckoutPage() {
     }
     try {
       const resp = await createOrder({
-        customerName: values.customerName,
-        customerPhone: values.customerPhone,
-        deliveryAddress: `${values.deliveryAddress}، ${values.city}`,
-        lines: items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
-        paymentMethod: values.paymentMethod,
+        customerName:    values.customerName,
+        customerPhone:   values.customerPhone,
+        whatsapp:        values.whatsapp,
+        city:            values.city,
+        deliveryAddress: values.deliveryAddress,
+        lines:           items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
+        paymentMethod:   values.paymentMethod,
       });
-      const orderId = (resp as { id?: string })?.id;
+      const orderId = resp?.id;
       clearCart();
       router.push(`/checkout/success${orderId ? `?orderId=${orderId}` : ''}`);
     } catch (err) {

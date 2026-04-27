@@ -2,27 +2,7 @@ import Link from 'next/link';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { ProductCard } from '@/components/product-card';
-import { listProducts, listCategories } from '@/lib/api';
-
-interface Product {
-  id: string;
-  nameAr: string;
-  price: number;
-  imageUrl?: string | null;
-  defaultVariantId?: string;
-}
-
-interface Category {
-  id: string;
-  nameAr: string;
-}
-
-interface ListResp {
-  items: Product[];
-  total: number;
-  page: number;
-  pages: number;
-}
+import { listProducts, listCategories, type PublicProductList, type PublicCategoryNode } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,18 +17,17 @@ export default async function CategoryPage({
   const sp = await searchParams;
   const page = Math.max(1, Number(sp.page) || 1);
 
-  let resp: ListResp = { items: [], total: 0, page: 1, pages: 1 };
-  let category: Category | null = null;
+  let resp: PublicProductList = { items: [], total: 0, page: 1, pageSize: 24, pages: 1 };
+  let category: PublicCategoryNode | null = null;
   let loadError: string | null = null;
 
   try {
     const [list, cats] = await Promise.all([
-      listProducts({ categoryId: id, page }) as Promise<ListResp>,
-      listCategories() as Promise<Category[] | { items: Category[] }>,
+      listProducts({ categoryId: id, page }),
+      listCategories(),
     ]);
     resp = list;
-    const catsArr = Array.isArray(cats) ? cats : cats.items ?? [];
-    category = catsArr.find((c) => c.id === id) ?? null;
+    category = cats.find((c) => c.id === id) ?? null;
   } catch (err) {
     loadError = err instanceof Error ? err.message : 'تعذر تحميل المنتجات';
   }
@@ -91,10 +70,9 @@ export default async function CategoryPage({
             <ProductCard
               key={p.id}
               id={p.id}
-              nameAr={p.nameAr}
-              price={p.price}
+              nameAr={p.name}
+              price={p.priceIqd}
               imageUrl={p.imageUrl}
-              defaultVariantId={p.defaultVariantId}
             />
           ))}
         </div>
