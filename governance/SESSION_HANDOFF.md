@@ -1,5 +1,70 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff — 2026-04-27 (Session 9 — Major Dependency PRs Freeze + Migration Roadmap)
+
+## ما تم إنجازه اليوم
+
+- ✅ أُغلقت **18 PR major-version** من Dependabot (TypeScript 5→6 ×4، Tailwind 3→4 ×2، Prisma 6→7، @nestjs/swagger ×1، @nestjs/bull ×1، @nestjs/config ×1، react-router-dom ×2، recharts، zod، tailwind-merge، lucide-react ×2، @types/node) — كل PR فيه تعليق عربي/إنجليزي يشرح سبب التأجيل وخارطة الترحيل
+- ✅ أُضيفت **ignore rules** في `.github/dependabot.yml` لكل 18 حزمة عبر 5 ecosystems (root / api / web / pos / storefront) — major-only، security PRs لا تزال تصل
+- ✅ مُوثَّق **I032** في `governance/OPEN_ISSUES.md` مع §I032 التفصيلي: 5 مسارات ترحيل مع شروط واضحة لكل ترقية (Wave 6)
+- ✅ مُدمج **PR #88** يدوياً (minor-and-patch root، كل CI أخضر: Build ✅ E2E ✅ Typecheck ✅)
+- ✅ `pnpm --filter @erp/api build` + `typecheck` كلاهما نظيف (exit 0)
+
+## ما لم يكتمل
+
+- ⏳ **PR #86** (`react-hook-form` 7.73→7.74 في web) — CI فاشل بسبب base قديمة، لا علاقة للتغيير نفسه. Dependabot سيُعيد rebase إثنين القادم.
+- ⏳ **PR #73** (minor-and-patch group في api — 3 حزم) — نفس السبب، base قديمة.
+- ⏳ **automerge workflow** (#86, #73) — فاشل بسبب permissions أو `--auto` بدون branch protection. يحتاج تشخيص منفصل أو دمج يدوي بعد نجاح CI.
+
+## القرارات الجديدة
+
+- لا قرارات معمارية جديدة — الجلسة كانت تنظيفية (operational, not architectural).
+
+## الملفات المتأثرة
+
+- `.github/dependabot.yml` — إضافة ignore rules لـ 18 حزمة (53 سطر جديد)
+- `governance/OPEN_ISSUES.md` — إضافة I032 في الجدول + §I032 التفصيلي (60 سطر جديد)
+- `governance/SESSION_HANDOFF.md` — هذا الملف
+
+## الاختبارات المنفذة
+
+- ✅ `pnpm --filter @erp/api build` → exit 0 (nest build نظيف)
+- ✅ `pnpm --filter @erp/api typecheck` → exit 0 (tsc --noEmit نظيف)
+- ℹ️ `npm test` لم يُشغَّل محلياً — CI يعتمد PostgreSQL + Redis (لا تتوفر محلياً). آخر CI run على main: ✅ (commit `64395fb`)
+
+## المخاطر المفتوحة
+
+- 🟡 **automerge workflow معطوب** — `gh pr merge --auto` يفشل صامتاً على PRs #86 + #73. يحتاج إما: تفعيل branch protection required checks (حتى يعمل `--auto`)، أو تعديل الـ workflow للـ merge المباشر عند pass CI.
+- 🟡 **18 vulnerability Dependabot** على main — مُذكورة في push log. معظمها مرتبطة بالـ major versions المُجمَّدة. Security PRs منفصلة ستُفتح تلقائياً بمجرد Dependabot يُشغَّل.
+- 🟢 **PR #86 + #73 متراكمتان** — ستُحَل تلقائياً في الدورة الأسبوعية القادمة (إثنين).
+
+## ممنوع تغييره في الجلسة القادمة
+
+- ❌ لا تحذف `ignore` rules من `dependabot.yml` إلا إذا بدأت جلسة ترحيل مخصصة لذلك المسار
+- ❌ لا تدمج PRs الـ major versions المغلقة — I032 هو المرجع
+- ❌ لا تعيد فتح PRs #60 #62 #65 #66 #67 #68 #69 #70 #71 #72 #74 #75 #76 #77 #79 #80 #82 #83
+
+## الخطوة التالية بالضبط
+
+```bash
+# 1. تحقق من الحالة
+git pull origin main
+gh pr list --state open   # يجب أن يُظهر 2 فقط (#86 + #73)
+
+# 2. اختر:
+#   a) T32 — External Delivery Companies BE (أول TODO متاح في Wave 2)
+#      bash scripts/next-task.sh
+#   b) I031 — 4 e2e tests معطوبة (schema-rotted) — GitHub Issue #85
+#   c) تشخيص automerge workflow (لماذا يفشل --auto)
+
+# 3. إذا اخترت T32:
+#    اقرأ governance/TASK_QUEUE.md §T32 للـ File scope
+#    ادّعِ المهمة (Status: IN_PROGRESS)
+#    افتح branch: feat/t32-delivery-companies-be
+```
+
+---
+
 # Session Handoff — 2026-04-27 (Session 8 — Major Dependency PRs triage) ✅ CLOSED
 
 ## Branch
