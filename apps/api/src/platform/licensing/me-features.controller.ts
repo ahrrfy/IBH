@@ -2,6 +2,7 @@ import { Controller, Get, UnauthorizedException } from '@nestjs/common';
 import { CurrentUser } from '../../engines/auth/decorators/current-user.decorator';
 import type { UserSession } from '@erp/shared-types';
 import { FeatureCacheService } from './feature-cache.service';
+import { SkipLicense } from './skip-license.decorator';
 
 /**
  * T65 — Web-side feature flag mirror.
@@ -23,6 +24,7 @@ import { FeatureCacheService } from './feature-cache.service';
  *      refetches this endpoint → UI re-renders without F5.
  */
 @Controller('licensing/me')
+@SkipLicense()
 export class MeFeaturesController {
   constructor(private readonly featureCache: FeatureCacheService) {}
 
