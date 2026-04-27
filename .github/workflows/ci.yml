@@ -19,7 +19,7 @@ jobs:
     name: Typecheck + Build (api + workspace packages)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       # Version comes from package.json "packageManager" field — don't
       # specify it here or pnpm/action-setup errors with ERR_PNPM_BAD_PM_VERSION.
       - uses: pnpm/action-setup@v6
@@ -85,7 +85,7 @@ jobs:
       TEST_ADMIN_EMAIL: testadmin@ci.test
       TEST_ADMIN_PASSWORD: ci-test-admin-password-not-for-production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       # Version comes from package.json "packageManager" field — don't
       # specify it here or pnpm/action-setup errors with ERR_PNPM_BAD_PM_VERSION.
       - uses: pnpm/action-setup@v6
@@ -177,7 +177,7 @@ jobs:
     name: Standalone services (license-server + whatsapp-bridge)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with: { node-version: 22 }
       - name: license-server tests
