@@ -5,6 +5,8 @@
 
 use tauri_plugin_sql::{Migration, MigrationKind};
 
+mod fingerprint;
+
 fn main() {
     let migrations = vec![
         // Wave 1 — Offline schema for POS SQLite
@@ -74,6 +76,7 @@ fn main() {
         .plugin(tauri_plugin_notification::init())
         .invoke_handler(tauri::generate_handler![
             get_hardware_fingerprint,
+            fingerprint::get_fingerprint,
             open_cash_drawer,
             print_receipt,
             check_license,
