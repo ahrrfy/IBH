@@ -1,13 +1,14 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { useCartStore } from '@/lib/cart-store';
 import { formatIqd } from '@/lib/format';
-import { createOrder, ApiError } from '@/lib/api';
+import { createOrder, getMe, ApiError } from '@/lib/api';
+import { getCustomerToken } from '@/lib/customer-auth';
 
 const SHIPPING_FLAT = 5000;
 
@@ -32,12 +33,34 @@ export default function CheckoutPage() {
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     defaultValues: { paymentMethod: 'cod', city: 'بغداد' },
   });
 
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // T56 — pre-fill from logged-in customer profile if a portal token is present.
+  useEffect(() => {
+    const token = getCustomerToken();
+    if (!token) return;
+    (async () => {
+      try {
+        const me = await getMe(token);
+        reset({
+          customerName:    me.nameAr ?? '',
+          customerPhone:   me.phone ?? '',
+          whatsapp:        me.phone ?? undefined,
+          deliveryAddress: me.address ?? '',
+          city:            me.city ?? 'بغداد',
+          paymentMethod:   'cod',
+        });
+      } catch {
+        // best-effort pre-fill; fall through to empty form
+      }
+    })();
+  }, [reset]);
 
   const subtotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
   const shipping = items.length > 0 ? SHIPPING_FLAT : 0;
