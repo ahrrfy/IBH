@@ -1,5 +1,53 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff — 2026-04-27 (Session 8 — Major Dependency PRs triage) ✅ CLOSED
+
+## Branch
+`main` — latest commit `245f795`
+
+## ما تم إنجازه (Session 8)
+
+### تنظيف 18 PR major version من Dependabot
+- ✅ أُغلقت 18 PR كبرى (TypeScript 6 × 4، Tailwind 4 × 2، Prisma 7، NestJS ×3، react-router-dom ×2، recharts، zod، tailwind-merge، lucide-react ×2، @types/node) — كل PR فيه تعليق يشرح سبب التأجيل وخطة الترحيل
+- ✅ أُضيفت `ignore` rules في `.github/dependabot.yml` لمنع إعادة فتح هذه الـ PRs أسبوعياً (major-only — security PRs لا تزال تصل)
+- ✅ مُدوَّن I032 في `governance/OPEN_ISSUES.md`: 5 مسارات ترحيل مع شروط واضحة لكل ترقية
+- ✅ PR #88 (minor-and-patch root, كل CI اخضرّ) مدموج يدوياً
+
+## الحالة النهائية
+
+| الـ metric | القيمة |
+|---|---|
+| Open PRs | 2 (minor/patch — آمنة، تنتظر rebase) |
+| Closed major PRs | 18 ✅ |
+| Latest commit | `245f795` |
+| dependabot.yml | محدَّث بـ ignore rules |
+
+## PRs مفتوحة متبقية
+- PR #86 — `react-hook-form` 7.73→7.74 في web (minor, CI فاشل بسبب base قديمة — سيُصلَح بـ Dependabot rebase)
+- PR #73 — minor-and-patch group في api (نفس السبب)
+
+كلاهما **آمنان** — يلمسان `package.json` فقط. Dependabot سيُعيد rebase في الإثنين القادم.
+
+## الملفات المتأثرة
+1. `.github/dependabot.yml` — ignore rules لـ 18 package عبر 5 ecosystems
+2. `governance/OPEN_ISSUES.md` — I032 + §I032 تفاصيل الترحيل
+
+## الخطوة التالية بالضبط
+
+```bash
+# الـ PR queue نظيف من المشاكل الكبرى.
+# الخيارات المتاحة:
+#   a) T32 — External Delivery Companies BE (أول مهمة TODO في Wave 2)
+#   b) I031 — 4 e2e tests معطوبة (schema-rotted) — Issue #85
+#   c) انتظار rebase PRs #86 + #73 ثم مراجعتهما
+
+git pull origin main
+gh pr list --state open   # يجب أن يُظهر 2 فقط (minor/patch)
+bash scripts/next-task.sh # T32 هي الأولى المتاحة
+```
+
+---
+
 # Session Handoff — 2026-04-27 (Session 7 — Branch hygiene + Dependabot triage + auto-merge enable) ✅ CLOSED
 
 ## Branch
