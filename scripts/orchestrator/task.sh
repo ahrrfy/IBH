@@ -246,29 +246,21 @@ cmd_claim() {
     die "Working tree is dirty. Commit or stash first."
   fi
 
-  # I033 root-cause guard — refuse to claim while ANY other task branch is
-  # checked out anywhere (current worktree or sibling worktrees). Two
-  # parallel sessions sharing one .git/index corrupt each other's HEAD,
-  # staged files, and untracked work — the orchestrator's earlier "git
-  # refs as lock" guarantee only works at the GitHub layer, not at the
-  # local filesystem layer. Caller must use `git worktree add` to isolate.
-  local other_task_branches
-  other_task_branches=$(git worktree list --porcelain \
-    | awk '/^branch refs\/heads\/feat\/t/ {print substr($2, 12)}' \
-    | grep -vE "^feat/${tid}-" || true)
-  if [ -n "$other_task_branches" ]; then
-    die "Refusing to claim $tid — other task branches are checked out:
-$other_task_branches
-
-Parallel sessions sharing the same repo path corrupt each other's HEAD/index.
-Isolate this session in its own worktree BEFORE claiming:
-
-  cd \"\$(git rev-parse --show-toplevel)\"
-  git worktree add \"../\$(basename \"\$PWD\")-$tid\" \"$ORIGIN/$BASE\"
-  cd \"../\$(basename \"\$PWD\")-$tid\"
-  bash scripts/orchestrator/task.sh claim $tid
-
-Or wait for the active claim(s) above to complete/release first."
+  # I033 root-cause guard — refuse to claim if a task branch is checked out
+  # in the MAIN worktree itself (i.e., the user is mid-work in the shared
+  # root and would corrupt that work). Sibling worktrees under .worktrees/
+  # are isolated by design and don't trigger this — the new worktree-aware
+  # cmd_claim creates a fresh sibling worktree per task, so concurrent
+  # claims are safe. See PR #108 (original guard) and PR #115 (worktree
+  # migration). The opt-in TASK_SINGLE_SESSION_LOCK below covers the
+  # belt-and-suspenders case.
+  local main_wt main_branch
+  main_wt=$(git worktree list --porcelain | awk '/^worktree / {print $2; exit}')
+  main_branch=$(git -C "$main_wt" symbolic-ref --short HEAD 2>/dev/null || true)
+  if [[ "$main_branch" == feat/t* ]]; then
+    die "Refusing to claim $tid — main worktree ($main_wt) is on task branch $main_branch.
+Switch the main worktree back to $BASE first (or finish/release that task), then retry:
+  git -C \"$main_wt\" checkout $BASE"
   fi
 
   # Optional belt-and-suspenders: hard-reject a 2nd concurrent claim on this
