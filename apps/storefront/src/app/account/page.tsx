@@ -1,167 +1,161 @@
 'use client';
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Header } from '@/components/header';
-import { Footer } from '@/components/footer';
-import { getMyOrders } from '@/lib/api';
-import { getPhone, logout } from '@/lib/auth';
-import { formatIqd, formatDate } from '@/lib/format';
+import { useForm } from 'react-hook-form';
+import { ApiError, getMe, updateMe, type PortalCustomer } from '@/lib/api';
+import { getCustomerToken } from '@/lib/customer-auth';
 
-interface OrderRow {
-  id: string;
-  status: string;
-  createdAt?: string;
-  total?: number;
-}
-
-interface Address {
-  id: string;
-  label: string;
-  city: string;
+interface ProfileForm {
+  nameAr: string;
+  email: string;
   address: string;
+  city: string;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  placed: 'تم الطلب',
-  preparing: 'قيد التجهيز',
-  dispatched: 'تم الشحن',
-  delivered: 'تم التوصيل',
-  cancelled: 'ملغي',
-};
-
-export default function AccountPage() {
-  const router = useRouter();
-  const [phone, setPhone] = useState<string | null>(null);
-  const [orders, setOrders] = useState<OrderRow[]>([]);
+/**
+ * Profile / dashboard view. The protected shell is provided by `account/layout.tsx`
+ * which redirects to /account/login if no customer token is present.
+ */
+export default function ProfilePage() {
+  const [me, setMe] = useState<PortalCustomer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [loyaltyPoints] = useState(0);
-  const [addresses] = useState<Address[]>([]);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  const form = useForm<ProfileForm>();
 
   useEffect(() => {
-    setPhone(getPhone());
+    const token = getCustomerToken();
+    if (!token) return;
     (async () => {
       try {
-        const resp = await getMyOrders();
-        const list = (Array.isArray(resp) ? resp : (resp as { items?: OrderRow[] })?.items ?? []) as OrderRow[];
-        setOrders(list);
+        const data = await getMe(token);
+        setMe(data);
+        form.reset({
+          nameAr: data.nameAr ?? '',
+          email: data.email ?? '',
+          address: data.address ?? '',
+          city: data.city ?? '',
+        });
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'تعذر تحميل الطلبات');
+        setError(err instanceof Error ? err.message : 'تعذر تحميل البيانات');
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [form]);
 
-  function onLogout() {
-    logout();
-    router.push('/');
+  async function onSubmit(values: ProfileForm) {
+    setError(null);
+    const token = getCustomerToken();
+    if (!token) return;
+    try {
+      const updated = await updateMe(token, {
+        nameAr: values.nameAr,
+        email: values.email || undefined,
+        address: values.address || undefined,
+        city: values.city || undefined,
+      });
+      setMe((prev) => (prev ? { ...prev, ...updated } : prev));
+      setSavedAt(Date.now());
+    } catch (err) {
+      setError(err instanceof ApiError ? err.messageAr : 'تعذر حفظ البيانات');
+    }
+  }
+
+  if (loading) {
+    return <div className="h-40 bg-gray-100 rounded-lg animate-pulse" />;
   }
 
   return (
-    <>
-      <Header />
-      <main className="mx-auto max-w-5xl px-4 py-8 text-right">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">حسابي</h1>
+    <div className="grid md:grid-cols-3 gap-4 mb-6">
+      <section className="md:col-span-2 bg-white rounded-lg shadow-sm border border-gray-100 p-5">
+        <h2 className="text-lg font-semibold mb-4">الملف الشخصي</h2>
+
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <div>
+            <label className="block text-sm mb-1">الاسم *</label>
+            <input
+              {...form.register('nameAr', { required: 'مطلوب', minLength: { value: 2, message: 'قصير جداً' } })}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-sky-600 focus:outline-none"
+            />
+            {form.formState.errors.nameAr && (
+              <p className="text-xs text-red-600 mt-1">{form.formState.errors.nameAr.message}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm mb-1">رقم الهاتف</label>
+            <input
+              type="tel"
+              value={me?.phone ?? ''}
+              disabled
+              className="w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600"
+            />
+            <p className="text-xs text-gray-500 mt-1">لا يمكن تغيير الرقم — يلزم تسجيل دخول جديد</p>
+          </div>
+
+          <div>
+            <label className="block text-sm mb-1">البريد الإلكتروني</label>
+            <input
+              type="email"
+              {...form.register('email', {
+                pattern: { value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, message: 'بريد غير صالح' },
+              })}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-sky-600 focus:outline-none"
+            />
+            {form.formState.errors.email && (
+              <p className="text-xs text-red-600 mt-1">{form.formState.errors.email.message}</p>
+            )}
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm mb-1">المدينة</label>
+              <input
+                {...form.register('city')}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-sky-600 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm mb-1">العنوان</label>
+            <textarea
+              rows={3}
+              {...form.register('address')}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-sky-600 focus:outline-none resize-none"
+            />
+          </div>
+
+          {error && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-2">{error}</p>
+          )}
+          {savedAt && (
+            <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md p-2">
+              تم حفظ البيانات
+            </p>
+          )}
+
           <button
-            type="button"
-            onClick={onLogout}
-            className="text-sm text-red-600 hover:underline"
+            type="submit"
+            disabled={form.formState.isSubmitting}
+            className="bg-sky-700 hover:bg-sky-800 disabled:bg-gray-400 text-white px-5 py-2.5 rounded-lg font-semibold text-sm"
           >
-            تسجيل الخروج
+            {form.formState.isSubmitting ? 'جارٍ الحفظ…' : 'حفظ التغييرات'}
           </button>
-        </div>
+        </form>
+      </section>
 
-        {/* Loyalty + profile summary */}
-        <div className="grid md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5">
-            <div className="text-sm text-gray-500">رقم الهاتف</div>
-            <div className="mt-1 text-lg font-semibold">{phone ?? '—'}</div>
+      <aside className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-lg p-5 h-fit">
+        <div className="text-sm text-amber-800">نقاط الولاء</div>
+        <div className="mt-1 text-3xl font-bold text-amber-600">{me?.loyaltyPoints ?? 0}</div>
+        {me?.loyaltyTier && (
+          <div className="mt-2 inline-block px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-xs font-semibold">
+            {me.loyaltyTier}
           </div>
-          <div className="bg-gradient-to-br from-amber-50 to-amber-100 border border-amber-200 rounded-lg p-5">
-            <div className="text-sm text-amber-800">نقاط الولاء</div>
-            <div className="mt-1 text-2xl font-bold text-amber-600">{loyaltyPoints} نقطة</div>
-          </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-5">
-            <div className="text-sm text-gray-500">عدد الطلبات</div>
-            <div className="mt-1 text-2xl font-bold text-sky-700">{orders.length}</div>
-          </div>
-        </div>
-
-        {/* Orders */}
-        <section className="bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden mb-8">
-          <h2 className="text-lg font-semibold p-5 border-b border-gray-100">طلباتي</h2>
-          {loading ? (
-            <div className="p-5 space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-12 bg-gray-200 animate-pulse rounded-md" />
-              ))}
-            </div>
-          ) : error ? (
-            <div className="p-5 text-red-600 text-sm">{error}</div>
-          ) : orders.length === 0 ? (
-            <div className="p-10 text-center text-gray-500">
-              <div className="text-4xl mb-3">📦</div>
-              <p className="text-sm">لا توجد طلبات بعد</p>
-              <Link href="/categories" className="mt-3 inline-block text-sky-700 hover:underline text-sm">
-                ابدأ التسوق
-              </Link>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead className="bg-gray-50 text-sm text-gray-600">
-                <tr>
-                  <th className="p-3 text-right font-medium">رقم الطلب</th>
-                  <th className="p-3 text-right font-medium">التاريخ</th>
-                  <th className="p-3 text-right font-medium">الحالة</th>
-                  <th className="p-3 text-right font-medium">الإجمالي</th>
-                  <th className="p-3"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {orders.map((o) => (
-                  <tr key={o.id} className="text-sm">
-                    <td className="p-3 font-mono">{o.id.slice(0, 8)}</td>
-                    <td className="p-3">{o.createdAt ? formatDate(o.createdAt) : '—'}</td>
-                    <td className="p-3">
-                      <span className="inline-block px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 text-xs font-medium">
-                        {STATUS_LABELS[o.status] ?? o.status}
-                      </span>
-                    </td>
-                    <td className="p-3 font-semibold">{o.total ? formatIqd(o.total) : '—'}</td>
-                    <td className="p-3 text-left">
-                      <Link href={`/orders/${o.id}`} className="text-sky-700 hover:underline">
-                        التتبع
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
-
-        {/* Addresses */}
-        <section className="bg-white rounded-lg shadow-sm border border-gray-100 p-5">
-          <h2 className="text-lg font-semibold mb-4">العناوين المحفوظة</h2>
-          {addresses.length === 0 ? (
-            <p className="text-sm text-gray-500">لا توجد عناوين محفوظة بعد</p>
-          ) : (
-            <ul className="space-y-2">
-              {addresses.map((a) => (
-                <li key={a.id} className="border border-gray-200 rounded-md p-3 text-sm">
-                  <div className="font-medium">{a.label}</div>
-                  <div className="text-gray-600">{a.address}، {a.city}</div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </main>
-      <Footer />
-    </>
+        )}
+      </aside>
+    </div>
   );
 }

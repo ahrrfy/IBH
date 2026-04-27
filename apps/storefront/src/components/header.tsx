@@ -81,7 +81,7 @@ export function Header() {
               </Link>
             ) : (
               <Link
-                href="/login"
+                href="/account/login"
                 className="text-sm text-gray-700 hover:text-sky-700"
               >
                 تسجيل الدخول

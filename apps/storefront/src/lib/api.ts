@@ -168,28 +168,114 @@ export async function getPublicOrderStatus(trackingId: string) {
   return api<PublicOrderStatus>(`/public/orders/${encodeURIComponent(trackingId)}/status`);
 }
 
-// ─── Order + auth helpers (appended for M15 storefront) ──────────────────────
-
-export async function getOrder(id: string) {
-  return api(`/sales/orders/${id}`);
-}
-
-export async function getMyOrders() {
-  return api(`/sales/orders?mine=1`);
-}
+// ─── Customer-portal helpers (T56) ────────────────────────────────────────────
+// All portal endpoints live under /public/portal/* and require a customer JWT
+// issued by /public/auth/verify-otp. The token is sent as a Bearer.
 
 export async function requestOtp(phone: string) {
-  return api(`/auth/otp/request`, {
+  return api<{ ok: true; devCode?: string }>(`/public/auth/request-otp`, {
     method: 'POST',
     body: JSON.stringify({ phone }),
   });
 }
 
 export async function verifyOtp(phone: string, code: string) {
-  return api(`/auth/otp/verify`, {
-    method: 'POST',
-    body: JSON.stringify({ phone, code }),
+  return api<{ token: string; customer: { id: string; phone: string; nameAr: string } }>(
+    `/public/auth/verify-otp`,
+    { method: 'POST', body: JSON.stringify({ phone, code }) },
+  );
+}
+
+export interface PortalCustomer {
+  id: string;
+  nameAr: string;
+  nameEn: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+  loyaltyPoints: number;
+  loyaltyTier: string | null;
+}
+
+export async function getMe(token: string) {
+  return api<PortalCustomer>(`/public/portal/me`, { token });
+}
+
+export async function updateMe(
+  token: string,
+  body: { nameAr?: string; email?: string; address?: string; city?: string },
+) {
+  return api<PortalCustomer>(`/public/portal/me`, {
+    token,
+    method: 'PUT',
+    body: JSON.stringify(body),
   });
+}
+
+export interface PortalOrderListItem {
+  id: string;
+  number: string;
+  status: string;
+  createdAt: string;
+  total: number;
+  paymentStatus: string | null;
+  paymentMethod: string | null;
+  trackingId: string | null;
+}
+
+export async function getMyOrders(token: string, page = 1, pageSize = 20) {
+  return api<{
+    items: PortalOrderListItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+    pages: number;
+  }>(`/public/portal/orders?page=${page}&pageSize=${pageSize}`, { token });
+}
+
+export interface PortalOrderDetail {
+  id: string;
+  number: string;
+  status: string;
+  createdAt: string;
+  total: number;
+  subtotal: number;
+  shipping: number;
+  tax: number;
+  paymentMethod: string | null;
+  paymentStatus: string | null;
+  trackingId: string | null;
+  lines: Array<{ id: string; variantId: string; nameAr: string; qty: number; price: number; lineTotal: number }>;
+  delivery: {
+    status: string;
+    deliveryCity: string | null;
+    plannedDate: string | null;
+    dispatchedAt: string | null;
+    deliveredAt: string | null;
+    externalWaybillNo: string | null;
+  } | null;
+}
+
+export async function getMyOrder(token: string, id: string) {
+  return api<PortalOrderDetail>(`/public/portal/orders/${encodeURIComponent(id)}`, { token });
+}
+
+export interface PortalLoyalty {
+  points: number;
+  tier: string | null;
+  history: Array<{ id: string; number: string; date: string; earned: number; used: number; total: number }>;
+}
+
+export async function getMyLoyalty(token: string) {
+  return api<PortalLoyalty>(`/public/portal/loyalty`, { token });
+}
+
+// Legacy helper kept for compatibility with components that still call it
+// without auth (storefront tracking pages). Server-side order detail is
+// authenticated; for the public flow, use getPublicOrderStatus().
+export async function getOrder(id: string) {
+  return api(`/public/portal/orders/${encodeURIComponent(id)}`);
 }
 
 // ─── Public delivery tracking (no auth) ───────────────────────────────────────
