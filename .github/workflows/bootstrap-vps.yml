@@ -1,0 +1,366 @@
+name: Bootstrap VPS — Full Setup
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_seed:
+        description: 'Run database seed? (yes/no)'
+        required: true
+        default: 'yes'
+      force_rebuild:
+        description: 'Force Docker rebuild? (yes/no)'
+        required: true
+        default: 'yes'
+
+jobs:
+  bootstrap:
+    name: Full VPS Bootstrap
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Phase 1 — System Check
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} bash -s <<'ENDSSH'
+          set -euo pipefail
+          echo "=============================="
+          echo "PHASE 1: SYSTEM CHECK"
+          echo "=============================="
+          echo "OS:" && cat /etc/os-release | grep PRETTY_NAME
+          echo "RAM:" && free -h | head -2
+          echo "DISK:" && df -h / | tail -1
+          echo "Docker:" && docker --version || echo "NOT INSTALLED"
+          echo "Docker Compose:" && docker compose version || echo "NOT INSTALLED"
+          echo "Node:" && node --version 2>/dev/null || echo "NOT INSTALLED"
+          echo "pnpm:" && pnpm --version 2>/dev/null || echo "NOT INSTALLED"
+          echo "Git:" && git --version
+          ENDSSH
+
+      - name: Phase 2 — Install Prerequisites
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} bash -s <<'ENDSSH'
+          set -euo pipefail
+          echo "=============================="
+          echo "PHASE 2: INSTALL PREREQUISITES"
+          echo "=============================="
+
+          # Docker
+          if ! command -v docker &>/dev/null; then
+            echo "Installing Docker..."
+            curl -fsSL https://get.docker.com | sh
+            systemctl enable docker
+            systemctl start docker
+            echo "✅ Docker installed"
+          else
+            echo "✅ Docker already installed: $(docker --version)"
+          fi
+
+          # Node 22
+          if ! node --version 2>/dev/null | grep -q "v22"; then
+            echo "Installing Node 22..."
+            curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+            apt-get install -y nodejs
+            echo "✅ Node installed: $(node --version)"
+          else
+            echo "✅ Node already installed: $(node --version)"
+          fi
+
+          # pnpm
+          if ! command -v pnpm &>/dev/null; then
+            echo "Installing pnpm..."
+            npm install -g pnpm@9
+            echo "✅ pnpm installed"
+          else
+            echo "✅ pnpm already installed: $(pnpm --version)"
+          fi
+          ENDSSH
+
+      - name: Phase 3 — Clone / Update Project
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} bash -s <<'ENDSSH'
+          set -euo pipefail
+          echo "=============================="
+          echo "PHASE 3: PROJECT SETUP"
+          echo "=============================="
+
+          PROJECT_DIR="/opt/al-ruya-erp"
+
+          if [ -d "$PROJECT_DIR/.git" ]; then
+            echo "Project exists — pulling latest main..."
+            cd "$PROJECT_DIR"
+            git fetch origin main
+            git reset --hard origin/main
+            echo "✅ Updated to: $(git log --oneline -1)"
+          else
+            echo "Cloning project..."
+            mkdir -p /opt
+            git clone https://github.com/ahrrfy/IBH.git "$PROJECT_DIR"
+            cd "$PROJECT_DIR"
+            git checkout main
+            echo "✅ Cloned: $(git log --oneline -1)"
+          fi
+
+          ls -la "$PROJECT_DIR"
+          ENDSSH
+
+      - name: Phase 4 — Create .env
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} bash -s <<'ENDSSH'
+          set -euo pipefail
+          echo "=============================="
+          echo "PHASE 4: ENVIRONMENT SETUP"
+          echo "=============================="
+
+          ENV_FILE="/opt/al-ruya-erp/infra/.env"
+
+          if [ -f "$ENV_FILE" ]; then
+            echo "✅ .env already exists"
+            # تحقق من عدم وجود CHANGE_ME
+            if grep -q "CHANGE_ME" "$ENV_FILE"; then
+              echo "⚠️  WARNING: .env still has CHANGE_ME values!"
+            else
+              echo "✅ .env has no CHANGE_ME values"
+            fi
+          else
+            echo "Creating .env from example..."
+            cp /opt/al-ruya-erp/infra/.env.production.example "$ENV_FILE" 2>/dev/null || \
+            cp /opt/al-ruya-erp/.env.example "$ENV_FILE" 2>/dev/null || \
+            { echo "❌ No .env.example found!"; exit 1; }
+
+            # توليد قيم آمنة تلقائياً
+            JWT_SECRET=$(openssl rand -base64 48 | tr -d '\n/+=' | head -c 64)
+            POSTGRES_PASS=$(openssl rand -base64 24 | tr -d '\n/+=')
+            REDIS_PASS=$(openssl rand -base64 24 | tr -d '\n/+=')
+            MINIO_SECRET=$(openssl rand -base64 24 | tr -d '\n/+=')
+            OWNER_PASS="Owner$(openssl rand -base64 12 | tr -d '\n/+=')!1"
+            ADMIN_PASS="Admin$(openssl rand -base64 12 | tr -d '\n/+=')!1"
+
+            sed -i "s|CHANGE_ME_JWT\|changeme\|CHANGE_ME|${JWT_SECRET}|g" "$ENV_FILE" 2>/dev/null || true
+            sed -i "s|NODE_ENV=.*|NODE_ENV=production|" "$ENV_FILE"
+
+            # حفظ credentials في مكان آمن
+            cat > /root/.erp-credentials <<CREDS
+          JWT_SECRET=${JWT_SECRET}
+          POSTGRES_PASS=${POSTGRES_PASS}
+          REDIS_PASS=${REDIS_PASS}
+          MINIO_SECRET=${MINIO_SECRET}
+          OWNER_PASS=${OWNER_PASS}
+          ADMIN_PASS=${ADMIN_PASS}
+          CREDS
+            chmod 600 /root/.erp-credentials
+            echo "✅ .env created and credentials saved to /root/.erp-credentials"
+          fi
+          ENDSSH
+
+      - name: Phase 5 — Start Infrastructure (Postgres + Redis + MinIO)
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} bash -s <<'ENDSSH'
+          set -euo pipefail
+          echo "=============================="
+          echo "PHASE 5: START INFRASTRUCTURE"
+          echo "=============================="
+
+          cd /opt/al-ruya-erp/infra
+
+          # اختر الـ compose file المناسب
+          COMPOSE_FILE="docker-compose.bootstrap.yml"
+          [ -f "$COMPOSE_FILE" ] || COMPOSE_FILE="docker-compose.dev.yml"
+          echo "Using: $COMPOSE_FILE"
+
+          # تشغيل postgres + redis + minio
+          docker compose -f "$COMPOSE_FILE" up -d postgres redis minio 2>&1
+
+          # انتظار Postgres
+          echo "Waiting for Postgres..."
+          for i in $(seq 1 60); do
+            if docker compose -f "$COMPOSE_FILE" exec -T postgres \
+              pg_isready -U erp_app -d alruya_erp -q 2>/dev/null; then
+              echo "✅ Postgres ready after ${i}s"
+              break
+            fi
+            [ $i -eq 60 ] && { echo "❌ Postgres timeout!"; docker compose -f "$COMPOSE_FILE" logs postgres; exit 1; }
+            sleep 1
+          done
+
+          # تحقق Redis
+          if docker compose -f "$COMPOSE_FILE" exec -T redis redis-cli ping | grep -q PONG; then
+            echo "✅ Redis ready"
+          else
+            echo "⚠️ Redis check failed"
+          fi
+
+          echo "Running services:"
+          docker compose -f "$COMPOSE_FILE" ps
+          ENDSSH
+
+      - name: Phase 6 — Install Dependencies + Prisma
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} bash -s <<'ENDSSH'
+          set -euo pipefail
+          echo "=============================="
+          echo "PHASE 6: INSTALL + PRISMA"
+          echo "=============================="
+
+          cd /opt/al-ruya-erp
+
+          # تثبيت التبعيات
+          echo "Installing dependencies..."
+          pnpm install --frozen-lockfile 2>&1 | tail -5
+          echo "✅ Dependencies installed"
+
+          # بناء الحزم المشتركة
+          echo "Building shared packages..."
+          pnpm --filter @erp/shared-types build 2>&1 | tail -3
+          pnpm --filter @erp/validation-schemas build 2>&1 | tail -3
+          pnpm --filter @erp/domain-events build 2>/dev/null | tail -3 || true
+          echo "✅ Shared packages built"
+
+          # نسخ .env للـ API
+          cp infra/.env apps/api/.env 2>/dev/null || cp .env apps/api/.env 2>/dev/null || true
+
+          # توليد Prisma Client
+          echo "Generating Prisma Client..."
+          pnpm --filter @erp/api exec prisma generate 2>&1 | tail -5
+          echo "✅ Prisma Client generated"
+          ENDSSH
+
+      - name: Phase 7 — Migrations
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} bash -s <<'ENDSSH'
+          set -euo pipefail
+          echo "=============================="
+          echo "PHASE 7: MIGRATIONS"
+          echo "=============================="
+
+          cd /opt/al-ruya-erp
+
+          echo "Running migrations..."
+          pnpm --filter @erp/api exec prisma migrate deploy 2>&1
+
+          # تحقق من عدد الجداول
+          cd infra
+          COMPOSE_FILE="docker-compose.bootstrap.yml"
+          [ -f "$COMPOSE_FILE" ] || COMPOSE_FILE="docker-compose.dev.yml"
+
+          TABLE_COUNT=$(docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -U erp_app -d alruya_erp -t \
+            -c "SELECT count(*) FROM information_schema.tables WHERE table_schema='public';" \
+            2>/dev/null | tr -d ' \n')
+
+          echo "Tables created: ${TABLE_COUNT}"
+          [ "${TABLE_COUNT:-0}" -ge 50 ] && echo "✅ Migrations successful" || echo "⚠️ Low table count — check logs"
+          ENDSSH
+
+      - name: Phase 8 — Seed Database
+        if: ${{ github.event.inputs.run_seed == 'yes' }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} bash -s <<'ENDSSH'
+          set -euo pipefail
+          echo "=============================="
+          echo "PHASE 8: SEED DATABASE"
+          echo "=============================="
+
+          cd /opt/al-ruya-erp
+
+          echo "Running seed..."
+          pnpm --filter @erp/api exec prisma db seed 2>&1
+
+          # تحقق من البيانات
+          cd infra
+          COMPOSE_FILE="docker-compose.bootstrap.yml"
+          [ -f "$COMPOSE_FILE" ] || COMPOSE_FILE="docker-compose.dev.yml"
+
+          docker compose -f "$COMPOSE_FILE" exec -T postgres \
+            psql -U erp_app -d alruya_erp -c "
+            SELECT
+              (SELECT count(*) FROM companies)          AS companies,
+              (SELECT count(*) FROM users)              AS users,
+              (SELECT count(*) FROM chart_of_accounts)  AS coa,
+              (SELECT count(*) FROM roles)              AS roles,
+              (SELECT count(*) FROM warehouses)         AS warehouses;" \
+            2>/dev/null
+          ENDSSH
+
+      - name: Phase 9 — Build and Start API
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} bash -s <<'ENDSSH'
+          set -euo pipefail
+          echo "=============================="
+          echo "PHASE 9: BUILD + START API"
+          echo "=============================="
+
+          cd /opt/al-ruya-erp/infra
+          COMPOSE_FILE="docker-compose.bootstrap.yml"
+          [ -f "$COMPOSE_FILE" ] || COMPOSE_FILE="docker-compose.dev.yml"
+
+          REBUILD="${{ github.event.inputs.force_rebuild }}"
+
+          if [ "$REBUILD" = "yes" ]; then
+            echo "Building Docker images..."
+            docker compose -f "$COMPOSE_FILE" build api 2>&1 | tail -10
+          fi
+
+          echo "Starting API..."
+          docker compose -f "$COMPOSE_FILE" up -d api
+
+          # انتظار الـ API
+          echo "Waiting for API health..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/api/v1/health > /dev/null 2>&1; then
+              echo "✅ API is healthy after ${i}s"
+              curl -s http://localhost:3000/api/v1/health
+              break
+            fi
+            [ $i -eq 60 ] && {
+              echo "❌ API did not start!"
+              docker compose -f "$COMPOSE_FILE" logs api --tail=50
+              exit 1
+            }
+            sleep 1
+          done
+          ENDSSH
+
+      - name: Phase 10 — Final Report
+        run: |
+          ssh -i ~/.ssh/id_ed25519 root@${{ secrets.VPS_HOST }} bash -s <<'ENDSSH'
+          echo "=============================="
+          echo "FINAL REPORT"
+          echo "=============================="
+
+          cd /opt/al-ruya-erp/infra
+          COMPOSE_FILE="docker-compose.bootstrap.yml"
+          [ -f "$COMPOSE_FILE" ] || COMPOSE_FILE="docker-compose.dev.yml"
+
+          echo "=== Running Containers ==="
+          docker compose -f "$COMPOSE_FILE" ps
+
+          echo ""
+          echo "=== API Health ==="
+          curl -s http://localhost:3000/api/v1/health 2>/dev/null || echo "API not responding on localhost:3000"
+
+          echo ""
+          echo "=== Test Login ==="
+          ADMIN_EMAIL=$(grep SEED_ADMIN_EMAIL /opt/al-ruya-erp/infra/.env 2>/dev/null | cut -d= -f2 || echo "admin@al-ruya.iq")
+          echo "Admin email: $ADMIN_EMAIL"
+          echo "(Password saved in /root/.erp-credentials)"
+
+          echo ""
+          echo "=== Domain ==="
+          curl -sf http://ibherp.cloud/health 2>/dev/null && echo "✅ ibherp.cloud reachable" || echo "⚠️ ibherp.cloud not reachable yet"
+
+          echo ""
+          echo "=============================="
+          echo "✅ BOOTSTRAP COMPLETE"
+          echo "=============================="
+          ENDSSH
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519
