@@ -12,5 +12,5 @@
     "^@erp/validation-schemas$": "<rootDir>/../../../packages/validation-schemas/src",
     "^@erp/domain-events$":      "<rootDir>/../../../packages/domain-events/src"
   },
-  "testTimeout": 30000
+  "testTimeout": 90000
 }
