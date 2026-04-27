@@ -2734,6 +2734,201 @@ model License {
   @@map("licenses")
 }
 
+// ============================================================
+// WAVE 5 — SUBSCRIPTION & LICENSING SYSTEM (T58)
+// ============================================================
+// Modern multi-tenant subscription model. The legacy `License`
+// model above stays for backward compatibility with the existing
+// license-server flow; new code (T59-T71) uses these tables.
+
+enum SubscriptionStatus {
+  pending
+  trial
+  active
+  grace
+  suspended
+  expired
+  cancelled
+}
+
+enum BillingCycle {
+  monthly
+  annual
+  bundle
+}
+
+enum LicenseEventType {
+  created
+  activated
+  trial_started
+  trial_extended
+  renewed
+  upgraded
+  downgraded
+  suspended
+  resumed
+  expired
+  cancelled
+  reinstated
+  fingerprint_registered
+  fingerprint_revoked
+  key_rotated
+  payment_received
+  payment_failed
+  feature_overridden
+}
+
+model Plan {
+  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  code            String   @unique @db.VarChar(50)
+  name            String   @db.VarChar(200)
+  description     String?
+  monthlyPriceIqd Decimal  @db.Decimal(18, 2)
+  annualPriceIqd  Decimal  @db.Decimal(18, 2)
+  maxUsers        Int?
+  maxBranches     Int?
+  maxCompanies    Int?     @default(1)
+  featureSnapshot Json     @default("{}")
+  sortOrder       Int      @default(0)
+  isActive        Boolean  @default(true)
+  isPublic        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  features      PlanFeature[]
+  subscriptions Subscription[]
+
+  @@index([isActive, isPublic, sortOrder])
+  @@map("plans")
+}
+
+model PlanFeature {
+  id          String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  planId      String   @db.Char(26)
+  featureCode String   @db.VarChar(100)
+  isEnabled   Boolean  @default(true)
+  limits      Json?
+  createdAt   DateTime @default(now())
+
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureCode])
+  @@index([featureCode])
+  @@map("plan_features")
+}
+
+model Subscription {
+  id                   String             @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId            String             @db.Char(26)
+  planId               String             @db.Char(26)
+  status               SubscriptionStatus @default(pending)
+  billingCycle         BillingCycle       @default(monthly)
+  startedAt            DateTime?
+  currentPeriodStartAt DateTime?
+  currentPeriodEndAt   DateTime?
+  trialStartedAt       DateTime?
+  trialEndsAt          DateTime?
+  gracePeriodEndsAt    DateTime?
+  cancelledAt          DateTime?
+  cancellationReason   String?
+  priceIqd             Decimal            @default(0) @db.Decimal(18, 2)
+  resellerCode         String?            @db.VarChar(50)
+  effectiveFeatures    Json               @default("{}")
+  notes                String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  createdBy            String?            @db.Char(26)
+
+  plan             Plan                  @relation(fields: [planId], references: [id])
+  featureOverrides SubscriptionFeature[]
+  licenseKeys      LicenseKey[]
+  events           LicenseEvent[]
+
+  @@index([companyId, status])
+  @@index([currentPeriodEndAt])
+  @@index([gracePeriodEndsAt])
+  @@index([trialEndsAt])
+  @@map("subscriptions")
+}
+
+model SubscriptionFeature {
+  id             String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  subscriptionId String    @db.Char(26)
+  featureCode    String    @db.VarChar(100)
+  isEnabled      Boolean   @default(true)
+  limits         Json?
+  expiresAt      DateTime?
+  reason         String?
+  createdAt      DateTime  @default(now())
+  createdBy      String?   @db.Char(26)
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, featureCode])
+  @@index([expiresAt])
+  @@map("subscription_features")
+}
+
+model LicenseKey {
+  id             String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  subscriptionId String    @db.Char(26)
+  key            String    @unique @db.VarChar(512)
+  signatureSha   String    @db.VarChar(64)
+  issuedAt       DateTime  @default(now())
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  revokedReason  String?
+  maxDevices     Int       @default(1)
+  lastSeenAt     DateTime?
+  metadata       Json      @default("{}")
+  createdAt      DateTime  @default(now())
+  createdBy      String?   @db.Char(26)
+
+  subscription Subscription          @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  fingerprints HardwareFingerprint[]
+
+  @@index([subscriptionId])
+  @@index([expiresAt])
+  @@map("license_keys")
+}
+
+model HardwareFingerprint {
+  id              String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  licenseKeyId    String    @db.Char(26)
+  fingerprintHash String    @db.VarChar(64)
+  deviceLabel     String?   @db.VarChar(200)
+  os              String?   @db.VarChar(50)
+  appVersion      String?   @db.VarChar(50)
+  ipAddress       String?   @db.VarChar(45)
+  firstSeenAt     DateTime  @default(now())
+  lastSeenAt      DateTime  @default(now())
+  isActive        Boolean   @default(true)
+  revokedAt       DateTime?
+  revokedReason   String?
+
+  licenseKey LicenseKey @relation(fields: [licenseKeyId], references: [id], onDelete: Cascade)
+
+  @@unique([licenseKeyId, fingerprintHash])
+  @@index([fingerprintHash])
+  @@index([lastSeenAt])
+  @@map("hardware_fingerprints")
+}
+
+model LicenseEvent {
+  id             String           @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  subscriptionId String           @db.Char(26)
+  eventType      LicenseEventType
+  payload        Json             @default("{}")
+  createdAt      DateTime         @default(now())
+  createdBy      String?          @db.Char(26)
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("license_events")
+}
+
 // Reorder Points
 model ReorderPoint {
   id                  String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
