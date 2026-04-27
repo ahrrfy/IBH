@@ -3316,3 +3316,157 @@ model AutoReorderRun {
   @@index([companyId, startedAt])
   @@map("auto_reorder_runs")
 }
+
+// ============================================================
+// HR RECRUITMENT (T51) — JobPosting / Application / InterviewStage / OfferLetter
+// State machine: new → screened → interview → offer → hired | rejected
+// Public application endpoint is rate-limited and uploads CV reference.
+// ============================================================
+
+enum JobPostingStatus {
+  draft
+  open
+  paused
+  closed
+}
+
+enum ApplicationStatus {
+  new
+  screened
+  interview
+  offer
+  hired
+  rejected
+}
+
+enum InterviewOutcome {
+  pending
+  passed
+  failed
+  no_show
+}
+
+enum OfferLetterStatus {
+  draft
+  sent
+  accepted
+  rejected
+  withdrawn
+  expired
+}
+
+/// Job opening that can receive applications. Has public slug for the job board.
+model JobPosting {
+  id                String           @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String           @db.Char(26)
+  branchId          String?          @db.Char(26)
+  departmentId      String?          @db.Char(26)
+  slug              String           @db.VarChar(150)
+  titleAr           String           @db.VarChar(200)
+  titleEn           String?          @db.VarChar(200)
+  descriptionAr     String
+  requirementsAr    String?
+  /// Comma-separated keywords used by the rule-based auto-screen scorer.
+  keywords          String?          @db.VarChar(1000)
+  minYearsExperience Int             @default(0)
+  employmentType    String           @default("full_time") @db.VarChar(30)
+  salaryMinIqd      Decimal?         @db.Decimal(18, 3)
+  salaryMaxIqd      Decimal?         @db.Decimal(18, 3)
+  location          String?          @db.VarChar(200)
+  status            JobPostingStatus @default(draft)
+  openedAt          DateTime?
+  closedAt          DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  createdBy         String           @db.Char(26)
+  updatedBy         String           @db.Char(26)
+
+  applications Application[]
+
+  @@unique([companyId, slug])
+  @@index([companyId, status])
+  @@map("job_postings")
+}
+
+/// Candidate application submitted (publicly or internally). Flows through
+/// the recruitment kanban via the ApplicationStatus state machine.
+model Application {
+  id              String            @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String            @db.Char(26)
+  jobPostingId    String            @db.Char(26)
+  applicantName   String            @db.VarChar(200)
+  applicantEmail  String            @db.VarChar(200)
+  applicantPhone  String?           @db.VarChar(30)
+  yearsExperience Int               @default(0)
+  /// Optional URL/key (MinIO object) for the uploaded CV.
+  cvUrl           String?           @db.VarChar(500)
+  /// Free-text CV body — used by rule-based keyword scorer.
+  cvText          String?
+  coverLetter     String?
+  /// Auto-screen score (0-100). Higher = better keyword + experience match.
+  autoScreenScore Int               @default(0)
+  status          ApplicationStatus @default(new)
+  rejectionReason String?           @db.VarChar(500)
+  /// IP of the public submitter (for abuse audit).
+  sourceIp        String?           @db.VarChar(64)
+  /// User-agent of the public submitter.
+  sourceUa        String?           @db.VarChar(300)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  reviewedBy      String?           @db.Char(26)
+  reviewedAt      DateTime?
+
+  jobPosting JobPosting        @relation(fields: [jobPostingId], references: [id])
+  stages     InterviewStage[]
+  offer      OfferLetter?
+
+  @@index([companyId, status])
+  @@index([jobPostingId, status])
+  @@index([companyId, autoScreenScore])
+  @@map("applications")
+}
+
+/// One interview round per application. Append rounds as the candidate progresses.
+model InterviewStage {
+  id            String           @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId     String           @db.Char(26)
+  applicationId String           @db.Char(26)
+  /// 1-based round number (1 = phone screen, 2 = technical, etc.)
+  roundNumber   Int
+  scheduledAt   DateTime?
+  interviewerId String?          @db.Char(26)
+  outcome       InterviewOutcome @default(pending)
+  /// Score 0-10 given by the interviewer.
+  score         Int?
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  application Application @relation(fields: [applicationId], references: [id])
+
+  @@unique([applicationId, roundNumber])
+  @@index([companyId])
+  @@map("interview_stages")
+}
+
+/// Offer extended to a candidate after successful interviews.
+model OfferLetter {
+  id              String            @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String            @db.Char(26)
+  applicationId   String            @unique @db.Char(26)
+  proposedSalaryIqd Decimal         @db.Decimal(18, 3)
+  startDate       DateTime          @db.Date
+  expiresAt       DateTime
+  status          OfferLetterStatus @default(draft)
+  notes           String?
+  sentAt          DateTime?
+  respondedAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  createdBy       String            @db.Char(26)
+
+  application Application @relation(fields: [applicationId], references: [id])
+
+  @@index([companyId, status])
+  @@map("offer_letters")
+}
