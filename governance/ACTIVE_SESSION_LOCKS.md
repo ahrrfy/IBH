@@ -75,7 +75,7 @@ Before marking a session closed:
 
 | Session ID | Agent | Branch | Owned Scope | Allowed Files | Forbidden Files | Status |
 |---|---|---|---|---|---|---|
-_(no active locks)_
+| claude-opus-4-7-20260427-T35 | Claude Code (Opus 4.7) | `feat/t35-sales-order-new` | T35 — Sales Order New/Create FE (3 files) | `apps/web/src/app/(app)/sales/orders/new/page.tsx`, `apps/web/src/components/customer-combobox.tsx`, `apps/web/src/components/product-combobox.tsx`, `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | All other modules, BE, schema | Active |
 
 _(Historical:_
 

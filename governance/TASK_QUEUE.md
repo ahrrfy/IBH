@@ -600,7 +600,10 @@
 ---
 
 #### T35 — Sales Orders New/Create (Smart Form)
-- **Status:** ⏳ TODO
+- **Status:** 🔄 IN_PROGRESS
+- **Owner:** claude-opus-4-7-20260427-T35
+- **Branch:** `feat/t35-sales-order-new`
+- **Started:** 2026-04-27T14:35:00Z
 - **Deps:** [T31]
 - **File scope:**
   - `apps/web/src/app/(app)/sales/orders/new/page.tsx` (currently missing)
