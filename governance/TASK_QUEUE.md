@@ -869,12 +869,21 @@
 ---
 
 #### T53 — HR Promotions + Salary Bands
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T52]
+- **Owner:** claude-sonnet-4-6-20260427-T53
+- **Branch:** `feat/t53-hr-promotions-salary-bands` (merged)
+- **Completed:** 2026-04-27T14:55:00Z
+- **Commit:** `0fb779d` (PR #148 squash-merged)
 - **File scope:**
-  - `apps/api/prisma/schema.prisma` (SalaryBand, Promotion, PromotionApproval)
-  - `apps/web/src/app/(app)/hr/promotions/*`
-- **Smart:** Suggest promotion candidates based on tenure + KPIs + attendance
+  - `apps/api/prisma/schema.prisma` (SalaryBand, HrPromotion, PromotionApproval)
+  - `apps/api/prisma/migrations/20260427210000_t53_hr_promotions_salary_bands/migration.sql`
+  - `apps/api/src/modules/hr/promotions/` (service + controller + dto + tests)
+  - `apps/api/src/modules/hr/hr.module.ts`
+  - `apps/web/src/app/(app)/hr/promotions/page.tsx`
+  - `apps/web/src/app/(app)/hr/promotions/[id]/page.tsx`
+  - `apps/web/src/app/(app)/hr/salary-bands/page.tsx`
+- **Smart:** Tier 3 auto-suggest (tenure ≥ 12mo + attendance ≥ 90%); 2-step approval workflow; payroll-grade update on director approval; contract amendment drafted (never auto-issued)
 - **Estimate:** 180min
 
 ---
