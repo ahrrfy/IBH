@@ -4,6 +4,7 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { LicenseGuard } from './license.guard';
 import { FeatureCacheService } from './feature-cache.service';
 import { LicenseSignerService } from './license-signer.service';
+import { PlanChangeService } from './plan-change.service';
 import { LicenseActivationController } from './activation.controller';
 import { MeFeaturesController } from './me-features.controller';
 import { LicensingModule } from '../../modules/licensing/licensing.module';
@@ -29,6 +30,7 @@ import { LicensingModule } from '../../modules/licensing/licensing.module';
     FeatureCacheService,
     LicenseGuard,
     LicenseSignerService,
+    PlanChangeService,
     // T66 — register the LicenseGuard as a GLOBAL APP_GUARD so license
     // enforcement is on by default for every authenticated route. The
     // guard internally honors `@SkipLicense()` and `@Public()` so auth,
@@ -36,6 +38,6 @@ import { LicensingModule } from '../../modules/licensing/licensing.module';
     // remain reachable when a tenant has no active license.
     { provide: APP_GUARD, useExisting: LicenseGuard },
   ],
-  exports: [FeatureCacheService, LicenseGuard, LicenseSignerService],
+  exports: [FeatureCacheService, LicenseGuard, LicenseSignerService, PlanChangeService],
 })
 export class PlatformLicensingModule {}
