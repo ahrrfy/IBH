@@ -32,6 +32,10 @@ import { DeliveryModule }  from './modules/delivery/delivery.module';
 // Business Modules (Wave 3)
 import { PurchasesModule } from './modules/purchases/purchases.module';
 
+// Smart Inventory Engine (T42 — Wave 5 expansion)
+import { InventoryIntelligenceModule } from './modules/inventory/intelligence/intelligence.module';
+import { ProcurementAutoReorderModule } from './modules/procurement/auto-reorder/auto-reorder.module';
+
 // Business Modules (Wave 4)
 import { FinanceModule }   from './modules/finance/finance.module';
 import { AssetsModule }    from './modules/assets/assets.module';
@@ -108,6 +112,10 @@ import { StorefrontModule } from './modules/storefront/storefront.module';
 
     // ── Business Modules — Wave 3 ───────────────────────────────────────────
     PurchasesModule,
+
+    // ── T42 Smart Inventory + Auto-Reorder ─────────────────────────────────
+    InventoryIntelligenceModule,
+    ProcurementAutoReorderModule,
 
     // ── Business Modules — Wave 4 ───────────────────────────────────────────
     FinanceModule,
