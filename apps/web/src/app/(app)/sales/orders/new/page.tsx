@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { ArrowRight, Save, Trash2 } from 'lucide-react';
+import { z } from 'zod';
 import { api, ApiError } from '@/lib/api';
 import { formatIqd } from '@/lib/format';
+// TODO(T35-cycle2): replace with smart bidirectional combobox (live credit-limit check, customer balance, alternative-product suggestion)
 import { CustomerCombobox, CustomerOption } from '@/components/customer-combobox';
 import { ProductCombobox, VariantOption } from '@/components/product-combobox';
 
@@ -19,6 +21,32 @@ interface LineDraft {
   unitPriceIqd: number;
 }
 
+/**
+ * Sales order create payload — mirrors the backend DTO contract
+ * accepted by POST /sales-orders (apps/api/src/modules/sales/orders).
+ * Cycle 1: structural validation only; semantic checks (credit limit,
+ * stock availability) are enforced server-side and surfaced via ApiError.
+ */
+const createSalesOrderSchema = z.object({
+  customerId: z.string().min(1, 'يجب اختيار العميل'),
+  warehouseId: z.string().min(1, 'يجب اختيار المخزن'),
+  orderDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'تاريخ غير صالح'),
+  notes: z.string().optional(),
+  discountIqd: z.number().min(0, 'الخصم لا يمكن أن يكون سالباً'),
+  taxIqd: z.number().min(0, 'الضريبة لا يمكن أن تكون سالبة'),
+  lines: z
+    .array(
+      z.object({
+        variantId: z.string().min(1),
+        qty: z.number().positive('الكمية يجب أن تكون أكبر من صفر'),
+        unitPriceIqd: z.number().min(0, 'السعر لا يمكن أن يكون سالباً'),
+      }),
+    )
+    .min(1, 'يجب إضافة بند واحد على الأقل'),
+});
+
+type CreateSalesOrderInput = z.infer<typeof createSalesOrderSchema>;
+
 export default function NewSalesOrderPage() {
   const router = useRouter();
 
@@ -26,6 +54,8 @@ export default function NewSalesOrderPage() {
   const [warehouseId, setWarehouseId] = useState<string>('');
   const [orderDate, setOrderDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState('');
+  const [discountIqd, setDiscountIqd] = useState<number>(0);
+  const [taxIqd, setTaxIqd] = useState<number>(0);
   const [lines, setLines] = useState<LineDraft[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,9 +67,13 @@ export default function NewSalesOrderPage() {
     ? warehousesResp
     : warehousesResp?.items ?? [];
 
-  const total = useMemo(
+  const subtotal = useMemo(
     () => lines.reduce((sum, l) => sum + (Number(l.qty) || 0) * (Number(l.unitPriceIqd) || 0), 0),
     [lines],
+  );
+  const total = useMemo(
+    () => Math.max(0, subtotal - (Number(discountIqd) || 0) + (Number(taxIqd) || 0)),
+    [subtotal, discountIqd, taxIqd],
   );
 
   function addVariant(v: VariantOption) {
@@ -73,20 +107,10 @@ export default function NewSalesOrderPage() {
   }
 
   const create = useMutation({
-    mutationFn: () =>
-      api<any>('/sales-orders', {
+    mutationFn: (payload: CreateSalesOrderInput) =>
+      api<{ id: string }>('/sales-orders', {
         method: 'POST',
-        body: {
-          customerId: customer!.id,
-          warehouseId,
-          orderDate,
-          notes: notes || undefined,
-          lines: lines.map((l) => ({
-            variantId: l.variantId,
-            qty: l.qty,
-            unitPriceIqd: l.unitPriceIqd,
-          })),
-        },
+        body: payload,
       }),
     onSuccess: (order) => {
       if (order?.id) router.push(`/sales/orders/${order.id}`);
@@ -96,6 +120,30 @@ export default function NewSalesOrderPage() {
       setError(e instanceof ApiError ? e.messageAr : 'تعذّر إنشاء الطلب');
     },
   });
+
+  function handleSubmit() {
+    setError(null);
+    const candidate = {
+      customerId: customer?.id ?? '',
+      warehouseId,
+      orderDate,
+      notes: notes || undefined,
+      discountIqd: Number(discountIqd) || 0,
+      taxIqd: Number(taxIqd) || 0,
+      lines: lines.map((l) => ({
+        variantId: l.variantId,
+        qty: Number(l.qty) || 0,
+        unitPriceIqd: Number(l.unitPriceIqd) || 0,
+      })),
+    };
+    const parsed = createSalesOrderSchema.safeParse(candidate);
+    if (!parsed.success) {
+      const first = parsed.error.issues[0];
+      setError(first?.message ?? 'بيانات غير صالحة');
+      return;
+    }
+    create.mutate(parsed.data);
+  }
 
   const insufficientStock = lines.some((l) => l.qty > l.qtyOnHand);
   const canSubmit =
@@ -235,8 +283,41 @@ export default function NewSalesOrderPage() {
                   </tr>
                 );
               })}
+              <tr className="border-t">
+                <td colSpan={3} className="py-2 text-end text-slate-600">المجموع الفرعي</td>
+                <td className="py-2 text-end font-medium">{formatIqd(subtotal)}</td>
+                <td></td>
+              </tr>
+              <tr>
+                <td colSpan={3} className="py-1 text-end text-slate-600">خصم الرأس (د.ع)</td>
+                <td className="py-1 text-end">
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={discountIqd}
+                    onChange={(e) => setDiscountIqd(Number(e.target.value))}
+                    className="w-32 rounded-md border border-slate-300 bg-white px-2 py-1 text-end text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                </td>
+                <td></td>
+              </tr>
+              <tr>
+                <td colSpan={3} className="py-1 text-end text-slate-600">الضريبة (د.ع)</td>
+                <td className="py-1 text-end">
+                  <input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={taxIqd}
+                    onChange={(e) => setTaxIqd(Number(e.target.value))}
+                    className="w-32 rounded-md border border-slate-300 bg-white px-2 py-1 text-end text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                  />
+                </td>
+                <td></td>
+              </tr>
               <tr className="border-t font-semibold">
-                <td colSpan={3} className="py-3 text-end">المجموع الكلي</td>
+                <td colSpan={3} className="py-3 text-end">الإجمالي</td>
                 <td className="py-3 text-end text-lg">{formatIqd(total)}</td>
                 <td></td>
               </tr>
@@ -252,7 +333,7 @@ export default function NewSalesOrderPage() {
         <div className="ms-auto">
           <button
             type="button"
-            onClick={() => create.mutate()}
+            onClick={handleSubmit}
             disabled={!canSubmit}
             className="inline-flex items-center gap-2 rounded-md bg-sky-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
