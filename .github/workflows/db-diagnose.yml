@@ -1,0 +1,60 @@
+name: Diagnose VPS DB state
+
+# One-shot diagnostic: dumps which migrations Prisma believes are applied,
+# whether the current_company_id() helper exists, and basic table counts.
+# Used to debug a P3018 from missing 0001-era functions on production.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    name: Inspect ibherp.cloud DB
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -T 5 -t rsa,ecdsa,ed25519 -H "$VPS_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Migrations Prisma sees
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            cd /opt/al-ruya-erp/infra
+            docker compose -f docker-compose.bootstrap.yml exec -T postgres \
+              psql -U postgres -d alruya_erp -c "SELECT migration_name, finished_at, rolled_back_at, applied_steps_count FROM _prisma_migrations ORDER BY started_at;"
+          '
+
+      - name: current_company_id() function existence
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            cd /opt/al-ruya-erp/infra
+            docker compose -f docker-compose.bootstrap.yml exec -T postgres \
+              psql -U postgres -d alruya_erp -c "SELECT proname, pg_get_function_result(oid) FROM pg_proc WHERE proname IN ('"'"'current_company_id'"'"', '"'"'gen_ulid'"'"', '"'"'current_user_id'"'"');"
+          '
+
+      - name: List custom functions in public schema
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            cd /opt/al-ruya-erp/infra
+            docker compose -f docker-compose.bootstrap.yml exec -T postgres \
+              psql -U postgres -d alruya_erp -c "SELECT n.nspname, p.proname FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid WHERE n.nspname = '"'"'public'"'"' ORDER BY p.proname;"
+          '
+
+      - name: Table count
+        run: |
+          ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
+            cd /opt/al-ruya-erp/infra
+            docker compose -f docker-compose.bootstrap.yml exec -T postgres \
+              psql -U postgres -d alruya_erp -c "SELECT COUNT(*) AS table_count FROM information_schema.tables WHERE table_schema = '"'"'public'"'"';"
+          '
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519
