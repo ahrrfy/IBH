@@ -8,6 +8,8 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RbacGuard } from './guards/rbac.guard';
+import { DataScopeGuard } from './guards/data-scope.guard';
+import { RbacService } from './rbac.service';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
@@ -28,7 +30,23 @@ import { AuditModule } from '../audit/audit.module';
     AuditModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, TotpService, JwtStrategy, JwtAuthGuard, RbacGuard],
-  exports: [AuthService, TotpService, JwtAuthGuard, RbacGuard, JwtModule],
+  providers: [
+    AuthService,
+    TotpService,
+    JwtStrategy,
+    JwtAuthGuard,
+    RbacGuard,
+    DataScopeGuard,
+    RbacService,
+  ],
+  exports: [
+    AuthService,
+    TotpService,
+    JwtAuthGuard,
+    RbacGuard,
+    DataScopeGuard,
+    RbacService,
+    JwtModule,
+  ],
 })
 export class AuthModule {}
