@@ -25,6 +25,7 @@
 | D11 | Prisma 6 بدل Drizzle أو TypeORM | TypeORM | Type-safety أعلى + migrations أفضل + ecosystem | API Database | 2026-04-24 | ✅ مقفل |
 | D12 | pnpm + Turborepo بدل npm workspaces أو Nx | Nx | أخف + أسرع + أبسط إعداداً مع pnpm | Monorepo | 2026-04-24 | ✅ مقفل |
 | D13 | تفعيل GitHub Security Stack كامل (CodeQL + Dependabot + Secret Scanning + Private Vuln Reporting) مع جسر تلقائي لـ governance | الاكتفاء بـ gitleaks محلي | يحوّل اكتشافات الأمان من تحذيرات سلبية إلى مهام تلقائية في `OPEN_ISSUES.md` و GitHub Issues — يكمّل حلقة `auto-diagnose.yml` ليصير عندنا حلقة استشفاء ذاتي شاملة (CI fail + Security finding → Issue → Claude → Fix → Close). حرج لـ ERP يعالج بيانات مالية. | كل المستودع — workflows + governance | 2026-04-26 | ✅ مقفل |
+| D14 | تفعيل Auto-Merge + Delete-branch-on-merge على مستوى الريبو (`allow_auto_merge: true`, `delete_branch_on_merge: true`) | إبقاؤهما مغلقتين والدمج اليدوي لكل PR | يُفعِّل فعلياً الـ workflow `dependabot-automerge.yml` المشحون في D13/PR #56 — minor/patch Dependabot PRs تُدمج تلقائياً عند نجاح CI، بدون إغراق صاحب المشروع بمراجعات يومية. الـ branch protection على main يبقى الخط الأخير. | Repository config + Dependabot auto-merge | 2026-04-27 | ✅ مقفل |
 
 ---
 
