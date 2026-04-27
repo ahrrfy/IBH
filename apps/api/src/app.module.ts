@@ -11,6 +11,7 @@ import { SequenceModule } from './engines/sequence/sequence.module';
 import { PolicyModule }   from './engines/policy/policy.module';
 import { PostingModule }  from './engines/posting/posting.module';
 import { WorkflowModule } from './engines/workflow/workflow.module';
+import { AutopilotModule } from './engines/autopilot/autopilot.module';
 
 // Core Infrastructure
 import { PrismaModule }   from './platform/prisma/prisma.module';
@@ -146,6 +147,9 @@ import { OnlineOrdersModule } from './modules/sales/online-orders/online-orders.
     // ── E-commerce ↔ ERP integration (T55) ─────────────────────────────────
     PaymentsModule,
     OnlineOrdersModule,
+
+    // ── T71 Autonomous Operations Engine ───────────────────────────────────
+    AutopilotModule,
   ],
 })
 export class AppModule {}

@@ -3725,3 +3725,80 @@ enum PromotionApprovalResult {
   approved
   rejected
 }
+
+// ============================================================
+// T71 — AUTONOMOUS OPERATIONS ENGINE (الذكاء الخلفي)
+// ============================================================
+// Master engine that runs 50+ background autonomous jobs across
+// every business domain. Each job either silently completes its
+// work or raises an `AutopilotException` for human review. The
+// goal is 90% auto / 10% human-touch — managers see only the
+// exceptions, never the noise.
+//
+// F4: rule-based (Tier 3) jobs only. AI scoring is out of scope.
+// F2/F3: jobs NEVER bypass posting/stock-ledger constraints; they
+//   call the existing services that already enforce double-entry
+//   and append-only stock movements.
+
+enum AutopilotSeverity {
+  low
+  medium
+  high
+  critical
+}
+
+enum AutopilotExceptionStatus {
+  pending
+  resolved
+  dismissed
+}
+
+enum AutopilotJobRunStatus {
+  completed
+  exception_raised
+  no_op
+  failed
+}
+
+// Exception log — one row per business situation that needs a
+// human decision. The `payload` JSON carries enough context for
+// the manager UI to render the suggested action.
+model AutopilotException {
+  id                String                   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  jobId             String                   @db.VarChar(80)        // e.g. 'sales.overdue-reminder'
+  domain            String                   @db.VarChar(40)        // sales|inventory|finance|hr|crm|delivery|procurement|license
+  companyId         String                   @db.Char(26)
+  severity          AutopilotSeverity        @default(medium)
+  title             String                   @db.VarChar(200)
+  description       String                   @db.VarChar(2000)
+  payload           Json                     @default("{}")
+  suggestedAction   String?                  @db.VarChar(200)
+  status            AutopilotExceptionStatus @default(pending)
+  resolvedBy        String?                  @db.Char(26)
+  resolvedAt        DateTime?
+  resolution        Json?
+  createdAt         DateTime                 @default(now())
+
+  @@index([companyId, status])
+  @@index([companyId, jobId])
+  @@index([companyId, domain, status])
+  @@map("autopilot_exceptions")
+}
+
+// Run log for observability. Append-only; one row per execution
+// of a registered job for a given company.
+model AutopilotJobRun {
+  id                String                @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  jobId             String                @db.VarChar(80)
+  companyId         String                @db.Char(26)
+  startedAt         DateTime              @default(now())
+  finishedAt        DateTime?
+  status            AutopilotJobRunStatus @default(completed)
+  itemsProcessed    Int                   @default(0)
+  exceptionsRaised  Int                   @default(0)
+  errorMessage      String?               @db.VarChar(2000)
+
+  @@index([companyId, jobId, startedAt])
+  @@index([jobId, startedAt])
+  @@map("autopilot_job_runs")
+}
