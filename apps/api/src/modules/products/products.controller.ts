@@ -41,6 +41,13 @@ export class ProductsController {
     return this.productsService.getCategories(user.companyId);
   }
 
+  // T41: hierarchical tree for the categories admin page (single round-trip).
+  @Get('categories/tree')
+  @RequirePermission('Product', 'read')
+  async getCategoryTree(@CurrentUser() user: UserSession) {
+    return this.productsService.getCategoryTree(user.companyId);
+  }
+
   @Post('categories')
   @RequirePermission('Product', 'create')
   async createCategory(
@@ -48,6 +55,31 @@ export class ProductsController {
     @CurrentUser() user: UserSession,
   ) {
     return this.productsService.createCategory(user.companyId, body, user);
+  }
+
+  // T41: reparent a category (recomputes level/path for it + descendants).
+  @Put('categories/:id/parent')
+  @RequirePermission('Product', 'update')
+  async updateCategoryParent(
+    @Param('id') id: string,
+    @Body() body: { parentId: string | null },
+    @CurrentUser() user: UserSession,
+  ) {
+    return this.productsService.updateCategoryParent(id, user.companyId, body.parentId, user);
+  }
+
+  // ─── Live duplicate detection (T41) ───────────────────────────────────────
+  // Used by the New-Product form to warn before creating a near-identical item.
+
+  @Get('check-duplicate')
+  @RequirePermission('Product', 'read')
+  async checkDuplicate(
+    @CurrentUser() user: UserSession,
+    @Query('name1') name1?: string,
+    @Query('name2') name2?: string,
+    @Query('name3') name3?: string,
+  ) {
+    return this.productsService.checkProductDuplicate(user.companyId, { name1, name2, name3 });
   }
 
   // ─── Attributes ───────────────────────────────────────────────────────────
@@ -113,6 +145,7 @@ export class ProductsController {
   async create(
     @Body() body: {
       sku: string; nameAr: string; nameEn?: string;
+      name1?: string; name2?: string; name3?: string;
       categoryId: string; baseUnitId: string;
       saleUnitId?: string; purchaseUnitId?: string;
       type?: string; brandId?: string;
@@ -134,7 +167,9 @@ export class ProductsController {
   async update(
     @Param('id') id: string,
     @Body() body: {
-      nameAr?: string; nameEn?: string; description?: string;
+      nameAr?: string; nameEn?: string;
+      name1?: string; name2?: string | null; name3?: string | null;
+      description?: string;
       categoryId?: string; salePrice?: number; minSalePrice?: number; isActive?: boolean;
     },
     @CurrentUser() user: UserSession,

@@ -1,11 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
-import { Package, Save, ArrowRight } from 'lucide-react';
+import { Package, Save, ArrowRight, AlertTriangle } from 'lucide-react';
+
+// T41: shape returned by GET /products/check-duplicate
+interface DuplicateMatch {
+  id: string;
+  sku: string;
+  generatedFullName: string;
+  name1: string;
+  name2: string | null;
+  name3: string | null;
+}
 
 const PRODUCT_TYPES: Array<{ value: string; label: string }> = [
   { value: 'storable',      label: 'مخزن (Storable)' },
@@ -28,7 +38,10 @@ export default function NewProductPage() {
 
   const [form, setForm] = useState({
     sku: '',
-    nameAr: '',
+    // T41: 3-field structured naming. name1 is required, name2/name3 are optional descriptors.
+    name1: '',
+    name2: '',
+    name3: '',
     nameEn: '',
     categoryId: '',
     type: 'storable',
@@ -43,6 +56,36 @@ export default function NewProductPage() {
   });
   const [error, setError] = useState<string | null>(null);
 
+  // T41: composed full name shown to the user as a live preview.
+  const generatedFullName = useMemo(
+    () => [form.name1, form.name2, form.name3].map((s) => s.trim()).filter(Boolean).join(' '),
+    [form.name1, form.name2, form.name3],
+  );
+
+  // T41: 300ms debounced duplicate-detection query against the backend.
+  const [debouncedNames, setDebouncedNames] = useState({ name1: '', name2: '', name3: '' });
+  useEffect(() => {
+    const t = setTimeout(
+      () => setDebouncedNames({ name1: form.name1.trim(), name2: form.name2.trim(), name3: form.name3.trim() }),
+      300,
+    );
+    return () => clearTimeout(t);
+  }, [form.name1, form.name2, form.name3]);
+
+  const dupQuery = useQuery({
+    queryKey: ['products', 'check-duplicate', debouncedNames],
+    enabled: debouncedNames.name1.length >= 2,
+    queryFn: () => {
+      const qs = new URLSearchParams();
+      if (debouncedNames.name1) qs.set('name1', debouncedNames.name1);
+      if (debouncedNames.name2) qs.set('name2', debouncedNames.name2);
+      if (debouncedNames.name3) qs.set('name3', debouncedNames.name3);
+      return api<{ matches: DuplicateMatch[] }>(`/products/check-duplicate?${qs.toString()}`);
+    },
+    staleTime: 30_000,
+  });
+  const duplicates: DuplicateMatch[] = dupQuery.data?.matches ?? [];
+
   const create = useMutation({
     mutationFn: (payload: any) => api<any>('/products', { method: 'POST', body: payload }),
     onSuccess: (created: any) => {
@@ -55,19 +98,30 @@ export default function NewProductPage() {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!form.categoryId)  { setError('اختر فئة'); return; }
-    if (!form.baseUnitId)  { setError('اختر وحدة القياس الأساسية'); return; }
+    if (!form.name1.trim()) { setError('الحقل الأول من الاسم مطلوب'); return; }
+    if (!form.categoryId)   { setError('اختر فئة'); return; }
+    if (!form.baseUnitId)   { setError('اختر وحدة القياس الأساسية'); return; }
     // Sale + purchase units default to base if not set
-    const payload: any = {
-      ...form,
+    const payload: Record<string, unknown> = {
+      sku:            form.sku,
+      // T41: send the 3 structured fields. nameAr is kept for compatibility with
+      // legacy consumers and mirrors generatedFullName so reports still render.
+      name1:          form.name1.trim(),
+      name2:          form.name2.trim() || undefined,
+      name3:          form.name3.trim() || undefined,
+      nameAr:         generatedFullName,
+      nameEn:         form.nameEn || undefined,
+      categoryId:     form.categoryId,
+      type:           form.type,
+      baseUnitId:     form.baseUnitId,
       saleUnitId:     form.saleUnitId     || form.baseUnitId,
       purchaseUnitId: form.purchaseUnitId || form.baseUnitId,
       defaultSalePriceIqd:     Number(form.defaultSalePriceIqd),
       defaultPurchasePriceIqd: Number(form.defaultPurchasePriceIqd),
       minSalePriceIqd:         Number(form.minSalePriceIqd),
+      description:             form.description || undefined,
+      isPublishedOnline:       form.isPublishedOnline,
     };
-    if (!payload.nameEn)      delete payload.nameEn;
-    if (!payload.description) delete payload.description;
     create.mutate(payload);
   }
 
@@ -101,8 +155,17 @@ export default function NewProductPage() {
             </select>
           </Field>
 
-          <Field label="الاسم بالعربية" required>
-            <input className="input" value={form.nameAr} onChange={(e) => setForm({ ...form, nameAr: e.target.value })} required maxLength={300} />
+          {/* T41: 3-field structured naming. */}
+          <Field label="الاسم — الجزء الأول" required help="مثال: حليب">
+            <input className="input" value={form.name1} onChange={(e) => setForm({ ...form, name1: e.target.value })} required maxLength={200} />
+          </Field>
+
+          <Field label="الاسم — الجزء الثاني" help="مثال: كامل الدسم">
+            <input className="input" value={form.name2} onChange={(e) => setForm({ ...form, name2: e.target.value })} maxLength={200} />
+          </Field>
+
+          <Field label="الاسم — الجزء الثالث" help="مثال: 1 لتر">
+            <input className="input" value={form.name3} onChange={(e) => setForm({ ...form, name3: e.target.value })} maxLength={200} />
           </Field>
 
           <Field label="الاسم بالإنجليزية">
@@ -162,6 +225,30 @@ export default function NewProductPage() {
               required />
           </Field>
         </div>
+
+        {/* T41: live preview + duplicate detection */}
+        {generatedFullName && (
+          <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+            <span className="font-medium">الاسم الكامل المُولَّد:</span>{' '}
+            <span dir="auto">{generatedFullName}</span>
+          </div>
+        )}
+        {duplicates.length > 0 && (
+          <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+            <div className="flex items-center gap-2 font-semibold">
+              <AlertTriangle className="h-4 w-4" />
+              منتج مشابه موجود — تأكّد قبل الحفظ
+            </div>
+            <ul className="mt-2 space-y-1">
+              {duplicates.map((m) => (
+                <li key={m.id} className="flex items-baseline justify-between gap-3">
+                  <span dir="auto">{m.generatedFullName || m.name1}</span>
+                  <span className="text-xs text-amber-700 num-latin" dir="ltr">{m.sku}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <Field label="الوصف">
           <textarea className="input min-h-[80px]" maxLength={2000}
