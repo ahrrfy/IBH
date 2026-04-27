@@ -138,7 +138,7 @@ export class OnlineOrdersService {
             codAmountIqd:    gatewayName === 'cod' ? Number(order.totalIqd) : 0,
             notes:           `Online order ${order.number}`,
           },
-          session,
+          session as unknown as Parameters<DeliveryService['create']>[2],
         );
       } catch (err) {
         this.logger.warn(
