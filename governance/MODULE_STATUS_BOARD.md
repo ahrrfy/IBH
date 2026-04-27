@@ -8,13 +8,14 @@
 
 ---
 
-## 📊 نظرة عامة — 2026-04-26 (آخر تحديث)
+## 📊 نظرة عامة — 2026-04-27 (آخر تحديث — Session 9)
 
 | المقياس | القيمة |
 |---|---|
 | Waves مكتملة (كود) | **6 / 6** |
 | Modules مكتملة (كود) | **18 / 18** ✅ |
-| T-tasks مكتملة | **30 / 30** ✅ |
+| T-tasks مكتملة (Wave 1) | **30 / 30** ✅ |
+| T-tasks TODO (Wave 2+) | **41** (T31 IN_PROGRESS، T32-T71 TODO) |
 | Migrations | 9 |
 | Prisma Models | ~86 |
 | TypeScript files | ~120+ |
@@ -22,8 +23,20 @@
 | Acceptance tests (written) | **38+** (e2e suites مدموجة: W1, W3, W6) |
 | Acceptance tests (passing) | 35/36 في CI (1 .skip في pos-session) |
 | Production HTTP 200 | ✅ مؤكد 2026-04-26 |
-| Open PRs | **0** ✅ |
-| Open T-tasks | **0** ✅ |
+| Open PRs | **2** (minor/patch آمنة، تنتظر rebase) |
+| Major PRs مجمّدة | **18** (موثّقة في I032 — Wave 6) |
+| Open T-tasks (Wave 1) | **0** ✅ |
+
+## 🔧 Dependency Health — 2026-04-27
+
+| الحزمة | الإصدار الحالي | الإصدار الجديد | الحالة |
+|---|---|---|---|
+| TypeScript | 5.9.3 | 6.0.3 | 🔴 مجمّد — Wave 6 (I032) |
+| Tailwind CSS | 3.4.19 | 4.2.4 | 🔴 مجمّد — Wave 6 (I032) |
+| Prisma | 6.19.3 | 7.8.0 | 🔴 مجمّد — Wave 6 (I032) |
+| react-router-dom | 6.30.3 | 7.14.2 | 🔴 مجمّد — Wave 6 (I032) |
+| @nestjs/swagger | 8.1.1 | 11.4.1 | 🔴 مجمّد — Wave 6 (I032) |
+| باقي 13 حزمة | — | — | 🔴 مجمّد — Wave 6 (I032) |
 
 ---
 
