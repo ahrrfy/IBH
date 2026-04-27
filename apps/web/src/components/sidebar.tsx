@@ -22,6 +22,7 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  Truck,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 
@@ -35,6 +36,7 @@ const NAV = [
   { href: '/purchases/orders',       label: 'المشتريات',   icon: ShoppingBag },
   { href: '/purchases/grn',          label: 'إيصالات الاستلام', icon: PackageCheck },
   { href: '/job-orders',             label: 'طلبات التصنيع', icon: Hammer },
+  { href: '/delivery',               label: 'التوصيل',      icon: Truck },
   { href: '/finance/journal-entries',label: 'المالية',     icon: Landmark },
   { href: '/finance/periods',        label: 'الفترات المحاسبية', icon: CalendarCheck },
   { href: '/assets',                 label: 'الأصول الثابتة', icon: Building2 },

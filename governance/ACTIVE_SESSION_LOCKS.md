@@ -75,7 +75,7 @@ Before marking a session closed:
 
 | Session ID | Agent | Branch | Owned Scope | Allowed Files | Forbidden Files | Status |
 |---|---|---|---|---|---|---|
-_(no active locks)_
+| claude-opus-4-7-20260427-T38 | Claude Code (Opus 4.7) | `feat/t38-reports-top-suppliers` | T38 cycle 1 — `top-suppliers` slug only (additive). Other slugs remain claimable in parallel. | `apps/api/src/modules/reporting/reports.service.ts` (additive), `apps/api/src/modules/reporting/reports.controller.ts` (additive), `governance/TASK_QUEUE.md`, `governance/ACTIVE_SESSION_LOCKS.md` | Other modules, schema, FE | Active |
 
 _(Historical:_
 
