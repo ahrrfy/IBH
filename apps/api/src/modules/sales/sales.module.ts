@@ -19,6 +19,8 @@ import { PolicyModule } from '../../engines/policy/policy.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { FinanceModule } from '../finance/finance.module';
 import { SalesCommissionsModule } from './commissions/commissions.module';
+import { Customer360Module } from './customer-360/customer-360.module';
+import { RfmModule } from './rfm/rfm.module';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { SalesCommissionsModule } from './commissions/commissions.module';
     InventoryModule,
     FinanceModule,
     SalesCommissionsModule,
+    Customer360Module,
+    RfmModule,
   ],
   controllers: [
     CustomersController,
