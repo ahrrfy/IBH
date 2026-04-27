@@ -21,6 +21,7 @@ export class NotificationsWhatsappProcessor {
 
   @Process('send')
   async handle(job: Job<QueueJobBase>): Promise<void> {
+    if (process.env['JEST_WORKER_ID']) return; // skip Redis I/O in jest (I036)
     const { payload } = job.data;
     this.logger.log(
       `[whatsapp] queued for user=${payload.userId} event=${payload.eventType} title="${payload.title}"`,
@@ -36,6 +37,7 @@ export class NotificationsEmailProcessor {
 
   @Process('send')
   async handle(job: Job<QueueJobBase>): Promise<void> {
+    if (process.env['JEST_WORKER_ID']) return; // skip Redis I/O in jest (I036)
     const { payload } = job.data;
     this.logger.log(
       `[email] would send to user=${payload.userId} event=${payload.eventType} title="${payload.title}"`,
@@ -50,6 +52,7 @@ export class NotificationsSmsProcessor {
 
   @Process('send')
   async handle(job: Job<QueueJobBase>): Promise<void> {
+    if (process.env['JEST_WORKER_ID']) return; // skip Redis I/O in jest (I036)
     const { payload } = job.data;
     this.logger.log(
       `[sms] would send to user=${payload.userId} event=${payload.eventType} title="${payload.title}"`,
