@@ -59,9 +59,20 @@ export default function CheckoutPage() {
         lines:           items.map((i) => ({ variantId: i.variantId, qty: i.qty })),
         paymentMethod:   values.paymentMethod,
       });
-      const orderId = resp?.id;
+      const orderId    = resp?.id;
+      const trackingId = resp?.trackingId;
+      const paymentUrl = resp?.paymentUrl;
       clearCart();
-      router.push(`/checkout/success${orderId ? `?orderId=${orderId}` : ''}`);
+      // T55 — if the gateway returned a hosted-page URL, hand the customer
+      // off there before showing success. COD has no paymentUrl.
+      if (paymentUrl && /^https?:\/\//.test(paymentUrl)) {
+        window.location.href = paymentUrl;
+        return;
+      }
+      const qs = new URLSearchParams();
+      if (orderId)    qs.set('orderId',    orderId);
+      if (trackingId) qs.set('trackingId', trackingId);
+      router.push(`/checkout/success${qs.toString() ? `?${qs.toString()}` : ''}`);
     } catch (err) {
       if (err instanceof ApiError) setSubmitError(err.messageAr);
       else setSubmitError('تعذر إتمام الطلب. حاول مجدداً');

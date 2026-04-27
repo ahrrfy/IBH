@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { SequenceModule } from '../../engines/sequence/sequence.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { OnlineOrdersModule } from '../sales/online-orders/online-orders.module';
 import { StorefrontController } from './storefront.controller';
 import { StorefrontService } from './storefront.service';
 
@@ -12,7 +13,7 @@ import { StorefrontService } from './storefront.service';
  * the STOREFRONT_COMPANY_ID env var.
  */
 @Module({
-  imports: [SequenceModule, InventoryModule],
+  imports: [SequenceModule, InventoryModule, OnlineOrdersModule],
   controllers: [StorefrontController],
   providers: [StorefrontService],
 })
