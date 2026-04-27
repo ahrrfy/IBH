@@ -2,67 +2,25 @@
 
 import {
   Search, ChevronDown, User as UserIcon,
-  Settings as SettingsIcon, LogOut, Home, ChevronLeft,
+  Settings as SettingsIcon, LogOut,
   Building2,
 } from 'lucide-react';
 import { NotificationBell } from './notification-bell';
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { ROLE_LABELS_AR } from '@/lib/permissions';
 import { ConnectionStatus } from './connection-status';
-
-const PATH_LABELS: Record<string, string> = {
-  dashboard: 'الرئيسية',
-  sales: 'المبيعات',
-  pos: 'نقطة البيع',
-  inventory: 'المخزون',
-  purchases: 'المشتريات',
-  finance: 'المالية',
-  assets: 'الأصول الثابتة',
-  hr: 'الموارد البشرية',
-  'job-orders': 'طلبات التصنيع',
-  crm: 'العملاء',
-  marketing: 'التسويق',
-  reports: 'التقارير',
-  settings: 'الإعدادات',
-  invoices: 'الفواتير',
-  orders: 'الطلبات',
-  customers: 'العملاء',
-  suppliers: 'الموردون',
-  shifts: 'الورديات',
-  receipts: 'الإيصالات',
-  warehouses: 'المستودعات',
-  products: 'المنتجات',
-  stock: 'حركات المخزون',
-  grn: 'استلام البضاعة',
-  employees: 'الموظفون',
-  payroll: 'الرواتب',
-  leaves: 'الإجازات',
-  attendance: 'الحضور',
-  leads: 'العملاء المحتملون',
-  promotions: 'العروض الترويجية',
-  campaigns: 'الحملات',
-  'journal-entries': 'القيود اليومية',
-  'trial-balance': 'ميزان المراجعة',
-  'income-statement': 'قائمة الدخل',
-  'balance-sheet': 'المركز المالي',
-  'cash-flow': 'التدفقات النقدية',
-  banks: 'البنوك',
-  new: 'جديد',
-};
+import { Breadcrumbs } from './breadcrumbs';
 
 export function Topbar() {
   const { user, logout } = useAuth();
   const router = useRouter();
-  const pathname = usePathname() || '';
   const [menuOpen, setMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Build breadcrumb from path
-  const segments = pathname.split('/').filter(Boolean);
   const userRoles: string[] = (user as any)?.roles ?? [(user as any)?.role].filter(Boolean);
   // System owner overrides any role label — they're the singleton root user.
   const primaryRoleLabel = (user as any)?.isSystemOwner
@@ -112,27 +70,8 @@ export function Topbar() {
 
       <div className="h-7 w-px bg-slate-200" />
 
-      {/* Breadcrumbs (auto from path) */}
-      <nav className="flex items-center gap-1.5 text-sm overflow-hidden">
-        <Link href="/dashboard" className="text-slate-400 hover:text-slate-700">
-          <Home className="h-3.5 w-3.5" />
-        </Link>
-        {segments.map((seg, i) => {
-          const label = PATH_LABELS[seg] ?? (seg.length > 20 ? seg.slice(0, 12) + '…' : seg);
-          const isLast = i === segments.length - 1;
-          const href = '/' + segments.slice(0, i + 1).join('/');
-          return (
-            <span key={i} className="flex items-center gap-1.5 whitespace-nowrap">
-              <ChevronLeft className="h-3 w-3 text-slate-300" />
-              {isLast ? (
-                <span className="font-semibold text-slate-900">{label}</span>
-              ) : (
-                <Link href={href} className="text-slate-600 hover:text-sky-700">{label}</Link>
-              )}
-            </span>
-          );
-        })}
-      </nav>
+      {/* Breadcrumbs (auto from path) — see components/breadcrumbs */}
+      <Breadcrumbs />
 
       {/* Search (centered) */}
       <div className="flex-1 max-w-md mx-auto">
