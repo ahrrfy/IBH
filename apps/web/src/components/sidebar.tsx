@@ -5,20 +5,13 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   ShoppingCart,
-  FileText,
-  Undo2,
   CreditCard,
   Package,
-  ArrowLeftRight,
   ShoppingBag,
-  PackageCheck,
   Hammer,
   Landmark,
-  CalendarCheck,
-  PiggyBank,
   Building2,
   Users,
-  Wallet,
   Handshake,
   Megaphone,
   BarChart3,
@@ -27,37 +20,65 @@ import {
   Truck,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import {
+  type ModuleKey,
+  getVisibleModulesForRoles,
+  MODULE_HREFS,
+} from '@/lib/permissions';
 
-const NAV = [
-  { href: '/dashboard',              label: 'الرئيسية',    icon: LayoutDashboard },
-  { href: '/sales/quotations',       label: 'عروض الأسعار', icon: FileText },
-  { href: '/sales/invoices',         label: 'المبيعات',    icon: ShoppingCart },
-  { href: '/sales/returns',          label: 'مرتجعات المبيعات', icon: Undo2 },
-  { href: '/pos/shifts',             label: 'نقطة البيع',  icon: CreditCard },
-  { href: '/inventory/stock',        label: 'المخزون',     icon: Package },
-  { href: '/inventory/intelligence', label: 'المخزون الذكي', icon: Package },
-  { href: '/inventory/transfers',    label: 'تحويلات المخزون', icon: ArrowLeftRight },
-  { href: '/purchases/orders',       label: 'المشتريات',   icon: ShoppingBag },
-  { href: '/purchases/grn',          label: 'إيصالات الاستلام', icon: PackageCheck },
-  { href: '/job-orders',             label: 'طلبات التصنيع', icon: Hammer },
-  { href: '/delivery',               label: 'التوصيل',      icon: Truck },
-  { href: '/finance/journal-entries',label: 'المالية',     icon: Landmark },
-  { href: '/finance/periods',        label: 'الفترات المحاسبية', icon: CalendarCheck },
-  { href: '/finance/budgets',        label: 'الموازنات',     icon: PiggyBank },
-  { href: '/assets',                 label: 'الأصول الثابتة', icon: Building2 },
-  { href: '/hr/employees',           label: 'الموارد البشرية', icon: Users },
-  { href: '/hr/payroll',             label: 'الرواتب',       icon: Wallet },
-  { href: '/crm/leads',              label: 'العملاء',     icon: Handshake },
-  { href: '/marketing/promotions',   label: 'التسويق',      icon: Megaphone },
-  { href: '/reports',                label: 'التقارير',    icon: BarChart3 },
-  { href: '/settings',               label: 'الإعدادات',   icon: Settings },
-];
+/**
+ * Sidebar — legacy single-pane navigation, kept as a fallback for any layout
+ * that still imports it. The active app shell uses ActivityBar + SubSidebar
+ * for nested navigation; this component now derives its menu from the same
+ * RBAC source of truth so a user only ever sees modules they can access (F1).
+ */
+const MODULE_ICONS: Record<ModuleKey, React.ElementType> = {
+  sales:     ShoppingCart,
+  pos:       CreditCard,
+  inventory: Package,
+  purchases: ShoppingBag,
+  finance:   Landmark,
+  assets:    Building2,
+  hr:        Users,
+  jobs:      Hammer,
+  crm:       Handshake,
+  marketing: Megaphone,
+  reports:   BarChart3,
+  settings:  Settings,
+  delivery:  Truck,
+};
+
+const MODULE_LABELS: Record<ModuleKey, string> = {
+  sales:     'المبيعات',
+  pos:       'نقطة البيع',
+  inventory: 'المخزون',
+  purchases: 'المشتريات',
+  finance:   'المالية',
+  assets:    'الأصول الثابتة',
+  hr:        'الموارد البشرية',
+  jobs:      'طلبات التصنيع',
+  crm:       'العملاء',
+  marketing: 'التسويق',
+  reports:   'التقارير',
+  settings:  'الإعدادات',
+  delivery:  'التوصيل',
+};
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
   const isOwner = Boolean((user as any)?.isSystemOwner);
+  const roles: string[] = (user as any)?.roles ?? [(user as any)?.role].filter(Boolean);
+  const modules = getVisibleModulesForRoles(roles.length ? roles : ['super_admin']);
+  const NAV: { href: string; label: string; icon: React.ElementType }[] = [
+    { href: '/dashboard', label: 'الرئيسية', icon: LayoutDashboard },
+    ...modules.map((m) => ({
+      href: MODULE_HREFS[m],
+      label: MODULE_LABELS[m],
+      icon: MODULE_ICONS[m],
+    })),
+  ];
   const displayName = (user as any)?.nameAr ?? (user as any)?.name ?? (user as any)?.email?.split('@')[0] ?? 'مستخدم';
   const roleLabel = isOwner ? 'مالك النظام' : null;
   async function handleLogout() {
