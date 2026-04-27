@@ -27,6 +27,10 @@ tracing       = "0.1"
 tracing-subscriber = "0.3"
 sha2          = "0.10"
 sysinfo       = "0.30"
+# T66 — offline RS256 license verification (defense in depth)
+rsa           = { version = "0.9", features = ["sha2"] }
+base64        = "0.22"
+dirs          = "5"
 
 [features]
 # Required for Tauri v2

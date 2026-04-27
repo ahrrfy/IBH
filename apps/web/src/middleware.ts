@@ -18,21 +18,98 @@ const PROTECTED_PREFIXES = [
 
 const TOKEN_COOKIE = 'al-ruya.token';
 
-export function middleware(req: NextRequest) {
+/**
+ * T66 — paths that must remain reachable even when the company's
+ * license is expired/suspended/missing. /license-required itself,
+ * /login, and /forgot-password live here so a user can always sign in
+ * and discover WHY they are blocked.
+ */
+const LICENSE_BYPASS_PREFIXES = [
+  '/license-required',
+  '/login',
+  '/forgot-password',
+];
+
+/**
+ * Statuses that grant entitlement. Anything else (`expired`,
+ * `suspended`, `cancelled`, or `null`/missing) forces a redirect to
+ * /license-required. This mirrors the API's LicenseGuard semantics.
+ */
+const ENTITLED_STATUSES = new Set(['active', 'trial', 'grace']);
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  process.env.API_INTERNAL_URL ??
+  'http://localhost:3001';
+
+interface LicenseSnapshot {
+  status: string | null;
+  validUntil: string | null;
+  graceUntil: string | null;
+}
+
+/**
+ * Fetch the licensing snapshot from the API using the user's bearer
+ * token. Fails-OPEN on any error — a transient network blip must NOT
+ * lock every user out of the app. The API's global LicenseGuard
+ * remains the authoritative enforcement layer; this middleware only
+ * exists so users see a dedicated page instead of a stack of 403s.
+ */
+async function fetchLicenseStatus(
+  token: string,
+): Promise<LicenseSnapshot | undefined> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/v1/licensing/me/features`, {
+      headers: { authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return undefined;
+    return (await res.json()) as LicenseSnapshot;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  if (
+    LICENSE_BYPASS_PREFIXES.some(
+      (p) => pathname === p || pathname.startsWith(p + '/'),
+    )
+  ) {
+    return NextResponse.next();
+  }
+
   const protectedMatch = PROTECTED_PREFIXES.some(
-    (p) => pathname === p || pathname.startsWith(p + '/')
+    (p) => pathname === p || pathname.startsWith(p + '/'),
   );
   if (!protectedMatch) return NextResponse.next();
 
-  const hasToken =
-    Boolean(req.cookies.get(TOKEN_COOKIE)?.value) ||
-    Boolean(req.headers.get('authorization'));
+  const cookieToken = req.cookies.get(TOKEN_COOKIE)?.value;
+  const authHeader = req.headers.get('authorization');
+  const headerToken =
+    authHeader && authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : undefined;
+  const token = cookieToken ?? headerToken;
 
-  if (!hasToken) {
+  if (!token) {
     const url = req.nextUrl.clone();
     url.pathname = '/login';
     url.searchParams.set('next', pathname);
+    return NextResponse.redirect(url);
+  }
+
+  // T66 — license enforcement layer (defense in depth).
+  const snapshot = await fetchLicenseStatus(token);
+  if (
+    snapshot &&
+    (!snapshot.status || !ENTITLED_STATUSES.has(snapshot.status))
+  ) {
+    const url = req.nextUrl.clone();
+    url.pathname = '/license-required';
+    url.searchParams.set('reason', snapshot.status ?? 'missing');
     return NextResponse.redirect(url);
   }
 

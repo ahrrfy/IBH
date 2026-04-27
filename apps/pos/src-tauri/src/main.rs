@@ -6,6 +6,7 @@
 use tauri_plugin_sql::{Migration, MigrationKind};
 
 mod fingerprint;
+mod license;
 
 fn main() {
     let migrations = vec![
@@ -80,6 +81,9 @@ fn main() {
             open_cash_drawer,
             print_receipt,
             check_license,
+            // T66 — offline license verification (defense in depth)
+            license::cache_activation_token,
+            license::check_offline_license,
         ])
         .run(tauri::generate_context!())
         .expect("error while running al-ruya-pos");
