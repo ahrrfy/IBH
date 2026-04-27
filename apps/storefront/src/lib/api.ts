@@ -134,8 +134,38 @@ export async function createOrder(order: {
   notes?:          string;
   lines: Array<{ variantId: string; qty: number }>;
   paymentMethod: string;
-}): Promise<{ id: string; number: string; total: number; status: string; trackUrl: string }> {
+}): Promise<{
+  id:          string;
+  number:      string;
+  total:       number;
+  status:      string;
+  trackUrl:    string;
+  // T55 — set when the order is online-channel and the lifecycle hook ran.
+  trackingId?: string;
+  paymentUrl?: string;
+  qr?:         string;
+}> {
   return api(`/public/orders`, { method: 'POST', body: JSON.stringify(order) });
+}
+
+// ─── T55 — Public order tracking by opaque trackingId ─────────────────────────
+export interface PublicOrderStatus {
+  orderNumber:    string;
+  status:         string;
+  paymentStatus:  string | null;
+  paymentMethod:  string | null;
+  totalIqd:       number;
+  orderDate:      string;
+  deliveryStatus: string | null;
+  deliveryCity:   string | null;
+  eta:            string | null;
+  dispatchedAt:   string | null;
+  deliveredAt:    string | null;
+  waybill:        string | null;
+}
+
+export async function getPublicOrderStatus(trackingId: string) {
+  return api<PublicOrderStatus>(`/public/orders/${encodeURIComponent(trackingId)}/status`);
 }
 
 // ─── Order + auth helpers (appended for M15 storefront) ──────────────────────

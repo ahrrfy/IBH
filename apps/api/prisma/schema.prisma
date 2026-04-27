@@ -1397,6 +1397,12 @@ model SalesOrder {
   cancelledBy          String?          @db.Char(26)
   cancellationReason   String?          @db.VarChar(500)
 
+  // T55 — e-commerce ↔ ERP order integration: payment + public tracking metadata
+  paymentMethod    String? @db.VarChar(20) // cod | zaincash | fastpay | qi_card
+  paymentReference String? @db.VarChar(100) // gateway transaction id / reference
+  paymentStatus    String? @db.VarChar(20) // pending | paid | refunded | failed
+  trackingId       String? @unique @db.VarChar(40) // opaque public token for guest URLs
+
   customer   Customer         @relation(fields: [customerId], references: [id])
   lines      SalesOrderLine[]
   invoices   SalesInvoice[]
