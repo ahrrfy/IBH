@@ -12,7 +12,7 @@ import {
   ShoppingBag, Package, CreditCard, ShoppingCart,
   Hammer, Users, Building2, Landmark,
   Settings, BarChart3, Megaphone, Handshake,
-  TrendingUp, Wallet, AlertTriangle, Star,
+  TrendingUp, Wallet, AlertTriangle, Star, Truck,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -45,6 +45,7 @@ const TILE_DEFS: Record<ModuleKey, Omit<AppTile, 'key'>> = {
   marketing: { label: 'التسويق',         icon: Megaphone,    bg: 'bg-fuchsia-50', iconBg: 'bg-fuchsia-500' },
   reports:   { label: 'التقارير',        icon: BarChart3,    bg: 'bg-amber-50',   iconBg: 'bg-amber-500' },
   settings:  { label: 'الإعدادات',       icon: Settings,     bg: 'bg-slate-100',  iconBg: 'bg-slate-700' },
+  delivery:  { label: 'التوصيل',          icon: Truck,        bg: 'bg-blue-50',    iconBg: 'bg-blue-500' },
 };
 
 export default function DashboardPage() {
