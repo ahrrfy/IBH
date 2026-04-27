@@ -1297,6 +1297,16 @@ model Customer {
   deletedAt            DateTime?
   deletedBy            String?      @db.Char(26)
 
+  // ── T44 RFM segmentation (nightly recomputed; see modules/sales/rfm) ───
+  rfmRecencyDays       Int?         // days since last posted invoice
+  rfmFrequency         Int?         // count of posted invoices in window
+  rfmMonetaryIqd       Decimal?     @db.Decimal(18, 3) // sum totalIqd in window
+  rfmRScore            Int?         // 1..5
+  rfmFScore            Int?         // 1..5
+  rfmMScore            Int?         // 1..5
+  rfmSegment           String?      @db.VarChar(20) // Champion|Loyal|At-Risk|Lost|New
+  rfmComputedAt        DateTime?
+
   quotations    Quotation[]
   salesOrders   SalesOrder[]
   salesInvoices SalesInvoice[]
@@ -1304,6 +1314,7 @@ model Customer {
   @@unique([companyId, code])
   @@index([companyId, phone])
   @@index([companyId, whatsapp])
+  @@index([companyId, rfmSegment])
   @@map("customers")
 }
 
