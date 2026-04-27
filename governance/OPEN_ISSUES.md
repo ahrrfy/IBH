@@ -18,6 +18,7 @@
 
 | # | المشكلة | الأولوية | الموجة | المسؤول | الحالة |
 |---|---|---|---|---|---|
+| I033 | Orchestrator يستخدم `git checkout` على worktree مشترك → عدة جلسات Claude متوازية في نفس المجلد تخرب HEAD/index/working tree لبعضها. شواهد جلسة 10: 8 تبديلات branch قسرية في 90 ثانية + commit cf6a344 المُسمَّى "claim(T33)" يحوي كود T38. الجذر: `task.sh` خطوط 224, 245, 250, 316, 339 كلها `git checkout` بدون git worktree isolation. | 🔴 حرج | Wave 2 | DevOps | ✅ **إصلاح أولي مُقدَّم** (PR #108) — حراسة في `cmd_claim` ترفض الـ claim إذا أي branch مهمة آخر مفتوح في أي worktree. الإصلاح الكامل: نقل `cmd_complete` و `cmd_release` لـ `git worktree` أيضاً (cycle لاحق). |
 | I031 | 4 e2e tests معطوبة (schema-rotted) — `grn-inventory-posting`, `period-close-7step`, `vendor-invoice-posting`, `license-heartbeat`. كانت في فرع `claude/implement-todo-item-rr0Pw` المهجور، وأُسقطت من PR #81 لأنها لا تتوافق مع الـ schema الحالي (`StockLedgerEntry.qtyChange` بدل `qtyIn/qtyOut`، `ProductVariant.product` محذوفة، `GRNService` casing). المحتوى الأصلي في commit `3134b61`. | 🟡 مهم | Wave 3-4 | Backend/QA | مفتوح — راجع GitHub Issue #85 (2026-04-27) |
 | I001 | تحديد schema كامل لـ PostgreSQL (Prisma) قبل M01 | 🔴 حرج | Wave 1 | Tech Lead | ✅ **مغلق** — 86 جدول في schema.prisma + migrations 0001-0008 مُطبَّقة. راجع I027 (seed كامل نجح). |
 | I002 | اختيار مكتبة ULID للـ NestJS (ulid vs @paralleldrive/cuid2) | 🟡 مهم | Wave 1 | Tech Lead | ✅ **مغلق** — `ulid@^2.3.0` مُختاَر ومُستخدَم في `apps/api/package.json`. `gen_ulid()` PostgreSQL function في migration 0007. |
