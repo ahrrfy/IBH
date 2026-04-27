@@ -18,9 +18,18 @@ import { PostingModule } from '../../engines/posting/posting.module';
 import { PolicyModule } from '../../engines/policy/policy.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { FinanceModule } from '../finance/finance.module';
+import { SalesCommissionsModule } from './commissions/commissions.module';
 
 @Module({
-  imports: [AuditModule, SequenceModule, PostingModule, PolicyModule, InventoryModule, FinanceModule],
+  imports: [
+    AuditModule,
+    SequenceModule,
+    PostingModule,
+    PolicyModule,
+    InventoryModule,
+    FinanceModule,
+    SalesCommissionsModule,
+  ],
   controllers: [
     CustomersController,
     QuotationsController,
@@ -38,6 +47,6 @@ import { FinanceModule } from '../finance/finance.module';
     OmnichannelService,
     IntentExtractorService,
   ],
-  exports: [SalesInvoicesService, CustomersService],
+  exports: [SalesInvoicesService, CustomersService, SalesCommissionsModule],
 })
 export class SalesModule {}

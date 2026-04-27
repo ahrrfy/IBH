@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { UserSession } from '@erp/shared-types';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
@@ -39,6 +40,7 @@ export class SalesInvoicesService {
     private readonly posting: PostingService,
     private readonly inventory: InventoryService,
     private readonly accountMapping: AccountMappingService,
+    private readonly events: EventEmitter2,
   ) {}
 
   async findAll(companyId: string, opts: { page?: number; limit?: number; status?: string; customerId?: string; overdueOnly?: boolean } = {}) {
@@ -365,6 +367,17 @@ export class SalesInvoicesService {
       entityType: 'SalesInvoice',
       entityId: id,
       after: result,
+    });
+
+    // T43 — emit domain event for the commission listener (and any other
+    // downstream listeners). Tagged with __event so EventRelayService can
+    // also fan it out to WebSocket rooms.
+    this.events.emit('invoice.posted', {
+      __event: 'invoice.posted',
+      companyId,
+      branchId: result.branchId,
+      invoiceId: result.id,
+      userId: session.userId,
     });
 
     return result;
