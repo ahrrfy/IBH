@@ -1,24 +1,16 @@
 import Link from 'next/link';
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
-import { listCategories } from '@/lib/api';
-
-interface Category {
-  id: string;
-  nameAr: string;
-  nameEn?: string;
-  iconUrl?: string | null;
-}
+import { listCategories, type PublicCategoryNode } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CategoriesPage() {
-  let categories: Category[] = [];
+  let categories: PublicCategoryNode[] = [];
   let loadError: string | null = null;
 
   try {
-    const raw = await listCategories();
-    categories = (Array.isArray(raw) ? raw : (raw as { items?: Category[] })?.items ?? []) as Category[];
+    categories = await listCategories();
   } catch (err) {
     loadError = err instanceof Error ? err.message : 'تعذر تحميل الأقسام';
   }

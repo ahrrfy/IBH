@@ -46,6 +46,7 @@ import { CrmModule }       from './modules/crm/crm.module';
 import { LicensingModule } from './modules/licensing/licensing.module';
 import { AiModule }        from './modules/ai/ai.module';
 import { ReportingModule } from './modules/reporting/reporting.module';
+import { StorefrontModule } from './modules/storefront/storefront.module';
 
 @Module({
   imports: [
@@ -122,6 +123,9 @@ import { ReportingModule } from './modules/reporting/reporting.module';
     LicensingModule,
     AiModule,
     ReportingModule,
+
+    // ── Public Storefront (T54) ─────────────────────────────────────────────
+    StorefrontModule,
   ],
 })
 export class AppModule {}
