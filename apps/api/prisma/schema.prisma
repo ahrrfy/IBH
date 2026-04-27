@@ -858,6 +858,9 @@ model ProductCategory {
   nameAr        String   @db.VarChar(200)
   nameEn        String?  @db.VarChar(200)
   parentId      String?  @db.Char(26)
+  // T41: materialized-path hierarchy (e.g. "/<rootId>/<midId>/<leafId>"); recomputed in service on parent change
+  level         Int      @default(0)
+  path          String   @default("") @db.VarChar(2000)
   glAccountId   String?  @db.Char(26) // inventory GL account
   cogsAccountId String?  @db.Char(26)
   imageUrl      String?
@@ -871,6 +874,8 @@ model ProductCategory {
   templates ProductTemplate[]
 
   @@index([companyId])
+  @@index([parentId])
+  @@index([companyId, path])
   @@map("product_categories")
 }
 
@@ -907,6 +912,11 @@ model ProductTemplate {
   sku                     String      @db.VarChar(50)
   nameAr                  String      @db.VarChar(300)
   nameEn                  String?     @db.VarChar(300)
+  // T41: 3-field structured naming (name1 required, name2/name3 optional). generatedFullName = trim of [name1, name2, name3].filter(Boolean).join(' ').
+  name1                   String      @default("") @db.VarChar(200)
+  name2                   String?     @db.VarChar(200)
+  name3                   String?     @db.VarChar(200)
+  generatedFullName       String      @default("") @db.VarChar(700)
   categoryId              String      @db.Char(26)
   brandId                 String?     @db.Char(26)
   type                    ProductType @default(storable)
@@ -936,6 +946,7 @@ model ProductTemplate {
   @@unique([companyId, sku])
   @@index([companyId, categoryId])
   @@index([companyId, isActive])
+  @@index([companyId, generatedFullName])
   @@map("product_templates")
 }
 

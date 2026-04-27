@@ -22,6 +22,10 @@ export interface CreateTemplateDto {
   sku:                     string;
   nameAr:                  string;
   nameEn?:                 string;
+  /** T41: 3-field structured naming. name1 is required; name2/name3 are optional descriptors. */
+  name1?:                  string;
+  name2?:                  string;
+  name3?:                  string;
   categoryId:              string;
   brandId?:                string;
   baseUnitId:              string;
@@ -35,6 +39,24 @@ export interface CreateTemplateDto {
   tags?:                   string[];
   imageUrls?:              string[];
   isPublishedOnline?:      boolean;
+}
+
+/**
+ * Compose the canonical full name for a product template from the 3 structured
+ * fields. Falls back to `nameAr` when name1 is blank (handles legacy callers
+ * that still send the single nameAr field).
+ */
+export function buildGeneratedFullName(parts: {
+  name1?: string | null;
+  name2?: string | null;
+  name3?: string | null;
+  fallback?: string;
+}): string {
+  const segments = [parts.name1, parts.name2, parts.name3]
+    .map((s) => (s ?? '').trim())
+    .filter((s) => s.length > 0);
+  if (segments.length === 0) return (parts.fallback ?? '').trim();
+  return segments.join(' ');
 }
 
 export interface CreateVariantDto {
@@ -79,20 +101,82 @@ export class ProductsService {
     });
   }
 
+  /**
+   * T41: Hierarchical category tree. Builds a single in-memory pass — O(n).
+   * Each node carries its own children array (empty for leaves).
+   */
+  async getCategoryTree(companyId: string) {
+    type Node = {
+      id: string;
+      nameAr: string;
+      nameEn: string | null;
+      parentId: string | null;
+      level: number;
+      path: string;
+      sortOrder: number;
+      isActive: boolean;
+      children: Node[];
+    };
+
+    const rows = await this.prisma.productCategory.findMany({
+      where: { companyId },
+      orderBy: [{ level: 'asc' }, { sortOrder: 'asc' }, { nameAr: 'asc' }],
+      select: {
+        id: true, nameAr: true, nameEn: true, parentId: true,
+        level: true, path: true, sortOrder: true, isActive: true,
+      },
+    });
+
+    const byId = new Map<string, Node>();
+    const roots: Node[] = [];
+    for (const r of rows) {
+      byId.set(r.id, { ...r, children: [] });
+    }
+    for (const node of byId.values()) {
+      if (node.parentId && byId.has(node.parentId)) {
+        byId.get(node.parentId)!.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    }
+    return roots;
+  }
+
   async createCategory(
     companyId: string,
     dto: { nameAr: string; nameEn?: string; parentId?: string; glAccountId?: string; cogsAccountId?: string },
     session: UserSession,
   ) {
-    const category = await this.prisma.productCategory.create({
-      data: {
-        companyId,
-        nameAr:         dto.nameAr,
-        nameEn:         dto.nameEn,
-        parentId:       dto.parentId,
-        glAccountId:    dto.glAccountId,
-        cogsAccountId:  dto.cogsAccountId,
-      },
+    // T41: compute level + path from parent (or default to root).
+    let level = 0;
+    let parentPath = '';
+    if (dto.parentId) {
+      const parent = await this.prisma.productCategory.findFirst({
+        where: { id: dto.parentId, companyId },
+        select: { id: true, level: true, path: true },
+      });
+      if (!parent) {
+        throw new NotFoundException({ code: 'NOT_FOUND', messageAr: 'التصنيف الأب غير موجود' });
+      }
+      level = parent.level + 1;
+      parentPath = parent.path || `/${parent.id}`;
+    }
+
+    const category = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.productCategory.create({
+        data: {
+          companyId,
+          nameAr:         dto.nameAr,
+          nameEn:         dto.nameEn,
+          parentId:       dto.parentId,
+          glAccountId:    dto.glAccountId,
+          cogsAccountId:  dto.cogsAccountId,
+          level,
+          path:           '', // set in next step (we need the new id)
+        },
+      });
+      const path = `${parentPath}/${created.id}`;
+      return tx.productCategory.update({ where: { id: created.id }, data: { path } });
     });
 
     await this.audit.log({
@@ -102,10 +186,120 @@ export class ProductsService {
       action:     'product_category.create',
       entityType: 'ProductCategory',
       entityId:   category.id,
-      after:      { nameAr: dto.nameAr },
+      after:      { nameAr: dto.nameAr, parentId: dto.parentId, path: category.path },
     });
 
     return category;
+  }
+
+  /**
+   * T41: Reparent (or rename-affecting-path) a category and recompute path/level
+   * for the node and **every descendant** transactionally. Cycle-safe — refuses
+   * to set parent to a descendant of self.
+   */
+  async updateCategoryParent(
+    id: string,
+    companyId: string,
+    newParentId: string | null,
+    session: UserSession,
+  ) {
+    const node = await this.prisma.productCategory.findFirst({
+      where: { id, companyId },
+      select: { id: true, path: true, parentId: true },
+    });
+    if (!node) {
+      throw new NotFoundException({ code: 'NOT_FOUND', messageAr: 'التصنيف غير موجود' });
+    }
+
+    let newLevel = 0;
+    let newParentPath = '';
+    if (newParentId) {
+      const parent = await this.prisma.productCategory.findFirst({
+        where: { id: newParentId, companyId },
+        select: { id: true, level: true, path: true },
+      });
+      if (!parent) {
+        throw new NotFoundException({ code: 'NOT_FOUND', messageAr: 'التصنيف الأب غير موجود' });
+      }
+      // Cycle check: parent's path must not contain this node.
+      if (parent.path.includes(`/${id}`)) {
+        throw new BadRequestException({ code: 'CYCLE', messageAr: 'لا يمكن تعيين تصنيف فرعي كأب' });
+      }
+      newLevel = parent.level + 1;
+      newParentPath = parent.path || `/${parent.id}`;
+    }
+
+    const newPath = `${newParentPath}/${id}`;
+    const oldPath = node.path || `/${id}`;
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.productCategory.update({
+        where: { id },
+        data: { parentId: newParentId, level: newLevel, path: newPath },
+      });
+
+      // Re-path all descendants. We use raw SQL for atomic set-based update,
+      // staying safe via Prisma's $executeRaw template-literal (parameterised).
+      const oldPrefix = `${oldPath}/`;
+      const newPrefix = `${newPath}/`;
+      await tx.$executeRaw`
+        UPDATE "product_categories"
+           SET "path"  = ${newPrefix} || substring("path" from ${oldPrefix.length + 1}),
+               "level" = "level" + ${newLevel - (oldPath.split('/').length - 2)}
+         WHERE "companyId" = ${companyId}
+           AND "path" LIKE ${oldPrefix + '%'}
+      `;
+
+      await this.audit.log({
+        companyId,
+        userId:     session.userId,
+        userEmail:  session.userId,
+        action:     'product_category.reparent',
+        entityType: 'ProductCategory',
+        entityId:   id,
+        before:     { parentId: node.parentId, path: oldPath },
+        after:      { parentId: newParentId, path: newPath },
+      });
+
+      return updated;
+    });
+  }
+
+  // ─── Duplicate detection (T41) ────────────────────────────────────────────
+
+  /**
+   * Live duplicate check used by the New-Product UI. Matches case-insensitively
+   * and in a trimmed/space-collapsed manner against existing generatedFullName
+   * within the caller's company. Returns up to 5 closest hits.
+   */
+  async checkProductDuplicate(
+    companyId: string,
+    parts: { name1?: string; name2?: string; name3?: string },
+  ) {
+    const candidate = buildGeneratedFullName(parts).toLowerCase();
+    if (!candidate) return { matches: [] };
+
+    // Match either an exact full-name hit or any row whose generatedFullName
+    // contains the candidate (catches typos in optional fields).
+    const matches = await this.prisma.productTemplate.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
+        OR: [
+          { generatedFullName: { equals: candidate, mode: Prisma.QueryMode.insensitive } },
+          { generatedFullName: { contains: candidate, mode: Prisma.QueryMode.insensitive } },
+          { name1: { equals: (parts.name1 ?? '').trim(), mode: Prisma.QueryMode.insensitive } },
+        ],
+      },
+      select: {
+        id: true, sku: true, nameAr: true,
+        name1: true, name2: true, name3: true,
+        generatedFullName: true,
+      },
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+    });
+    return { matches };
   }
 
   // ─── Templates ────────────────────────────────────────────────────────────
@@ -197,12 +391,23 @@ export class ProductsService {
     if (!category)  throw new NotFoundException({ code: 'NOT_FOUND', messageAr: 'التصنيف غير موجود' });
     if (!baseUnit)  throw new NotFoundException({ code: 'NOT_FOUND', messageAr: 'وحدة القياس غير موجودة' });
 
+    // T41: derive the structured naming. If only nameAr was sent (legacy clients)
+    // we copy it into name1 so generatedFullName is never empty.
+    const name1 = (dto.name1 ?? dto.nameAr ?? '').trim();
+    const name2 = dto.name2?.trim() || null;
+    const name3 = dto.name3?.trim() || null;
+    const generatedFullName = buildGeneratedFullName({ name1, name2, name3, fallback: dto.nameAr });
+
     const template = await this.prisma.productTemplate.create({
       data: {
         companyId,
         sku:                      dto.sku.toUpperCase(),
         nameAr:                   dto.nameAr,
         nameEn:                   dto.nameEn,
+        name1,
+        name2,
+        name3,
+        generatedFullName,
         categoryId:               dto.categoryId,
         brandId:                  dto.brandId,
         baseUnitId:               dto.baseUnitId,
@@ -240,6 +445,9 @@ export class ProductsService {
     dto: Partial<{
       nameAr: string;
       nameEn: string;
+      name1: string;
+      name2: string | null;
+      name3: string | null;
       description: string;
       categoryId: string;
       defaultSalePriceIqd: number;
@@ -261,6 +469,29 @@ export class ProductsService {
     const data: Prisma.ProductTemplateUpdateInput = { updatedBy: { set: session.userId } };
     if (dto.nameAr              !== undefined) data.nameAr              = dto.nameAr;
     if (dto.nameEn              !== undefined) data.nameEn              = dto.nameEn;
+    // T41: if any of the 3 naming fields changed (or nameAr was edited and name1
+    // is currently mirroring it), recompute name1..3 + generatedFullName atomically.
+    const nameFieldsTouched =
+      dto.name1 !== undefined ||
+      dto.name2 !== undefined ||
+      dto.name3 !== undefined ||
+      dto.nameAr !== undefined;
+    if (nameFieldsTouched) {
+      const next1 = (dto.name1 ?? before.name1 ?? dto.nameAr ?? before.nameAr ?? '').trim();
+      const next2Raw = dto.name2 !== undefined ? dto.name2 : before.name2;
+      const next3Raw = dto.name3 !== undefined ? dto.name3 : before.name3;
+      const next2 = (next2Raw ?? '').trim() || null;
+      const next3 = (next3Raw ?? '').trim() || null;
+      data.name1 = next1;
+      data.name2 = next2;
+      data.name3 = next3;
+      data.generatedFullName = buildGeneratedFullName({
+        name1: next1,
+        name2: next2,
+        name3: next3,
+        fallback: dto.nameAr ?? before.nameAr,
+      });
+    }
     if (dto.description         !== undefined) data.description         = dto.description;
     if (dto.isActive            !== undefined) data.isActive            = dto.isActive;
     if (dto.imageUrls           !== undefined) data.imageUrls           = dto.imageUrls;
