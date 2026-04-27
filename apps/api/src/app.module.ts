@@ -18,6 +18,7 @@ import { RedisModule }    from './platform/redis/redis.module';
 import { HealthModule }   from './platform/health/health.module';
 import { RealtimeModule } from './platform/realtime/realtime.module';
 import { NotificationsModule } from './platform/notifications/notifications.module';
+import { PlatformLicensingModule } from './platform/licensing/licensing.module';
 import { ExpiryWatcherModule } from './platform/licensing/expiry-watcher.module';
 
 // Business Modules (Wave 1)
@@ -94,6 +95,7 @@ import { OnlineOrdersModule } from './modules/sales/online-orders/online-orders.
     HealthModule,
     RealtimeModule,
     NotificationsModule,
+    PlatformLicensingModule,
 
     // ── Engines (M01) ──────────────────────────────────────────────────────
     AuthModule,
