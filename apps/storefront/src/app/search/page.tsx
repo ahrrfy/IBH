@@ -1,22 +1,7 @@
 import { Header } from '@/components/header';
 import { Footer } from '@/components/footer';
 import { ProductCard } from '@/components/product-card';
-import { listProducts } from '@/lib/api';
-
-interface Product {
-  id: string;
-  nameAr: string;
-  price: number;
-  imageUrl?: string | null;
-  defaultVariantId?: string;
-}
-
-interface ListResp {
-  items: Product[];
-  total: number;
-  page: number;
-  pages: number;
-}
+import { listProducts, type PublicProductList } from '@/lib/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,12 +14,12 @@ export default async function SearchPage({
   const q = (sp.q ?? '').trim();
   const page = Math.max(1, Number(sp.page) || 1);
 
-  let resp: ListResp = { items: [], total: 0, page: 1, pages: 1 };
+  let resp: PublicProductList = { items: [], total: 0, page: 1, pageSize: 24, pages: 1 };
   let loadError: string | null = null;
 
   if (q) {
     try {
-      resp = (await listProducts({ search: q, page })) as ListResp;
+      resp = await listProducts({ search: q, page });
     } catch (err) {
       loadError = err instanceof Error ? err.message : 'تعذر البحث';
     }
@@ -71,10 +56,9 @@ export default async function SearchPage({
             <ProductCard
               key={p.id}
               id={p.id}
-              nameAr={p.nameAr}
-              price={p.price}
+              nameAr={p.name}
+              price={p.priceIqd}
               imageUrl={p.imageUrl}
-              defaultVariantId={p.defaultVariantId}
             />
           ))}
         </div>
