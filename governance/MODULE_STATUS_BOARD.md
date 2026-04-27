@@ -1,4 +1,4 @@
-# MODULE_STATUS_BOARD.md
+﻿# MODULE_STATUS_BOARD.md
 ## لوحة حالة الوحدات
 ### يُحدَّث بعد كل جلسة
 
@@ -8,24 +8,24 @@
 
 ---
 
-## 📊 نظرة عامة — 2026-04-27 (آخر تحديث — Session 12)
+## 📊 نظرة عامة — 2026-04-27 (آخر تحديث — Wave 5 Closeout)
 
 | المقياس | القيمة |
 |---|---|
 | Waves مكتملة (كود) | **6 / 6** |
 | Modules مكتملة (كود) | **18 / 18** ✅ |
-| T-tasks مكتملة (Wave 1) | **30 / 30** ✅ |
-| T-tasks TODO (Wave 2+) | **41** (T31 IN_PROGRESS، T32-T71 TODO) |
+| T-tasks مكتملة (Wave 1-5) | **53 / 53** ✅ (T01-T53 كلها مدموجة) |
+| T-tasks TODO (Wave 6) | **18** (T54-T71 — E-commerce + Licensing + AI) |
 | Migrations | 9 |
 | Prisma Models | ~86 |
 | TypeScript files | ~120+ |
 | Lines of code | ~20,000+ |
 | Acceptance tests (written) | **38+** (e2e suites مدموجة: W1, W3, W6) |
 | Acceptance tests (passing) | 35/36 في CI (1 .skip في pos-session) |
-| Production HTTP 200 | ✅ مؤكد 2026-04-26 |
+| Production HTTP 200 | ✅ مؤكد 2026-04-27 (Wave 5 closeout smoke test — 9 paths, all 307) |
 | Open PRs | **5** (major — مجمّدة I032) |
 | Major PRs مجمّدة | **18** (موثّقة في I032 — Wave 6) |
-| Open T-tasks (Wave 1) | **0** ✅ |
+| Open T-tasks (Wave 1-5) | **0** ✅ Wave 5 complete 2026-04-27 |
 
 ## 🔧 Dependency Health — 2026-04-27
 
@@ -54,17 +54,20 @@
 | M03 Transfers + Stocktaking + Reorder | 🟢 | |
 | M18 Users + Companies + Roles | 🟢 | |
 
-## ✅ Wave 2 — العمل اليومي
+## ✅ Wave 2 — العمل اليومي — **مكتملة 2026-04-27** ✅
 
-| الوحدة | الحالة | ملاحظات |
-|---|---|---|
-| M04 POS Devices + Shifts | 🟢 | Denomination cash count + tolerance |
-| M04 POS Receipts (offline-safe) | 🟢 | clientUlid idempotency + transactional |
-| M04 Cash Movements | 🟢 | |
-| M05 Customers + Loyalty | 🟢 | AR aging + tier |
-| M05 Quotations → SalesOrders | 🟢 | |
-| M05 Sales Invoices + Returns | 🟢 | MWA COGS snapshot, JE auto-post |
-| M16 Delivery (full state machine) | 🟢 | COD + GPS + proof |
+| الوحدة | الحالة | Task | ملاحظات |
+|---|---|---|---|
+| M04 POS Devices + Shifts | ✅ DONE | T36 PR#124 | Web Sale Screen + offline |
+| M04 POS Blind Cash Count + Auto-Variance | ✅ DONE | T37 PR#146 | Denomination reconciliation |
+| M04 POS Receipts (offline-safe) | ✅ DONE | T36 | clientUlid idempotency + transactional |
+| M04 Cash Movements | ✅ DONE | T36 | |
+| M05 Customers + Loyalty | ✅ DONE | T44 PR#128 | Customer 360 + RFM segmentation |
+| M05 Quotations → SalesOrders | ✅ DONE | T34,T35 PR#119 | Smart forms + comboboxes |
+| M05 Sales Invoices + Returns | ✅ DONE | T10,T11,T15 | MWA COGS snapshot, JE auto-post |
+| M16 Delivery (full state machine) | ✅ DONE | T33 PR#106 | COD + GPS + proof |
+| Reports (17 slugs) | ✅ DONE | T38 PR#116 | Real data from DB |
+| Sidebar Navigation + Breadcrumbs | ✅ DONE | T40 PR#147 | Full nav audit |
 
 ## ✅ Wave 3 — المشتريات
 
@@ -86,17 +89,22 @@
 | M07 Financial Reports | 🟢 | BS, IS, CF, Equity · TypeScript clean |
 | M17 Fixed Assets + Depreciation | 🟢 | SL + DB methods, disposal gain/loss · TypeScript clean |
 
-## ✅ Wave 5 — HR + Jobs + Marketing
+## ✅ Wave 5 — HR + Jobs + Marketing — **مكتملة 2026-04-27** ✅
 
-| الوحدة | الحالة | ملاحظات |
-|---|---|---|
-| M08 Employees + Onboard + Terminate | 🟢 | Gratuity calc |
-| M08 Attendance (ZKTeco + Mobile) | 🟢 | Geofence 500m Haversine |
-| M08 Leaves + Balance Tracking | 🟢 | 5 types with entitlements |
-| M08 Payroll (Iraqi Tax + SS + OT) | 🟢 | Full lifecycle + CBS export |
-| M10 Job Orders + BOM + Stages | 🟢 | 6-stage workflow |
-| M14 Campaigns (multi-channel) | 🟢 | ROI + UTM tracking |
-| M14 Promotions + Validation | 🟢 | 5 types supported |
+| الوحدة | الحالة | Task | ملاحظات |
+|---|---|---|---|
+| M08 Employees + Onboard + Terminate | ✅ DONE | T18,T19 | Gratuity calc |
+| M08 Attendance (ZKTeco + Mobile) | ✅ DONE | T18 | Geofence 500m Haversine |
+| M08 Leaves + Balance Tracking | ✅ DONE | T18 | 5 types with entitlements |
+| M08 Payroll (Iraqi Tax + SS + OT) | ✅ DONE | T19 | Full lifecycle + CBS export |
+| M08 HR Recruitment System | ✅ DONE | T51 PR#129 | Full pipeline: job posting → offer |
+| M08 HR Employment Contracts + Policies | ✅ DONE | T52 PR#144 | Policy acceptance tracking |
+| M08 HR Promotions + Salary Bands | ✅ DONE | T53 PR#148 | Grade-based salary structure |
+| M10 Job Orders + BOM + Stages | ✅ DONE | T-custom | 6-stage workflow |
+| M14 Campaigns (multi-channel) | ✅ DONE | T-marketing | ROI + UTM tracking |
+| M14 Promotions + Validation | ✅ DONE | T-marketing | 5 types supported |
+| M42 Smart Inventory Engine | ✅ DONE | T42 PR#126 | Reorder alerts + dead stock detection |
+| M43 Sales Commissions + Incentives | ✅ DONE | T43 PR#127 | Tiered rates + settlement |
 
 ## ✅ Wave 6 — CRM + AI + Licensing + Reports
 
@@ -117,8 +125,8 @@
 
 | الوحدة | الحالة | Task | ملاحظات |
 |---|---|---|---|
-| Frontend Admin Web (Next.js 15) | 🟢 | T02-T19, T34, T35, T57 merged | CRUD + Quotations + Orders New + Delivery Tracking مكتملة |
-| M15 Storefront (E-commerce) | 🟢 | T25 merged | Dockerfile + compose + nginx vhost shop.ibherp.cloud · يحتاج DNS + certbot على VPS |
+| Frontend Admin Web (Next.js 15) | 🟢 | T02-T19, T34, T35, T40, T57 merged | CRUD + Quotations + Orders New + Delivery Tracking + Nav Audit مكتملة |
+| M15 Storefront (E-commerce) | 🟢 | T25, T54-T56 merged | Dockerfile + compose + nginx vhost shop.ibherp.cloud · يحتاج DNS + certbot على VPS |
 | POS Desktop (Tauri) | 🟡 scaffold | T27 merged | GitHub release workflow جاهز · يحتاج signing + SQLCipher activation |
 | Mobile apps (React Native Expo) | 🟡 scaffold | T28 merged | EAS workflow جاهز · يحتاج EXPO_TOKEN + Apple/Google credentials |
 | WhatsApp Bridge (Fastify) | 🟢 | T26 merged | مدمج في docker-compose · يحتاج WHATSAPP_TOKEN في .env على VPS |
@@ -128,6 +136,7 @@
 | الوحدة | الموجة | ملاحظات |
 |---|---|---|
 | AI Brain (Python FastAPI) | Wave 6 | Ollama + Qwen 7B + PyOD + Prophet — بعد 6 أشهر تشغيل حقيقي |
+| License Guard + Feature Gating | Wave 6 | T59-T71 (T58 DONE PR#112 — schema ready) |
 
 ---
 
@@ -157,7 +166,7 @@
 | Monorepo + pnpm + Turbo | ✅ |
 | 8 governance files | ✅ |
 | apps/api NestJS | 🟢 code complete |
-| Prisma + 6 migrations | 🟢 code complete |
+| Prisma + 9 migrations | 🟢 code complete |
 | Docker Compose (VPS + Dev) | ✅ |
 | Nginx + SSL | ✅ |
 | API Dockerfile multi-stage | ✅ |
@@ -169,4 +178,4 @@
 
 ---
 
-*آخر تحديث: 2026-04-26 — session 6 close · PR #56 يضيف 13 ملف للحلقة الأمنية الذاتية (D13) · ينتظر merge ثم تفعيل تلقائي لـ Code scanning + Security policy*
+*آخر تحديث: 2026-04-27 — Wave 5 Closeout · T35-T53 كلها مدموجة (19 PRs + 2 HOTFIXes) · Typecheck: api ✅ web ✅ · Smoke test: 9 paths all 307 ✅ · الخطوة التالية: Wave 6 — T59 (License Guard) + T60 (Plans) + T62 (HW Fingerprint)*
