@@ -19,6 +19,10 @@ import { SalesCommissionsModule } from '../sales/commissions/commissions.module'
 import { RecruitmentService } from './recruitment/recruitment.service';
 import { RecruitmentController } from './recruitment/recruitment.controller';
 import { RecruitmentPublicController } from './recruitment/recruitment-public.controller';
+import { ContractsService } from './contracts/contracts.service';
+import { ContractsController } from './contracts/contracts.controller';
+import { PoliciesService } from './policies/policies.service';
+import { PoliciesController } from './policies/policies.controller';
 
 @Module({
   imports: [AuditModule, SequenceModule, PostingModule, SalesCommissionsModule],
@@ -31,6 +35,8 @@ import { RecruitmentPublicController } from './recruitment/recruitment-public.co
     PayrollController,
     RecruitmentController,
     RecruitmentPublicController,
+    ContractsController,
+    PoliciesController,
   ],
   providers: [
     EmployeesService,
@@ -41,6 +47,8 @@ import { RecruitmentPublicController } from './recruitment/recruitment-public.co
     PayrollService,
     PayrollCommissionBridge,
     RecruitmentService,
+    ContractsService,
+    PoliciesService,
   ],
   exports: [
     EmployeesService,
@@ -51,6 +59,8 @@ import { RecruitmentPublicController } from './recruitment/recruitment-public.co
     PayrollService,
     PayrollCommissionBridge,
     RecruitmentService,
+    ContractsService,
+    PoliciesService,
   ],
 })
 export class HrModule {}
