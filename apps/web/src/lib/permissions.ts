@@ -85,6 +85,7 @@ export const ROLE_LABELS_AR: Record<string, string> = {
  */
 export const MODULE_SECTIONS: Record<ModuleKey, { href: string; label: string; count?: number }[]> = {
   sales: [
+    { href: '/sales/inbox',     label: 'صندوق الطلبات' },
     { href: '/sales/invoices',  label: 'الفواتير' },
     { href: '/sales/orders',    label: 'الطلبات' },
     { href: '/sales/quotations',label: 'عروض الأسعار' },

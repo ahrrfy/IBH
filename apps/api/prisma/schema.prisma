@@ -3055,3 +3055,47 @@ model NotificationPreference {
   @@index([userId])
   @@map("notification_preferences")
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T45 — Omnichannel Order Inbox
+//
+// Captures inbound messages from messaging channels (WhatsApp, Facebook,
+// Instagram) and turns them into draft sales orders via rule-based intent
+// extraction (Tier 3 per F5 — no ML for now).
+// ─────────────────────────────────────────────────────────────────────────────
+
+model OmnichannelMessage {
+  id          String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId   String    @db.Char(26)
+  channel     String    @db.VarChar(20) // whatsapp | facebook | instagram
+  externalId  String    @db.VarChar(120) // provider-side message id (idempotency key)
+  fromHandle  String    @db.VarChar(120) // phone / page-scoped id / IG handle
+  body        String    @db.Text
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+  draftOrderId String?  @db.Char(26)
+  status      String    @default("new") @db.VarChar(20) // new | drafted | approved | rejected | spam
+
+  draftOrder OmnichannelDraftOrder? @relation(fields: [draftOrderId], references: [id])
+
+  @@unique([channel, externalId])
+  @@index([companyId, status])
+  @@map("omnichannel_messages")
+}
+
+model OmnichannelDraftOrder {
+  id              String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  messageId       String    @db.Char(26)
+  customerId      String?   @db.Char(26)
+  items           Json      @default("[]") // [{productId, qty, unitPrice}]
+  notes           String?   @db.Text
+  confidence      Float     @default(0)
+  createdAt       DateTime  @default(now())
+  approvedAt      DateTime?
+  rejectedReason  String?   @db.VarChar(500)
+
+  messages OmnichannelMessage[]
+
+  @@index([messageId])
+  @@map("omnichannel_draft_orders")
+}
