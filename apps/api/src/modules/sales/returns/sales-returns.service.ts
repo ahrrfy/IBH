@@ -4,6 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { UserSession } from '@erp/shared-types';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
@@ -28,6 +29,7 @@ export class SalesReturnsService {
     private readonly sequence: SequenceService,
     private readonly posting: PostingService,
     private readonly inventory: InventoryService,
+    private readonly events: EventEmitter2,
   ) {}
 
   async findAll(companyId: string, opts: { page?: number; limit?: number; status?: string } = {}) {
@@ -257,6 +259,16 @@ export class SalesReturnsService {
       entityType: 'SalesReturn',
       entityId: id,
       after: approved,
+    });
+
+    // T43 — emit posted return for clawback listeners.
+    this.events.emit('sales.return.posted', {
+      __event: 'sales.return.posted',
+      companyId,
+      branchId: approved.branchId,
+      returnId: approved.id,
+      originalInvoiceId: approved.originalInvoiceId,
+      userId: session.userId,
     });
 
     return approved;

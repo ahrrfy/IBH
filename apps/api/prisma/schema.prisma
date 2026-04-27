@@ -3099,3 +3099,116 @@ model OmnichannelDraftOrder {
   @@index([messageId])
   @@map("omnichannel_draft_orders")
 }
+
+// ============================================================
+// T43 — Sales Commissions & Incentives (additive)
+// ============================================================
+
+// CommissionPlan: a named plan that groups rules.
+// basis indicates what amount the percentage applies to:
+//   'sales'  → invoice net amount
+//   'margin' → invoice net amount minus COGS
+// kind:
+//   'flat'   → single % across all sales
+//   'tiered' → tiers (CommissionRule rows) with from/to bands
+//   'product'→ rules keyed per productId or category
+model CommissionPlan {
+  id          String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId   String   @db.Char(26)
+  code        String   @db.VarChar(40)
+  nameAr      String   @db.VarChar(200)
+  nameEn      String?  @db.VarChar(200)
+  basis       String   @default("sales") @db.VarChar(20) // 'sales' | 'margin'
+  kind        String   @default("flat")  @db.VarChar(20) // 'flat' | 'tiered' | 'product'
+  flatPct     Decimal  @default(0)       @db.Decimal(7, 4) // used when kind='flat'
+  validFrom   DateTime @default(now())
+  validUntil  DateTime?
+  isActive    Boolean  @default(true)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   String   @db.Char(26)
+
+  rules       CommissionRule[]
+  assignments CommissionAssignment[]
+  entries     CommissionEntry[]
+
+  @@unique([companyId, code])
+  @@index([companyId, isActive])
+  @@map("commission_plans")
+}
+
+// CommissionRule: rows per plan; meaning depends on plan.kind:
+//   'tiered'  → fromAmount/toAmount with pct
+//   'product' → productId or categoryId with pct
+//   'flat'    → unused (use plan.flatPct)
+model CommissionRule {
+  id          String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  planId      String   @db.Char(26)
+  fromAmount  Decimal? @db.Decimal(18, 3)
+  toAmount    Decimal? @db.Decimal(18, 3)
+  productId   String?  @db.Char(26)
+  categoryId  String?  @db.Char(26)
+  pct         Decimal  @db.Decimal(7, 4)
+  sortOrder   Int      @default(0)
+
+  plan CommissionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([planId])
+  @@map("commission_rules")
+}
+
+// CommissionAssignment: which employee (or external promoter) is on which plan.
+// employeeId is preferred; promoterName is for non-employee external partners.
+model CommissionAssignment {
+  id           String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId    String   @db.Char(26)
+  planId       String   @db.Char(26)
+  employeeId   String?  @db.Char(26)
+  promoterName String?  @db.VarChar(200)
+  validFrom    DateTime @default(now())
+  validUntil   DateTime?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  createdBy    String   @db.Char(26)
+
+  plan CommissionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, employeeId])
+  @@index([planId, isActive])
+  @@map("commission_assignments")
+}
+
+// CommissionEntry: append-only ledger of accruals + clawbacks.
+// kind = 'accrual' | 'clawback' | 'adjustment'. amountIqd is signed:
+//   accrual   → positive
+//   clawback  → negative
+//   adjustment→ either sign
+// Each entry is posted to the GL via PostingService and journalEntryId is set.
+model CommissionEntry {
+  id              String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId       String   @db.Char(26)
+  branchId        String?  @db.Char(26)
+  planId          String   @db.Char(26)
+  employeeId      String?  @db.Char(26)
+  promoterName    String?  @db.VarChar(200)
+  kind            String   @db.VarChar(20)            // 'accrual' | 'clawback' | 'adjustment'
+  refType         String   @db.VarChar(50)            // 'SalesInvoice' | 'SalesReturn' | 'Manual'
+  refId           String   @db.Char(26)
+  baseAmountIqd   Decimal  @db.Decimal(18, 3)         // sales/margin amount the % applied to
+  pctApplied      Decimal  @db.Decimal(7, 4)
+  amountIqd       Decimal  @db.Decimal(18, 3)         // signed
+  status          String   @default("accrued") @db.VarChar(20) // 'accrued' | 'paid' | 'reversed'
+  journalEntryId  String?  @db.Char(26)
+  paidInPayrollId String?  @db.Char(26)
+  notes           String?
+  createdAt       DateTime @default(now())
+  createdBy       String   @db.Char(26)
+
+  plan CommissionPlan @relation(fields: [planId], references: [id])
+
+  @@index([companyId, employeeId, createdAt])
+  @@index([companyId, refType, refId])
+  @@index([companyId, status])
+  @@map("commission_entries")
+}
