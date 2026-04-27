@@ -1,5 +1,78 @@
 # SESSION_HANDOFF.md
 
+# Session Handoff — 2026-04-27 (Session 11 — T35 Sales Order New page)
+
+## ما تم إنجازه اليوم
+
+- ✅ **PR #104** مفتوح ومرشح للدمج — T35 Slice 1 (Sales Order New page + comboboxes):
+  - `apps/web/src/components/customer-combobox.tsx` (جديد) — بحث + رصيد + حد ائتمان + تحذير تجاوز
+  - `apps/web/src/components/product-combobox.tsx` (جديد) — بحث + stock-on-hand لكل مخزن + شارة "نفد المخزون"
+  - `apps/web/src/app/(app)/sales/orders/new/page.tsx` (جديد) — form كامل: عميل/مخزن/تاريخ/بنود/مجموع حي + insufficient-stock warning + POST `/sales-orders`
+- ✅ **تنظيف:** نُسخ احتياطي ملفات T32 untracked في بداية الجلسة (انتهى لاحقاً عند merge PR #103)
+- ✅ **اكتشاف:** الصفحات `/sales/orders` list/detail تستدعي `/sales/orders` (خطأ) لكن BE هو `@Controller('sales-orders')` — تعارض pre-existing موثَّق في PR #104 (خارج النطاق)
+
+## ما لم يكتمل
+
+- ⏳ **PR #104** ينتظر CI أخضر + merge
+- ⏳ **T34 detail page** — حاولت كتابتها لكن جلسة موازية (sonnet-4-6) أكملتها أثناء عملي → أُلغي branch `feat/t34-quotation-detail` محلياً
+- ⏳ **T35 Slice 2** — last-sold-price-per-customer + suggested qty + live credit-limit block + customer auto-fill (يحتاج BE endpoints جديدة)
+
+## القرارات الجديدة
+
+- لا قرارات معمارية جديدة
+
+## الملفات المتأثرة
+
+- `apps/web/src/components/customer-combobox.tsx` (جديد)
+- `apps/web/src/components/product-combobox.tsx` (جديد)
+- `apps/web/src/app/(app)/sales/orders/new/page.tsx` (جديد)
+- `governance/TASK_QUEUE.md` (T35 → IN_PROGRESS — قد يكون أُعيد ضبطه عبر orchestrator)
+- `governance/ACTIVE_SESSION_LOCKS.md` (تم إعادة ضبطه عدة مرات أثناء الجلسة)
+
+## الاختبارات المنفذة
+
+- ✅ `npx tsc --noEmit` على `apps/web` → exit 0 (3 ملفات جديدة فقط — لا يحتاج build/test على apps/api)
+- ⏳ CI على PR #104 — pending
+- ❌ لم أُشغّل اختبار في المتصفح (يحتاج dev server + DB كامل + login)
+
+## المخاطر المفتوحة
+
+- 🟡 **PR #104 لم يُختبَر في المتصفح** — typecheck فقط. POST URL يستخدم `/sales-orders` (المسار الصحيح)؛ list/detail الموجودة تستخدم `/sales/orders` الخطأ pre-existing
+- 🟢 **Slice 2 معلَّق** — يحتاج BE: endpoint last-sold-price + endpoint customer profile مع payment terms + price list
+
+## ملاحظات تشغيلية حرجة (جديدة)
+
+🔴 **Multi-agent orchestrator chaos** — 5+ جلسات متوازية كانت نشطة:
+1. كل تعديل لـ `governance/ACTIVE_SESSION_LOCKS.md` و `TASK_QUEUE.md` يُعاد ضبطه خلال ثوانٍ من قِبل آلية orchestration ثانية → بروتوكول الـ lock الحالي (manual edit + commit) لا يعمل تحت هذا الضغط
+2. **Branch switch صامت:** تم تبديلي من `feat/t35-sales-order-new` إلى `main` تلقائياً بين أمرَين متتاليَين → تسبب في commit عرضي على main (مُصلَح بـ reset + cherry-pick)
+3. **ملفات untracked تظهر/تختفي:** ملفات T32 ظهرت ثم اختفت في بداية الجلسة؛ ملفات T34 detail ظهرت من جلسة موازية أثناء عملي
+4. **commit `fddccba claim(T33)` من claude-sonnet-4-6** ظهر تلقائياً على branch محلية لي
+
+→ يحتاج **توضيح بروتوكول orchestrator** قبل الجلسة القادمة، أو عودة لجلسة واحدة فقط.
+
+## ممنوع تغييره في الجلسة القادمة
+
+- لا تُعِد تشغيل T35 — PR #104 يُغطّي Slice 1
+- لا تكسر URL pattern في صفحات `/sales/orders/new` (تستخدم `/sales-orders` كـ API path)
+
+## الخطوة التالية بالضبط
+
+```bash
+git pull origin main
+gh pr view 104 --json state,statusCheckRollup
+# إذا CI أخضر:
+gh pr merge 104 --squash
+# ثم:
+bash scripts/next-task.sh  # اختر مهمة تالية متاحة
+```
+
+**الخيارات للجلسة القادمة:**
+- a) T35 Slice 2 (يحتاج BE endpoints أولاً — أنشئ T35-BE task)
+- b) T36 (POS Web Sale Screen) — مستقل
+- c) T39 (Fix broken pages) — slices صغيرة منعزلة
+
+---
+
 # Session Handoff — 2026-04-27 (Session 10 — T34 Sales Quotations UI)
 
 ## ما تم إنجازه اليوم
