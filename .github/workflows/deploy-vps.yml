@@ -32,14 +32,49 @@ jobs:
           # Sanity: header + length should match an ed25519 OpenSSH key
           head -1 ~/.ssh/id_ed25519
           wc -l < ~/.ssh/id_ed25519
-          # Scan host keys (suppress stderr noise but capture exit code)
-          ssh-keyscan -T 5 -t rsa,ecdsa,ed25519 -H "$VPS_HOST" > ~/.ssh/known_hosts
+
+          # I047 — ssh-keyscan with retries. The previous one-shot 5s scan
+          # was failing intermittently from GitHub runners (likely transient
+          # network paths between Azure and Hostinger Frankfurt). 4 attempts
+          # × 15s timeout each gives plenty of headroom and dumps DNS/TCP
+          # diagnostics on the way down.
+          for attempt in 1 2 3 4; do
+            echo "ssh-keyscan attempt ${attempt}..."
+            if ssh-keyscan -T 15 -t rsa,ecdsa,ed25519 -H "$VPS_HOST" > ~/.ssh/known_hosts 2>/tmp/keyscan.err; then
+              if [ -s ~/.ssh/known_hosts ]; then
+                echo "✅ host keys received on attempt ${attempt}"
+                break
+              fi
+            fi
+            cat /tmp/keyscan.err || true
+            if [ "${attempt}" = "4" ]; then
+              echo "❌ ssh-keyscan failed 4× — diagnostic dump:"
+              echo "  DNS:"; getent hosts "$VPS_HOST" || echo "    (resolution failed)"
+              echo "  TCP :22:"; timeout 10 bash -c "echo > /dev/tcp/$VPS_HOST/22" && echo "    open" || echo "    closed/blocked"
+              exit 1
+            fi
+            sleep 5
+          done
           chmod 644 ~/.ssh/known_hosts
           wc -l < ~/.ssh/known_hosts
           test -s ~/.ssh/known_hosts
 
       - name: Verify SSH connectivity
-        run: ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes "root@${{ secrets.VPS_HOST }}" 'whoami; hostname -f; uptime'
+        run: |
+          # Retry up to 3 times — the auth handshake itself can fail
+          # transiently even after keyscan succeeded (sshd race on busy days).
+          for attempt in 1 2 3; do
+            if ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o ConnectTimeout=20 \
+                -o ServerAliveInterval=15 \
+                "root@${{ secrets.VPS_HOST }}" \
+                'whoami; hostname -f; uptime'; then
+              exit 0
+            fi
+            echo "ssh handshake attempt ${attempt} failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "❌ ssh handshake failed 3× — check VPS_SSH_KEY secret and authorized_keys on the VPS"
+          exit 1
 
       - name: Pre-flight disk check on VPS
         # Cheap canary: if the VPS is already wedged on disk, fail fast here
