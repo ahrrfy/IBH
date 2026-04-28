@@ -3,11 +3,12 @@ import { BullModule } from '@nestjs/bull';
 import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
 import { NotificationListeners } from './notifications.listeners';
-import {
-  NotificationsEmailProcessor,
-  NotificationsSmsProcessor,
-  NotificationsWhatsappProcessor,
-} from './notifications.processors';
+// I046 — stub processors removed from providers. The 3 classes only logged
+// debug output; real delivery is performed by the external whatsapp-bridge
+// fastify service that consumes the Redis lists directly. Re-registering
+// them here was triggering @nestjs/bull's BullExplorer duplicate-handler
+// crash even with variadic registerQueue. The queues themselves remain
+// registered so jobs continue to be enqueued normally.
 
 /**
  * Notification Dispatch Engine (T46).
@@ -38,9 +39,6 @@ import {
   providers: [
     NotificationsService,
     NotificationListeners,
-    NotificationsWhatsappProcessor,
-    NotificationsEmailProcessor,
-    NotificationsSmsProcessor,
   ],
   exports: [NotificationsService],
 })
