@@ -19,8 +19,11 @@ import type { QueueJobBase } from './notifications.types';
 export class NotificationsWhatsappProcessor {
   private readonly logger = new Logger(NotificationsWhatsappProcessor.name);
 
+  // I046 — method name made unique per processor so @nestjs/bull's discovery
+  // can't conflate handlers across queues even with the variadic registerQueue
+  // bug (since fixed in notifications.module.ts).
   @Process('send')
-  async handle(job: Job<QueueJobBase>): Promise<void> {
+  async handleWhatsappSend(job: Job<QueueJobBase>): Promise<void> {
     if (process.env['JEST_WORKER_ID']) return; // skip Redis I/O in jest (I036)
     const { payload } = job.data;
     this.logger.log(
@@ -36,7 +39,7 @@ export class NotificationsEmailProcessor {
   private readonly logger = new Logger(NotificationsEmailProcessor.name);
 
   @Process('send')
-  async handle(job: Job<QueueJobBase>): Promise<void> {
+  async handleEmailSend(job: Job<QueueJobBase>): Promise<void> {
     if (process.env['JEST_WORKER_ID']) return; // skip Redis I/O in jest (I036)
     const { payload } = job.data;
     this.logger.log(
@@ -51,7 +54,7 @@ export class NotificationsSmsProcessor {
   private readonly logger = new Logger(NotificationsSmsProcessor.name);
 
   @Process('send')
-  async handle(job: Job<QueueJobBase>): Promise<void> {
+  async handleSmsSend(job: Job<QueueJobBase>): Promise<void> {
     if (process.env['JEST_WORKER_ID']) return; // skip Redis I/O in jest (I036)
     const { payload } = job.data;
     this.logger.log(

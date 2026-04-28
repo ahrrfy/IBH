@@ -20,11 +20,14 @@ import {
 @Global()
 @Module({
   imports: [
-    BullModule.registerQueue(
-      { name: 'notifications-whatsapp' },
-      { name: 'notifications-email' },
-      { name: 'notifications-sms' },
-    ),
+    // I046 — register each queue in its own BullModule import. The variadic
+    // form was triggering "Cannot define the same handler twice send" at
+    // app.listen() — the discovery scanner was double-binding @Process('send')
+    // across the three processor classes. One queue per call avoids the
+    // ambiguity in @nestjs/bull's processor registration.
+    BullModule.registerQueue({ name: 'notifications-whatsapp' }),
+    BullModule.registerQueue({ name: 'notifications-email' }),
+    BullModule.registerQueue({ name: 'notifications-sms' }),
   ],
   controllers: [NotificationsController],
   providers: [
