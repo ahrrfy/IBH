@@ -51,11 +51,16 @@ jobs:
           ssh-keyscan -T 5 -t rsa,ecdsa,ed25519 -H "$VPS_HOST" > ~/.ssh/known_hosts 2>/dev/null
           chmod 644 ~/.ssh/known_hosts
 
+      # I044: use `compose run --rm` instead of `compose exec` so this workflow
+      # works even when the api container is dead (which is the most common
+      # case where you actually need it — the chicken-and-egg of the original
+      # deploy script).
+
       - name: Show current migration status
         run: |
           ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
             cd /opt/al-ruya-erp/infra
-            docker compose -f docker-compose.bootstrap.yml exec -T api sh -c \
+            docker compose -f docker-compose.bootstrap.yml run --rm --no-deps --entrypoint sh api -c \
               "cd /app/apps/api && ./node_modules/.bin/prisma migrate status" || true
           '
 
@@ -68,7 +73,7 @@ jobs:
             set -e
             cd /opt/al-ruya-erp/infra
             echo '→ resolving migration: $MIGRATION (--$MODE)'
-            docker compose -f docker-compose.bootstrap.yml exec -T api sh -c \
+            docker compose -f docker-compose.bootstrap.yml run --rm --no-deps --entrypoint sh api -c \
               \"cd /app/apps/api && ./node_modules/.bin/prisma migrate resolve --$MODE $MIGRATION\"
           "
 
@@ -76,7 +81,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_ed25519 "root@${{ secrets.VPS_HOST }}" '
             cd /opt/al-ruya-erp/infra
-            docker compose -f docker-compose.bootstrap.yml exec -T api sh -c \
+            docker compose -f docker-compose.bootstrap.yml run --rm --no-deps --entrypoint sh api -c \
               "cd /app/apps/api && ./node_modules/.bin/prisma migrate status" || true
           '
 
@@ -87,7 +92,7 @@ jobs:
             set -e
             cd /opt/al-ruya-erp/infra
             echo "→ prisma migrate deploy"
-            docker compose -f docker-compose.bootstrap.yml exec -T api sh -c \
+            docker compose -f docker-compose.bootstrap.yml run --rm --no-deps --entrypoint sh api -c \
               "cd /app/apps/api && ./node_modules/.bin/prisma migrate deploy"
           '
 
