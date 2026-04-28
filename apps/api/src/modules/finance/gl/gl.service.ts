@@ -487,6 +487,40 @@ export class GLService {
   }
 
   /**
+   * I047 — list journal entries for /finance/journal-entries page. Returns
+   * most-recent first with pagination + total count for pager UI.
+   */
+  async listEntries(
+    companyId: string,
+    opts: { limit?: number; offset?: number } = {},
+  ) {
+    const limit = Math.min(opts.limit ?? 50, 200);
+    const offset = opts.offset ?? 0;
+    const [entries, total] = await Promise.all([
+      this.prisma.journalEntry.findMany({
+        where: { companyId },
+        orderBy: { entryDate: 'desc' },
+        take: limit,
+        skip: offset,
+        select: {
+          id: true,
+          entryNumber: true,
+          entryDate: true,
+          description: true,
+          totalDebitIqd: true,
+          totalCreditIqd: true,
+          status: true,
+          referenceType: true,
+          referenceId: true,
+          postedAt: true,
+        },
+      }),
+      this.prisma.journalEntry.count({ where: { companyId } }),
+    ]);
+    return { items: entries, total, limit, offset };
+  }
+
+  /**
    * Formatted voucher for printing a single journal entry.
    */
   async voucher(jeId: string) {

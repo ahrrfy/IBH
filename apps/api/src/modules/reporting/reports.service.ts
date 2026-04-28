@@ -46,18 +46,22 @@ export class ReportsService {
       );
     }
 
+    // I047 — `totalTaxIqd` does not exist on SalesInvoice; the tax field is
+    // `taxIqd`. Was 500'ing /reports/sales-summary. Also parameterized the
+    // branchId filter to remove the SQL-injection vector.
+    const branchClause = params.branchId ? `AND si."branchId" = $4` : '';
     return this.prisma.$queryRawUnsafe(
       `SELECT ${dateExpr} AS bucket, COUNT(*)::int AS invoice_count,
               SUM(si."totalIqd")::float AS total_revenue,
-              SUM(si."totalTaxIqd")::float AS total_tax,
+              SUM(si."taxIqd")::float AS total_tax,
               SUM(si."discountIqd")::float AS total_discount
        FROM "sales_invoices" si
        WHERE si."companyId" = $1 AND si."invoiceDate" BETWEEN $2 AND $3
-       ${params.branchId ? `AND si."branchId" = '${params.branchId}'` : ''}
+       ${branchClause}
        GROUP BY bucket ORDER BY bucket ASC`,
-      companyId,
-      params.from,
-      params.to,
+      ...(params.branchId
+        ? [companyId, params.from, params.to, params.branchId]
+        : [companyId, params.from, params.to]),
     );
   }
 
@@ -309,14 +313,18 @@ export class ReportsService {
    */
   async arAging(companyId: string, asOf?: Date) {
     const date = asOf ?? new Date();
+    // I047 — `dueDate` is a TIMESTAMP, not a DATE. Subtracting it from a
+    // date returns an INTERVAL which can't be `BETWEEN`-compared to integers,
+    // tripping a 500 on /reports/ar-aging. Cast both sides to date so the
+    // subtraction yields integer days.
     return this.prisma.$queryRawUnsafe(
       `SELECT si."customerId" AS "customerId",
               c."nameAr" AS "customerName",
-              SUM(CASE WHEN si."dueDate" IS NULL OR si."dueDate" >= $2::date THEN si."balanceIqd" ELSE 0 END)::float AS "current",
-              SUM(CASE WHEN si."dueDate" < $2::date AND $2::date - si."dueDate" BETWEEN 1 AND 30 THEN si."balanceIqd" ELSE 0 END)::float AS "days1to30",
-              SUM(CASE WHEN si."dueDate" < $2::date AND $2::date - si."dueDate" BETWEEN 31 AND 60 THEN si."balanceIqd" ELSE 0 END)::float AS "days31to60",
-              SUM(CASE WHEN si."dueDate" < $2::date AND $2::date - si."dueDate" BETWEEN 61 AND 90 THEN si."balanceIqd" ELSE 0 END)::float AS "days61to90",
-              SUM(CASE WHEN si."dueDate" < $2::date AND $2::date - si."dueDate" > 90 THEN si."balanceIqd" ELSE 0 END)::float AS "daysOver90",
+              SUM(CASE WHEN si."dueDate" IS NULL OR si."dueDate"::date >= $2::date THEN si."balanceIqd" ELSE 0 END)::float AS "current",
+              SUM(CASE WHEN si."dueDate"::date < $2::date AND ($2::date - si."dueDate"::date) BETWEEN 1 AND 30 THEN si."balanceIqd" ELSE 0 END)::float AS "days1to30",
+              SUM(CASE WHEN si."dueDate"::date < $2::date AND ($2::date - si."dueDate"::date) BETWEEN 31 AND 60 THEN si."balanceIqd" ELSE 0 END)::float AS "days31to60",
+              SUM(CASE WHEN si."dueDate"::date < $2::date AND ($2::date - si."dueDate"::date) BETWEEN 61 AND 90 THEN si."balanceIqd" ELSE 0 END)::float AS "days61to90",
+              SUM(CASE WHEN si."dueDate"::date < $2::date AND ($2::date - si."dueDate"::date) > 90 THEN si."balanceIqd" ELSE 0 END)::float AS "daysOver90",
               SUM(si."balanceIqd")::float AS "totalDue"
        FROM "sales_invoices" si
        LEFT JOIN "customers" c ON c.id = si."customerId"

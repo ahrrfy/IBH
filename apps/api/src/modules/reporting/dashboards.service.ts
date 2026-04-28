@@ -88,29 +88,38 @@ export class DashboardsService {
 
   async operationsDashboard(companyId: string, branchId?: string) {
     const today = this.startOfDay();
-    const branchFilter = branchId ? `AND "branchId" = '${branchId}'` : '';
+
+    // I047 — branchFilter rewritten as parameterized SQL (was vulnerable to
+    // SQL injection via raw interpolation, plus broke when branchId was
+    // empty string).
+    const branchClause = branchId ? `AND "branchId" = $3` : '';
+    const params = (extra?: any) => (branchId ? [companyId, today, branchId] : [companyId, today]);
 
     const receiptsRows: any[] = await this.prisma.$queryRawUnsafe(
       `SELECT COUNT(*)::int AS count, COALESCE(SUM("totalIqd"), 0)::float AS total
-       FROM "sales_invoices" WHERE "companyId" = $1 AND "invoiceDate" >= $2 ${branchFilter}`,
-      companyId,
-      today,
+       FROM "sales_invoices" WHERE "companyId" = $1 AND "invoiceDate" >= $2 ${branchClause}`,
+      ...(branchId ? [companyId, today, branchId] : [companyId, today]),
     );
 
     const activeShiftsRows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT COUNT(*)::int AS count FROM "shifts"
-       WHERE "companyId" = $1 AND "closedAt" IS NULL ${branchFilter}`,
-      companyId,
+      branchId
+        ? `SELECT COUNT(*)::int AS count FROM "shifts" WHERE "companyId" = $1 AND "closedAt" IS NULL AND "branchId" = $2`
+        : `SELECT COUNT(*)::int AS count FROM "shifts" WHERE "companyId" = $1 AND "closedAt" IS NULL`,
+      ...(branchId ? [companyId, branchId] : [companyId]),
     );
 
+    // I047 — `ProductVariant.reorderLevel` does not exist in schema. Low-
+    // stock detection uses a fixed threshold of 10 units until per-variant
+    // reorder levels are added in Wave 7. This avoids the 500 we were
+    // serving on /dashboards/operations.
     const lowStockRows: any[] = await this.prisma.$queryRawUnsafe(
       `SELECT COUNT(*)::int AS count FROM (
          SELECT pv.id FROM "product_variants" pv
          JOIN "product_templates" p ON p.id = pv."templateId"
          LEFT JOIN "inventory_balances" ib ON ib."variantId" = pv.id AND ib."companyId" = $1
-         WHERE p."companyId" = $1
-         GROUP BY pv.id, pv."reorderLevel"
-         HAVING COALESCE(SUM(ib."qtyOnHand"), 0) <= COALESCE(pv."reorderLevel", 0)
+         WHERE p."companyId" = $1 AND pv."isActive" = true
+         GROUP BY pv.id
+         HAVING COALESCE(SUM(ib."qtyOnHand"), 0) <= 10
        ) s`,
       companyId,
     );
@@ -120,16 +129,20 @@ export class DashboardsService {
     try {
       const pd: any[] = await this.prisma.$queryRawUnsafe(
         `SELECT COUNT(*)::int AS count FROM "delivery_orders"
-         WHERE "companyId" = $1 AND "status" IN ('pending','in_transit')`,
+         WHERE "companyId" = $1 AND "status" IN ('pending_dispatch','in_transit','out_for_delivery')`,
         companyId,
       );
       pendingDeliveries = Number(pd?.[0]?.count ?? 0);
+      // I047 — DeliveryOrder.scheduledAt does not exist; the schedule field
+      // is plannedDate. Compare against deliveredAt to derive on-time %.
       const otr: any[] = await this.prisma.$queryRawUnsafe(
         `SELECT
-            SUM(CASE WHEN "deliveredAt" <= "scheduledAt" THEN 1 ELSE 0 END)::float AS on_time,
+            SUM(CASE WHEN "deliveredAt" <= "plannedDate" THEN 1 ELSE 0 END)::float AS on_time,
             COUNT(*)::float AS total
          FROM "delivery_orders"
-         WHERE "companyId" = $1 AND "status" = 'delivered' AND "deliveredAt" >= NOW() - INTERVAL '30 days'`,
+         WHERE "companyId" = $1 AND "status" = 'delivered'
+           AND "plannedDate" IS NOT NULL
+           AND "deliveredAt" >= NOW() - INTERVAL '30 days'`,
         companyId,
       );
       const total = Number(otr?.[0]?.total ?? 0);
@@ -149,16 +162,20 @@ export class DashboardsService {
   }
 
   async financeDashboard(companyId: string) {
+    // I047 — BankAccount field is `type` (BankAccountType enum), not
+    // `accountType`. The previous query 500'd because the column doesn't
+    // exist. Enum values: checking, savings, cash. We aggregate cash-on-hand
+    // separately by treating `cash` as in-hand and everything else as bank.
     const cashRows: any[] = await this.prisma.$queryRawUnsafe(
-      `SELECT ba."accountType" AS kind,
+      `SELECT ba."type" AS kind,
               COALESCE(SUM(CASE WHEN cm."toAccountId" IS NOT NULL AND cm."fromAccountId" IS NULL THEN cm."amountIqd" WHEN cm."fromAccountId" IS NOT NULL AND cm."toAccountId" IS NULL THEN -cm."amountIqd" ELSE 0 END), 0)::float AS balance
        FROM "bank_accounts" ba
        LEFT JOIN "cash_movements" cm ON cm."bankAccountId" = ba.id
-       WHERE ba."companyId" = $1 GROUP BY ba."accountType"`,
+       WHERE ba."companyId" = $1 GROUP BY ba."type"`,
       companyId,
     );
 
-    const cashInBanks = cashRows.filter((r) => r.kind === 'bank').reduce((s, r) => s + Number(r.balance), 0);
+    const cashInBanks = cashRows.filter((r) => r.kind !== 'cash').reduce((s, r) => s + Number(r.balance), 0);
     const cashInHand = cashRows.filter((r) => r.kind === 'cash').reduce((s, r) => s + Number(r.balance), 0);
 
     const arAgingRows: any[] = await this.prisma.$queryRawUnsafe(

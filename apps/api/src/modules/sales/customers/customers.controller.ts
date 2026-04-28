@@ -15,7 +15,9 @@ import { CurrentUser } from '../../../engines/auth/decorators/current-user.decor
 import { RequirePermission } from '../../../engines/auth/decorators/require-permission.decorator';
 import type { UserSession } from '@erp/shared-types';
 
-@Controller('customers')
+// I047 — Web client uses /api/v1/sales/customers; controller was at
+// /api/v1/customers causing 404. Realigned the path to match the contract.
+@Controller('sales/customers')
 export class CustomersController {
   constructor(private readonly svc: CustomersService) {}
 

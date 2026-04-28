@@ -14,7 +14,8 @@ import { CurrentUser } from '../../../engines/auth/decorators/current-user.decor
 import { RequirePermission } from '../../../engines/auth/decorators/require-permission.decorator';
 import type { UserSession } from '@erp/shared-types';
 
-@Controller('quotations')
+// I047 — Web uses /api/v1/sales/quotations.
+@Controller('sales/quotations')
 export class QuotationsController {
   constructor(private readonly svc: QuotationsService) {}
 

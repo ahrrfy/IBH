@@ -95,4 +95,20 @@ export class GLController {
   voucher(@Param('id') id: string) {
     return this.gl.voucher(id);
   }
+
+  // I047 — Web `/finance/journal-entries` page calls /finance/gl/entries
+  // (without :id) for the list view. Was 404. Returns the most recent
+  // entries for the current company, paginated.
+  @Get('entries')
+  @RequirePermission('GL', 'read')
+  listEntries(
+    @CurrentUser() session: UserSession,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.gl.listEntries(session.companyId, {
+      limit: limit ? parseInt(limit, 10) : 50,
+      offset: offset ? parseInt(offset, 10) : 0,
+    });
+  }
 }
