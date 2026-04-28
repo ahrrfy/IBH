@@ -63,7 +63,12 @@ export default function POSSalePage() {
     staleTime: 30_000,
   });
   const shift = shiftQuery.data ?? null;
-  const warehouseId = shift?.device.warehouseId ?? null;
+  // I047 — defensive optional chaining on `device` too. If the shift API
+  // returns a shift without a device (or device key is omitted), accessing
+  // `.warehouseId` on undefined was throwing
+  // "Cannot read properties of undefined (reading 'warehouseId')" and
+  // blanking the entire POS sale screen.
+  const warehouseId = shift?.device?.warehouseId ?? null;
 
   // Live stock invalidation — other terminals' sales will refresh quick-items
   useLiveResource(['pos-quick-items', warehouseId], ['inventory.changed', 'stock.adjusted']);

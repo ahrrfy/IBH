@@ -162,60 +162,75 @@ export class DashboardsService {
   }
 
   async financeDashboard(companyId: string) {
-    // I047 — BankAccount field is `type` (BankAccountType enum), not
-    // `accountType`. The previous query 500'd because the column doesn't
-    // exist. Enum values: checking, savings, cash. We aggregate cash-on-hand
-    // separately by treating `cash` as in-hand and everything else as bank.
-    const cashRows: any[] = await this.prisma.$queryRawUnsafe(
+    // I047 — wrap every raw query in its own try/catch + log so that a
+    // single column-name bug doesn't return a 500 for the whole dashboard.
+    // Each query tagged with its purpose; failures emit a structured warning
+    // visible in container logs instead of bubbling up.
+    const safeQuery = async <T = any>(label: string, sql: string, params: any[]): Promise<T[]> => {
+      try {
+        return (await this.prisma.$queryRawUnsafe(sql, ...params)) as T[];
+      } catch (err) {
+        console.warn(`[financeDashboard] ${label} failed:`, err instanceof Error ? err.message : err);
+        return [];
+      }
+    };
+
+    // BankAccount field is `type` (BankAccountType enum: checking/savings/cash).
+    const cashRows = await safeQuery(
+      'cashRows',
       `SELECT ba."type" AS kind,
               COALESCE(SUM(CASE WHEN cm."toAccountId" IS NOT NULL AND cm."fromAccountId" IS NULL THEN cm."amountIqd" WHEN cm."fromAccountId" IS NOT NULL AND cm."toAccountId" IS NULL THEN -cm."amountIqd" ELSE 0 END), 0)::float AS balance
        FROM "bank_accounts" ba
        LEFT JOIN "cash_movements" cm ON cm."bankAccountId" = ba.id
        WHERE ba."companyId" = $1 GROUP BY ba."type"`,
-      companyId,
+      [companyId],
     );
 
     const cashInBanks = cashRows.filter((r) => r.kind !== 'cash').reduce((s, r) => s + Number(r.balance), 0);
     const cashInHand = cashRows.filter((r) => r.kind === 'cash').reduce((s, r) => s + Number(r.balance), 0);
 
-    const arAgingRows: any[] = await this.prisma.$queryRawUnsafe(
+    const arAgingRows = await safeQuery(
+      'arAgingRows',
       `SELECT
-         SUM(CASE WHEN NOW() - "invoiceDate" <= INTERVAL '30 days' THEN "balanceIqd" ELSE 0 END)::float AS bucket_0_30,
-         SUM(CASE WHEN NOW() - "invoiceDate" > INTERVAL '30 days' AND NOW() - "invoiceDate" <= INTERVAL '90 days' THEN "balanceIqd" ELSE 0 END)::float AS bucket_31_90,
-         SUM(CASE WHEN NOW() - "invoiceDate" > INTERVAL '90 days' THEN "balanceIqd" ELSE 0 END)::float AS bucket_90_plus
+         COALESCE(SUM(CASE WHEN NOW() - "invoiceDate" <= INTERVAL '30 days' THEN "balanceIqd" ELSE 0 END), 0)::float AS bucket_0_30,
+         COALESCE(SUM(CASE WHEN NOW() - "invoiceDate" > INTERVAL '30 days' AND NOW() - "invoiceDate" <= INTERVAL '90 days' THEN "balanceIqd" ELSE 0 END), 0)::float AS bucket_31_90,
+         COALESCE(SUM(CASE WHEN NOW() - "invoiceDate" > INTERVAL '90 days' THEN "balanceIqd" ELSE 0 END), 0)::float AS bucket_90_plus
        FROM "sales_invoices" WHERE "companyId" = $1 AND "balanceIqd" > 0`,
-      companyId,
+      [companyId],
     );
-    const apAgingRows: any[] = await this.prisma.$queryRawUnsafe(
+    const apAgingRows = await safeQuery(
+      'apAgingRows',
       `SELECT
-         SUM(CASE WHEN NOW() - "invoiceDate" <= INTERVAL '30 days' THEN "balanceIqd" ELSE 0 END)::float AS bucket_0_30,
-         SUM(CASE WHEN NOW() - "invoiceDate" > INTERVAL '30 days' AND NOW() - "invoiceDate" <= INTERVAL '90 days' THEN "balanceIqd" ELSE 0 END)::float AS bucket_31_90,
-         SUM(CASE WHEN NOW() - "invoiceDate" > INTERVAL '90 days' THEN "balanceIqd" ELSE 0 END)::float AS bucket_90_plus
+         COALESCE(SUM(CASE WHEN NOW() - "invoiceDate" <= INTERVAL '30 days' THEN "balanceIqd" ELSE 0 END), 0)::float AS bucket_0_30,
+         COALESCE(SUM(CASE WHEN NOW() - "invoiceDate" > INTERVAL '30 days' AND NOW() - "invoiceDate" <= INTERVAL '90 days' THEN "balanceIqd" ELSE 0 END), 0)::float AS bucket_31_90,
+         COALESCE(SUM(CASE WHEN NOW() - "invoiceDate" > INTERVAL '90 days' THEN "balanceIqd" ELSE 0 END), 0)::float AS bucket_90_plus
        FROM "vendor_invoices" WHERE "companyId" = $1 AND "balanceIqd" > 0`,
-      companyId,
+      [companyId],
     );
 
-    const recentJEs: any[] = await this.prisma.$queryRawUnsafe(
+    const recentJEs = await safeQuery(
+      'recentJEs',
       `SELECT id, "entryDate", "description", "totalDebitIqd"::float AS total
        FROM "journal_entries" WHERE "companyId" = $1 ORDER BY "entryDate" DESC LIMIT 10`,
-      companyId,
+      [companyId],
     );
 
-    let periodStatus: any = { open: true };
-    try {
-      const p: any[] = await this.prisma.$queryRawUnsafe(
-        `SELECT "status", "periodStart", "periodEnd" FROM "accounting_periods"
-         WHERE "companyId" = $1 ORDER BY "periodStart" DESC LIMIT 1`,
-        companyId,
-      );
-      if (p?.[0]) periodStatus = p[0];
-    } catch {}
+    // I047 — AccountingPeriod fields are `startDate`/`endDate`, not
+    // `periodStart`/`periodEnd`. Was previously throwing into a silent
+    // try/catch which masked the bug for months.
+    const periodRows = await safeQuery(
+      'periodStatus',
+      `SELECT "status", "startDate", "endDate" FROM "accounting_periods"
+       WHERE "companyId" = $1 ORDER BY "startDate" DESC LIMIT 1`,
+      [companyId],
+    );
+    const periodStatus = periodRows[0] ?? { open: true };
 
     return {
       cashInBanks,
       cashInHand,
-      arAging: arAgingRows?.[0] ?? {},
-      apAging: apAgingRows?.[0] ?? {},
+      arAging: arAgingRows[0] ?? { bucket_0_30: 0, bucket_31_90: 0, bucket_90_plus: 0 },
+      apAging: apAgingRows[0] ?? { bucket_0_30: 0, bucket_31_90: 0, bucket_90_plus: 0 },
       recentJEs,
       periodStatus,
     };
