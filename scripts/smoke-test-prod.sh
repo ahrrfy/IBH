@@ -69,7 +69,7 @@ echo "── 1. AUTH FLOW ──"
 LOGIN_RESP=$(curl -sS -m 15 -w "\n__HTTP__%{http_code}" \
   -X POST "$BASE/api/v1/auth/login" \
   -H 'Content-Type: application/json' \
-  -d "{\"username\":\"$USER\",\"password\":\"$PASS\"}" 2>&1)
+  -d "{\"emailOrUsername\":\"$USER\",\"password\":\"$PASS\"}" 2>&1)
 LOGIN_HTTP=$(echo "$LOGIN_RESP" | grep -oE '__HTTP__[0-9]+$' | sed 's/__HTTP__//')
 LOGIN_BODY=$(echo "$LOGIN_RESP" | sed -E '$d')
 
