@@ -13,7 +13,8 @@ import { CurrentUser } from '../../../engines/auth/decorators/current-user.decor
 import { RequirePermission } from '../../../engines/auth/decorators/require-permission.decorator';
 import type { UserSession } from '@erp/shared-types';
 
-@Controller('sales-orders')
+// I047 — Web uses /api/v1/sales/orders.
+@Controller('sales/orders')
 export class SalesOrdersController {
   constructor(private readonly svc: SalesOrdersService) {}
 
