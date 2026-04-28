@@ -74,6 +74,27 @@ fi
 
 # ─── 2. pull main ───────────────────────────────────────────────────────────
 cd "$REPO_DIR"
+
+# I044 — origin URL guard. Before this guard, the VPS could silently keep
+# pulling from a stale fork (the previous tenant of this server cloned an
+# older repo at ahrrfy/erp.git, then the project moved to ahrrfy/IBH.git).
+# Without this check, every push to the new repo never reached production
+# because `git fetch origin main` pulled from whatever URL was configured
+# at clone time — which the deploy script previously trusted blindly.
+EXPECTED_ORIGIN_URL="${EXPECTED_ORIGIN_URL:-https://github.com/ahrrfy/IBH.git}"
+CURRENT_ORIGIN_URL="$(git remote get-url origin 2>/dev/null || echo '')"
+log "→ origin URL check"
+log "   expected: $EXPECTED_ORIGIN_URL"
+log "   current : $CURRENT_ORIGIN_URL"
+if [ -z "$CURRENT_ORIGIN_URL" ]; then
+  fail "no 'origin' remote configured in $REPO_DIR — bootstrap is broken"
+fi
+if [ "$CURRENT_ORIGIN_URL" != "$EXPECTED_ORIGIN_URL" ]; then
+  log "   ⚠️  origin URL mismatch — repointing to $EXPECTED_ORIGIN_URL"
+  git remote set-url origin "$EXPECTED_ORIGIN_URL"
+  log "   ✅ origin repointed (now: $(git remote get-url origin))"
+fi
+
 log "→ git fetch + reset to origin/main"
 git fetch origin main
 BEFORE_SHA=$(git rev-parse HEAD)
@@ -120,28 +141,31 @@ done
 # ─── 6. resolve failed migrations BEFORE recreating containers ──────────────
 # Why before recreate: if a previous deploy left _prisma_migrations in 'failed'
 # state, the new api container's startup hooks may try to use the DB before
-# we get a chance to fix it. Resolve first via a temp container.
+# we get a chance to fix it. Resolve first via a one-shot temp container so
+# this works whether or not the previous api container is alive.
+#
+# I044 — chicken-and-egg fix: previously this used `compose exec api ...`
+# which silently skipped resolve when the old api was down (after a previous
+# crash). Then recreate brought up a new api against a DB whose
+# `_prisma_migrations` was still `failed`, and step 9 (`migrate deploy`) blew
+# up immediately. Using `compose run --rm` builds a fresh throwaway container
+# from the just-built image, so resolve runs even on cold starts.
 log "→ check + resolve any failed migrations (verbose — no error masking)"
 STUCK_MIGRATIONS=(
   "20260427183000_t51_hr_recruitment"
 )
-# Use a one-shot exec on the OLD api container if it's running, else skip.
-# (If the old container is gone, migrations will run fresh anyway.)
-if $COMPOSE ps api 2>/dev/null | grep -q "Up\|running"; then
-  for m in "${STUCK_MIGRATIONS[@]}"; do
-    log "   resolving $m as rolled-back (idempotent — no-op if already clean)"
-    if $COMPOSE exec -T api sh -c \
-        "cd /app/apps/api && ./node_modules/.bin/prisma migrate resolve --rolled-back $m"; then
-      log "   ✅ resolved: $m"
-    else
-      # Don't abort — `prisma migrate resolve` errors when the migration is
-      # already in a clean state. We only care about the verbose output now.
-      log "   ⚠️  resolve returned non-zero for $m (likely already clean — verify on next status check)"
-    fi
-  done
-else
-  log "   (api container not running — skipping pre-recreate resolve)"
-fi
+for m in "${STUCK_MIGRATIONS[@]}"; do
+  log "   resolving $m as rolled-back (idempotent — no-op if already clean)"
+  if $COMPOSE run --rm --no-deps --entrypoint sh api -c \
+      "cd /app/apps/api && ./node_modules/.bin/prisma migrate resolve --rolled-back $m"; then
+    log "   ✅ resolved: $m"
+  else
+    # `prisma migrate resolve` errors when the migration is already in a clean
+    # state. Don't abort — the verbose output above tells us if it's a real
+    # problem; otherwise step 9 will surface anything that matters.
+    log "   ⚠️  resolve returned non-zero for $m (likely already clean — verify in step 9)"
+  fi
+done
 
 # ─── 7. recreate app containers ─────────────────────────────────────────────
 log "→ recreate api + web + license-server + ai-brain (timeout: ${RECREATE_TIMEOUT_SECONDS}s)"
