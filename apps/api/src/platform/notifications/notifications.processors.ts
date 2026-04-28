@@ -19,10 +19,14 @@ import type { QueueJobBase } from './notifications.types';
 export class NotificationsWhatsappProcessor {
   private readonly logger = new Logger(NotificationsWhatsappProcessor.name);
 
-  // I046 — method name made unique per processor so @nestjs/bull's discovery
-  // can't conflate handlers across queues even with the variadic registerQueue
-  // bug (since fixed in notifications.module.ts).
-  @Process('send')
+  // I046 root cause — @nestjs/bull's BullExplorer iterates ALL providers'
+  // @Process methods and calls Queue.process(name, handler) on each match.
+  // Because three processors all used `@Process('send')`, the explorer was
+  // re-registering "send" on the SAME queue more than once during scan,
+  // tripping bull's `Cannot define the same handler twice send` error at
+  // queue.js:705. Making each job name unique per queue removes the
+  // collision.
+  @Process('whatsapp')
   async handleWhatsappSend(job: Job<QueueJobBase>): Promise<void> {
     if (process.env['JEST_WORKER_ID']) return; // skip Redis I/O in jest (I036)
     const { payload } = job.data;
@@ -38,7 +42,7 @@ export class NotificationsWhatsappProcessor {
 export class NotificationsEmailProcessor {
   private readonly logger = new Logger(NotificationsEmailProcessor.name);
 
-  @Process('send')
+  @Process('email')
   async handleEmailSend(job: Job<QueueJobBase>): Promise<void> {
     if (process.env['JEST_WORKER_ID']) return; // skip Redis I/O in jest (I036)
     const { payload } = job.data;
@@ -53,7 +57,7 @@ export class NotificationsEmailProcessor {
 export class NotificationsSmsProcessor {
   private readonly logger = new Logger(NotificationsSmsProcessor.name);
 
-  @Process('send')
+  @Process('sms')
   async handleSmsSend(job: Job<QueueJobBase>): Promise<void> {
     if (process.env['JEST_WORKER_ID']) return; // skip Redis I/O in jest (I036)
     const { payload } = job.data;

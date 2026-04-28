@@ -95,15 +95,18 @@ export class NotificationsService {
       pref?.quietHoursEnd ?? null,
     );
 
+    // I046: job names made unique per queue to avoid @nestjs/bull's
+    // BullExplorer registering the same handler name on multiple queues
+    // (which trips Bull's `Cannot define the same handler twice send`).
     if (channels.includes('whatsapp')) {
-      await this.safeEnqueue(this.waQueue, 'send', { payload }, delay);
+      await this.safeEnqueue(this.waQueue, 'whatsapp', { payload }, delay);
     }
     if (channels.includes('email')) {
       // Email is not subject to quiet hours.
-      await this.safeEnqueue(this.emailQueue, 'send', { payload }, 0);
+      await this.safeEnqueue(this.emailQueue, 'email', { payload }, 0);
     }
     if (channels.includes('sms')) {
-      await this.safeEnqueue(this.smsQueue, 'send', { payload }, delay);
+      await this.safeEnqueue(this.smsQueue, 'sms', { payload }, delay);
     }
 
     return { id: created.id };
