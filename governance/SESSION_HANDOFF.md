@@ -1,9 +1,130 @@
 # SESSION_HANDOFF.md
 
-# Session Handoff — 2026-04-27 (Session 15 + 16 + 17 — Wave 6 + Audit P0 + Ops Workflows + Disk Cleanup)
+# Session Handoff — 2026-04-28 (Session 18 — Production restore I044 + I045 + I046 + I047)
 
 ## Branch: main
-## Latest commit: ccc167b — docs(governance): session 16 close — audit P0 fixes + ops workflows
+## Latest commit: pending PR #227 squash-merge
+
+---
+
+## Session 18 — 5-hour production outage triage and full restore
+
+### Headline
+Production `https://ibherp.cloud/health` was returning 502 from the moment
+this session opened. Root cause was a 6-bug chain that took progressive
+peeling. End state: `/health = 200`, login works, dashboard renders, all
+core ERP modules (sales, POS, inventory, finance, HR, purchases, CRM)
+operational. Some Wave 6 modules temporarily disabled pending I047
+follow-up.
+
+### Bug chain (in discovery order)
+
+1. **I044 — VPS git origin pointing at wrong repo.** The VPS at
+   `/opt/al-ruya-erp` was originally cloned from `ahrrfy/erp.git` (the
+   legacy program, since renamed/replaced). When the project moved to
+   `ahrrfy/IBH.git`, the VPS clone kept the old origin. Every push to
+   IBH's main was silently ignored — `git fetch origin main` pulled from
+   the stale fork. **Fix:** explicit `EXPECTED_ORIGIN_URL` guard at the
+   top of `deploy-on-vps.sh` that auto-repoints to `ahrrfy/IBH.git`.
+
+2. **I044 — chicken-and-egg in `prisma migrate resolve`.** The deploy
+   script's resolve loop used `compose exec api ...` which fails
+   immediately if the previous api container is dead. After the api
+   crashed once, the next deploy couldn't fix the failed migration
+   record because it needed a running api to run resolve. **Fix:**
+   replaced with `compose run --rm --no-deps api ...` — spawns a fresh
+   throwaway container off the just-built image. Same fix in
+   `repair-migration.yml`.
+
+3. **I045 — Postgres enum naming mismatch.** Migration `0011_licensing`
+   created `license_event_type` (snake_case). Prisma schema declared
+   `enum LicenseEventType` (PascalCase). Migration `t68_prorated_charge_event`
+   tried `ALTER TYPE "LicenseEventType" ADD VALUE 'prorated_charge'` and
+   failed with "type does not exist". **Fix:** manual `ALTER TYPE
+   license_event_type RENAME TO "LicenseEventType"` on prod DB +
+   `migrate resolve --rolled-back t68` + `migrate deploy` applied the
+   3 pending migrations (t68, t70_billing, i003_pos_conflict_log).
+
+4. **I046 — `@nestjs/bull@10.2.3` BullExplorer double-registers
+   `@Process` decorators.** After fixing 1-3, the api booted past Prisma
+   then crashed at `app.listen()` with `Cannot define the same handler
+   twice send`. Stack trace pointed at `BullExplorer.handleProcessor`
+   calling `Queue.process()` twice for the same job name. Variadic vs
+   split `registerQueue` shapes had no effect. **Fix:** removed all 7
+   stub `@Process` worker classes from their modules' `providers` arrays.
+   Queues stay registered (so `queue.add()` callers still work), the
+   external `whatsapp-bridge` continues to consume the Redis lists
+   directly. Affected: NotificationsWhatsapp/Email/Sms processors,
+   VarianceAlertProcessor, RfmProcessor + RfmScheduler, AutoReorderProcessor.
+
+5. **I046 — silent hang in `NestFactory.create`.** Independent of #4: with
+   all modules enabled, the api would hang in lifecycle hooks before
+   reaching Prisma's onModuleInit. No error, no log, just a frozen
+   process at 0% CPU. Bisect identified the suspect set as
+   PlatformLicensingModule, LicensingModule, AdminLicensingModule,
+   ExpiryWatcherModule, StorefrontModule, OnlineOrdersModule,
+   AutopilotModule. **Workaround:** all 7 disabled in `app.module.ts`
+   to restore boot. **Follow-up I047:** bisect within the disabled set
+   to identify the actual hanging onModuleInit hook.
+
+6. **I047 — WebSocket realtime broken.** Browser console at
+   `https://ibherp.cloud/dashboard` flooded with
+   `ws://localhost:3001/socket.io/ failed`. Two stacked bugs:
+   (a) `socket-client.ts` baked `NEXT_PUBLIC_API_URL` at build time,
+   defaulting to `localhost:3001` because the docker build didn't pass
+   it as ARG; (b) nginx had no `/socket.io/` location block, so ws
+   upgrades fell through to `location /` (Next.js, no socket endpoint).
+   **Fix:** `socket-client.ts` reads `window.location.origin` at runtime;
+   nginx adds dedicated `/socket.io/` block with WS upgrade headers.
+
+7. **I047 — SSH connectivity from GitHub Actions to VPS flaky.**
+   `ssh-keyscan -T 5` from GitHub runners → Hostinger Frankfurt was
+   timing out intermittently, breaking deploys. **Fix:** 4 attempts ×
+   15s timeout each + 3 attempts × 20s on the auth handshake +
+   diagnostic dump on final failure.
+
+### Diagnostic infrastructure added
+- `apps/api/src/main.ts` — `[BOOT]` breadcrumb traces around bootstrap
+  + `bootstrap().catch()` so silent rejections become loud crashes
+- `PrismaService.onModuleInit` — `[BOOT]` markers around `$connect()`
+- `AutopilotScheduler.onModuleInit` — `AUTOPILOT_DISABLED=1` env flag
+  (escape hatch for future incidents)
+
+### Currently disabled in app.module.ts (must restore in I047)
+- PlatformLicensingModule
+- LicensingModule
+- AdminLicensingModule
+- ExpiryWatcherModule
+- StorefrontModule (T54)
+- OnlineOrdersModule (T55)
+- AutopilotModule (T71)
+- VarianceAlertProcessor (cron)
+- RfmProcessor + RfmScheduler (cron)
+- AutoReorderProcessor (cron)
+- NotificationsWhatsapp/Email/Sms processors
+
+### Production state at session close
+- `https://ibherp.cloud/health` → HTTP 200 ✅
+- `https://ibherp.cloud/api/v1/health` → JSON 200 ✅
+- Login flow works, dashboard renders ✅
+- WebSocket fix pending PR #227 deploy
+- Zero data loss
+
+### Auto-deploy chain restored
+PR #227 contains every fix above. After merge, push-to-main will fire
+`deploy-vps.yml` which now uses the hardened SSH + the corrected
+`deploy-on-vps.sh` with origin guard + run-rm migrate-resolve. End-to-
+end automation should work without manual VPS intervention.
+
+### Follow-up I047 work items
+1. Bisect the 7 disabled modules to find the hanging onModuleInit
+2. Choose between upgrading `@nestjs/bull` to a working version OR
+   rewriting processors to use `bull` directly (skipping BullExplorer)
+3. Re-register the cron processors (variance, rfm, auto-reorder,
+   trial-expiry, license-expiry, autopilot)
+4. Verify shop.ibherp.cloud once Storefront + OnlineOrders re-enabled
+5. Add e2e smoke test that boots the api and probes `/health` so this
+   class of regression fails in CI before hitting prod
 
 ---
 
