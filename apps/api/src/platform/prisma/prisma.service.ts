@@ -16,7 +16,9 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit() {
+    console.log(`[BOOT] ${new Date().toISOString()} PrismaService.onModuleInit -> $connect()`);
     await this.$connect();
+    console.log(`[BOOT] ${new Date().toISOString()} PrismaService.onModuleInit -> $connect() resolved`);
     this.logger.log('✅ Database connected');
 
     // Log slow queries in development

@@ -40,8 +40,18 @@ export class AutopilotScheduler implements OnModuleInit {
    * changes between deployments take effect.
    */
   async onModuleInit(): Promise<void> {
+    console.log(`[BOOT] ${new Date().toISOString()} AutopilotScheduler.onModuleInit start`);
+    // I046 — emergency disable for incident recovery. Set AUTOPILOT_DISABLED=1
+    // in the api .env to skip the 50-job registration loop while we triage
+    // a bootstrap hang. Existing repeatables stay scheduled in Redis until
+    // a healthy boot reconciles them, so this is safe for short-term use.
+    if (process.env.AUTOPILOT_DISABLED === '1') {
+      console.log(`[BOOT] ${new Date().toISOString()} AutopilotScheduler skipped (AUTOPILOT_DISABLED=1)`);
+      return;
+    }
     let registered = 0;
     const meta = this.engine.catalogue();
+    console.log(`[BOOT] ${new Date().toISOString()} AutopilotScheduler.onModuleInit catalogue=${meta.length} jobs`);
 
     // Best-effort cleanup of stale repeatables (cron strings that changed
     // between deploys). We match by job name; any repeatable whose name is
@@ -88,6 +98,7 @@ export class AutopilotScheduler implements OnModuleInit {
       }
     }
 
+    console.log(`[BOOT] ${new Date().toISOString()} AutopilotScheduler.onModuleInit done registered=${registered}`);
     this.logger.log(`[T71] registered ${registered} cron-scheduled jobs`);
   }
 }

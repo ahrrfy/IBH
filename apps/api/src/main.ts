@@ -9,11 +9,22 @@ import { RlsInterceptor } from './platform/interceptors/rls.interceptor';
 import { JwtAuthGuard } from './engines/auth/guards/jwt-auth.guard';
 import { PrismaService } from './platform/prisma/prisma.service';
 
+// I046 — bootstrap breadcrumbs. Production has been hanging silently between
+// "Redis connected" and `app.listen()` with no Nest log indicating which
+// onModuleInit/onApplicationBootstrap hook is the culprit. These plain
+// console.log markers bypass Nest's Logger (which buffers / filters by level)
+// so we always see how far we got. Remove once the hang is identified+fixed.
+const trace = (m: string) => console.log(`[BOOT] ${new Date().toISOString()} ${m}`);
+
 async function bootstrap() {
+  trace('1. bootstrap() entered');
   const isProd = process.env.NODE_ENV === 'production';
+  trace(`2. NODE_ENV=${process.env.NODE_ENV} PORT=${process.env.PORT}`);
+  trace('3. about to call NestFactory.create(AppModule)');
   const app = await NestFactory.create(AppModule, {
-    logger: isProd ? ['error', 'warn', 'log'] : ['error', 'warn', 'log', 'debug'],
+    logger: isProd ? ['error', 'warn', 'log'] : ['error', 'warn', 'log', 'debug', 'verbose'],
   });
+  trace('4. ✅ NestFactory.create() resolved — all onModuleInit hooks completed');
 
   // ─── Pre-flight security checks ──────────────────────────────────────────
   // Fail fast in production if critical secrets are missing or weak.
@@ -132,12 +143,18 @@ async function bootstrap() {
   }
 
   // ─── Graceful shutdown ───────────────────────────────────────────────────
+  trace('5. enableShutdownHooks');
   app.enableShutdownHooks();
 
   const port = parseInt(process.env.PORT ?? '3001', 10);
-  await app.listen(port);
+  trace(`6. about to call app.listen(${port}) on 0.0.0.0`);
+  await app.listen(port, '0.0.0.0');
+  trace(`7. ✅ app.listen() resolved — listening on 0.0.0.0:${port}`);
   console.log(`🚀 ERP API running on port ${port}`);
   if (!isProd) console.log(`📚 Swagger: http://localhost:${port}/docs`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('[BOOT] ❌ FATAL — bootstrap rejected:', err);
+  process.exit(1);
+});
