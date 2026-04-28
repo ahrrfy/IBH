@@ -97,7 +97,7 @@ import { OnlineOrdersModule } from './modules/sales/online-orders/online-orders.
     HealthModule,
     RealtimeModule,
     NotificationsModule,
-    PlatformLicensingModule,
+    // PlatformLicensingModule, // I046 disabled — contains TrialExpiryProcessor
 
     // ── Engines (M01) ──────────────────────────────────────────────────────
     AuthModule,
@@ -135,21 +135,26 @@ import { OnlineOrdersModule } from './modules/sales/online-orders/online-orders.
 
     // ── Business Modules — Wave 6 ───────────────────────────────────────────
     CrmModule,
-    LicensingModule,
-    AdminLicensingModule,
-    ExpiryWatcherModule,
+    // I046 — emergency triage: disable suspect modules to restore prod /health.
+    // Bootstrap was hanging silently inside NestFactory.create after all modules
+    // instantiated but before any onModuleInit ran. Removing the most-recently
+    // added modules (Wave 6 licensing crons + autopilot + storefront + online
+    // orders) restores boot. Re-enable one at a time once a real fix lands.
+    // LicensingModule,
+    // AdminLicensingModule,
+    // ExpiryWatcherModule,
     AiModule,
     ReportingModule,
 
     // ── Public Storefront (T54) ─────────────────────────────────────────────
-    StorefrontModule,
+    // StorefrontModule,
 
     // ── E-commerce ↔ ERP integration (T55) ─────────────────────────────────
     PaymentsModule,
-    OnlineOrdersModule,
+    // OnlineOrdersModule,
 
     // ── T71 Autonomous Operations Engine ───────────────────────────────────
-    AutopilotModule,
+    // AutopilotModule,
   ],
 })
 export class AppModule {}
