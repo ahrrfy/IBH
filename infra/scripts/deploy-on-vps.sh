@@ -74,6 +74,27 @@ fi
 
 # ─── 2. pull main ───────────────────────────────────────────────────────────
 cd "$REPO_DIR"
+
+# I044 — origin URL guard. Before this guard, the VPS could silently keep
+# pulling from a stale fork (the previous tenant of this server cloned an
+# older repo at ahrrfy/erp.git, then the project moved to ahrrfy/IBH.git).
+# Without this check, every push to the new repo never reached production
+# because `git fetch origin main` pulled from whatever URL was configured
+# at clone time — which the deploy script previously trusted blindly.
+EXPECTED_ORIGIN_URL="${EXPECTED_ORIGIN_URL:-https://github.com/ahrrfy/IBH.git}"
+CURRENT_ORIGIN_URL="$(git remote get-url origin 2>/dev/null || echo '')"
+log "→ origin URL check"
+log "   expected: $EXPECTED_ORIGIN_URL"
+log "   current : $CURRENT_ORIGIN_URL"
+if [ -z "$CURRENT_ORIGIN_URL" ]; then
+  fail "no 'origin' remote configured in $REPO_DIR — bootstrap is broken"
+fi
+if [ "$CURRENT_ORIGIN_URL" != "$EXPECTED_ORIGIN_URL" ]; then
+  log "   ⚠️  origin URL mismatch — repointing to $EXPECTED_ORIGIN_URL"
+  git remote set-url origin "$EXPECTED_ORIGIN_URL"
+  log "   ✅ origin repointed (now: $(git remote get-url origin))"
+fi
+
 log "→ git fetch + reset to origin/main"
 git fetch origin main
 BEFORE_SHA=$(git rev-parse HEAD)
