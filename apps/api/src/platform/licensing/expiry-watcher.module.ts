@@ -22,8 +22,13 @@ import { TrialService } from './trial.service';
  */
 @Module({
   imports: [
-    BullModule.registerQueue({ name: LICENSE_EXPIRY_QUEUE }),
-    BullModule.registerQueue({ name: TRIAL_EXPIRY_QUEUE }),
+    // I046 — variadic form (single registerQueue call). Two separate calls
+    // create two BullExplorer instances which double-register every
+    // @Processor in the app and trip "Cannot define the same handler twice".
+    BullModule.registerQueue(
+      { name: LICENSE_EXPIRY_QUEUE },
+      { name: TRIAL_EXPIRY_QUEUE },
+    ),
   ],
   providers: [ExpiryWatcherProcessor, TrialExpiryProcessor, TrialService],
   exports: [ExpiryWatcherProcessor, TrialExpiryProcessor, TrialService],

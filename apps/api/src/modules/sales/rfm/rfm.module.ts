@@ -17,14 +17,14 @@ import { RfmScheduler } from './rfm.scheduler';
  * connection caused 26 unrelated suites to fail with
  * "Queue.setHandler: Connection is closed".
  */
-const isTestEnv = !!process.env.JEST_WORKER_ID || process.env.NODE_ENV === 'test';
-
+// I046 — RfmProcessor + RfmScheduler removed from providers. @nestjs/bull
+// v10.2.3 BullExplorer double-registers @Process handlers causing the api
+// to crash with "Cannot define the same handler twice". Service stays so
+// callers can enqueue manually; cron will be re-wired in I047.
 @Module({
   imports: [BullModule.registerQueue({ name: RFM_QUEUE })],
   controllers: [RfmController],
-  providers: isTestEnv
-    ? [RfmService]
-    : [RfmService, RfmProcessor, RfmScheduler],
+  providers: [RfmService],
   exports: [RfmService],
 })
 export class RfmModule {}

@@ -21,7 +21,8 @@ import { AUTO_REORDER_QUEUE, AutoReorderProcessor } from './auto-reorder.process
     BullModule.registerQueue({ name: AUTO_REORDER_QUEUE }),
   ],
   controllers: [AutoReorderController],
-  providers: [AutoReorderService, AutoReorderProcessor],
+  // I046 — AutoReorderProcessor removed; same @nestjs/bull explorer crash.
+  providers: [AutoReorderService],
   exports: [AutoReorderService],
 })
 export class ProcurementAutoReorderModule {}

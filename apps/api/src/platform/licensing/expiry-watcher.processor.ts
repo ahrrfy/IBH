@@ -106,6 +106,7 @@ export class ExpiryWatcherProcessor implements OnModuleInit {
    * by `jobId` so the registration survives multiple module bootstraps.
    */
   async onModuleInit(): Promise<void> {
+    console.log(`[BOOT] ${new Date().toISOString()} ExpiryWatcherProcessor.onModuleInit start`);
     try {
       await this.queue.add(
         LICENSE_EXPIRY_JOB,
@@ -121,6 +122,7 @@ export class ExpiryWatcherProcessor implements OnModuleInit {
     } catch (err) {
       this.logger.warn(`Failed to schedule license expiry cron: ${err}`);
     }
+    console.log(`[BOOT] ${new Date().toISOString()} ExpiryWatcherProcessor.onModuleInit done`);
   }
 
   @Process(LICENSE_EXPIRY_JOB)

@@ -99,6 +99,7 @@ export class TrialExpiryProcessor implements OnModuleInit {
    * by `jobId` so repeated bootstraps are safe.
    */
   async onModuleInit(): Promise<void> {
+    console.log(`[BOOT] ${new Date().toISOString()} TrialExpiryProcessor.onModuleInit start`);
     try {
       await this.queue.add(
         TRIAL_EXPIRY_JOB,
@@ -114,6 +115,7 @@ export class TrialExpiryProcessor implements OnModuleInit {
     } catch (err) {
       this.logger.warn(`Failed to schedule trial expiry cron: ${err}`);
     }
+    console.log(`[BOOT] ${new Date().toISOString()} TrialExpiryProcessor.onModuleInit done`);
   }
 
   @Process(TRIAL_EXPIRY_JOB)

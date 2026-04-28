@@ -97,7 +97,7 @@ import { OnlineOrdersModule } from './modules/sales/online-orders/online-orders.
     HealthModule,
     RealtimeModule,
     NotificationsModule,
-    PlatformLicensingModule,
+    // PlatformLicensingModule, // I046 disabled — silent hang in NestFactory.create
 
     // ── Engines (M01) ──────────────────────────────────────────────────────
     AuthModule,
@@ -135,21 +135,25 @@ import { OnlineOrdersModule } from './modules/sales/online-orders/online-orders.
 
     // ── Business Modules — Wave 6 ───────────────────────────────────────────
     CrmModule,
-    LicensingModule,
-    AdminLicensingModule,
-    ExpiryWatcherModule,
+    // I046 — disabled to break silent hang in NestFactory.create. Bull fix
+    // (variadic registerQueue, commit 568bea5) cleared the duplicate handler
+    // crash but a separate hang in one of these modules still blocks
+    // bootstrap. Re-enable one at a time in I047 to find the culprit.
+    // LicensingModule,
+    // AdminLicensingModule,
+    // ExpiryWatcherModule,
     AiModule,
     ReportingModule,
 
     // ── Public Storefront (T54) ─────────────────────────────────────────────
-    StorefrontModule,
+    // StorefrontModule,
 
     // ── E-commerce ↔ ERP integration (T55) ─────────────────────────────────
     PaymentsModule,
-    OnlineOrdersModule,
+    // OnlineOrdersModule,
 
     // ── T71 Autonomous Operations Engine ───────────────────────────────────
-    AutopilotModule,
+    // AutopilotModule,
   ],
 })
 export class AppModule {}

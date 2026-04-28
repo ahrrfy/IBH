@@ -1,0 +1,170 @@
+name: VPS Discovery — read-only audit
+
+# Read-only diagnostic that lists everything running on the VPS so we can
+# safely tell our stack apart from sirajalquran.org and the legacy
+# erp-arabic-vision PM2 app. Does NOT modify anything. Run before any
+# destructive cleanup workflow.
+#
+# Usage: workflow_dispatch only. Output is dumped to the run's job log.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    name: Audit VPS state
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Setup SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -T 5 -t rsa,ecdsa,ed25519 -H "$VPS_HOST" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Run audit
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o ServerAliveInterval=15 \
+            "root@${{ secrets.VPS_HOST }}" 'bash -s' <<'AUDIT'
+          set +e  # never abort — this is informational
+          echo "=========================================="
+          echo "1. HOST INFO"
+          echo "=========================================="
+          hostname -f; uptime; uname -a
+          echo
+
+          echo "=========================================="
+          echo "2. /opt LAYOUT"
+          echo "=========================================="
+          ls -la /opt/
+          echo
+          for d in /opt/*/; do
+            if [ -d "$d/.git" ]; then
+              echo "--- git origin in $d ---"
+              cd "$d" && git remote -v 2>/dev/null && git log --oneline -1 2>/dev/null
+              cd /
+            fi
+          done
+          echo
+
+          echo "=========================================="
+          echo "3. PM2 PROCESSES (legacy app indicator)"
+          echo "=========================================="
+          if command -v pm2 >/dev/null; then
+            pm2 list
+            echo "--- PM2 startup ---"
+            pm2 status 2>/dev/null | head -30
+          else
+            echo "(pm2 not installed)"
+          fi
+          echo
+
+          echo "=========================================="
+          echo "4. SYSTEMD SERVICES (relevant only)"
+          echo "=========================================="
+          systemctl list-units --type=service --state=running --no-legend --no-pager 2>/dev/null \
+            | grep -iE "node|nginx|postgres|mysql|mongo|redis|pm2|docker" \
+            | head -30
+          echo
+
+          echo "=========================================="
+          echo "5. LISTENING PORTS"
+          echo "=========================================="
+          ss -tlnp 2>/dev/null | head -40 || netstat -tlnp 2>/dev/null | head -40
+          echo
+
+          echo "=========================================="
+          echo "6. DOCKER CONTAINERS"
+          echo "=========================================="
+          docker ps -a --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' 2>/dev/null
+          echo
+          echo "--- Docker compose projects (com.docker.compose.project labels) ---"
+          docker ps -a --format '{{.Label "com.docker.compose.project"}}' 2>/dev/null | sort -u
+          echo
+
+          echo "=========================================="
+          echo "7. DOCKER VOLUMES + NETWORKS"
+          echo "=========================================="
+          docker volume ls 2>/dev/null
+          echo
+          docker network ls 2>/dev/null
+          echo
+
+          echo "=========================================="
+          echo "8. DATABASES INSIDE EACH POSTGRES CONTAINER"
+          echo "=========================================="
+          for c in $(docker ps --filter ancestor=pgvector/pgvector:pg16 --filter ancestor=postgres:16 --filter ancestor=postgres --format '{{.Names}}' 2>/dev/null); do
+            echo "--- container: $c ---"
+            docker exec -i "$c" psql -U postgres -tAc "SELECT datname FROM pg_database WHERE datname NOT IN ('template0','template1');" 2>/dev/null \
+              || docker exec -i "$c" psql -U erp_app -d alruya_erp -tAc "SELECT current_database();" 2>/dev/null \
+              || echo "(no postgres user accessible without password — check env)"
+          done
+          echo
+          echo "--- host-level postgres (if any) ---"
+          if command -v psql >/dev/null && systemctl is-active postgresql >/dev/null 2>&1; then
+            sudo -u postgres psql -tAc "SELECT datname FROM pg_database WHERE datname NOT IN ('template0','template1');" 2>/dev/null
+          else
+            echo "(no host postgres or not active)"
+          fi
+          echo
+
+          echo "=========================================="
+          echo "9. HOST NGINX VHOSTS (where does each domain go?)"
+          echo "=========================================="
+          if [ -d /etc/nginx/sites-enabled ]; then
+            ls -la /etc/nginx/sites-enabled/
+            echo
+            for f in /etc/nginx/sites-enabled/*; do
+              [ -e "$f" ] || continue
+              echo "--- $f ---"
+              grep -E "^\s*(server_name|listen|proxy_pass|root|location)" "$f" | head -30
+              echo
+            done
+          else
+            echo "(no /etc/nginx/sites-enabled — host nginx may not be installed; routing is via docker nginx instead)"
+          fi
+          echo
+
+          echo "=========================================="
+          echo "10. LET'S ENCRYPT CERTIFICATES"
+          echo "=========================================="
+          if [ -d /etc/letsencrypt/live ]; then
+            ls -la /etc/letsencrypt/live/
+          else
+            echo "(no /etc/letsencrypt/live — certs may live elsewhere)"
+          fi
+          echo
+
+          echo "=========================================="
+          echo "11. CRON / SYSTEMD-TIMER LEFTOVERS"
+          echo "=========================================="
+          ls -la /etc/cron.d/ /etc/cron.daily/ /etc/cron.weekly/ 2>/dev/null | grep -vE '^total|^\.'
+          echo
+          systemctl list-timers --no-pager 2>/dev/null | head -10
+          echo
+
+          echo "=========================================="
+          echo "12. DISK USAGE TOP-LEVEL"
+          echo "=========================================="
+          df -h /
+          echo
+          du -sh /opt/* 2>/dev/null | sort -h
+          du -sh /var/lib/docker 2>/dev/null
+          echo
+
+          echo "=========================================="
+          echo "✅ AUDIT COMPLETE"
+          echo "=========================================="
+          AUDIT
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519

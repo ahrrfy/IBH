@@ -23,8 +23,15 @@ interface ConnectedMeta {
   serverTime: string;
 }
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+// I047 — use the origin that served the page so the WebSocket follows
+// whatever proxy the user is on (ibherp.cloud, dev, custom subdomain).
+// This avoids baking an env var into the bundle which broke prod when
+// the docker build didn't have NEXT_PUBLIC_API_URL set as an ARG.
+// SSR is impossible here ('use client'), so window is always defined.
+function getApiBase(): string {
+  if (typeof window !== 'undefined') return window.location.origin;
+  return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+}
 
 let socket: Socket | null = null;
 let connectedMeta: ConnectedMeta | null = null;
@@ -52,7 +59,7 @@ function ensureSocket(): Socket | null {
   const token = readToken();
   if (!token) return null;
 
-  socket = io(`${API_BASE}/realtime`, {
+  socket = io(`${getApiBase()}/realtime`, {
     transports: ['websocket'],
     auth: { token },
     reconnection: true,

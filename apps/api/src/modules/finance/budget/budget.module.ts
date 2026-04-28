@@ -22,7 +22,11 @@ import {
     BullModule.registerQueue({ name: BUDGET_VARIANCE_QUEUE }),
   ],
   controllers: [BudgetController],
-  providers: [BudgetService, VarianceService, VarianceAlertProcessor],
+  // I046 — VarianceAlertProcessor removed from providers. @nestjs/bull v10.2.3
+  // BullExplorer was double-registering @Process('scan') causing api crash.
+  // Cron logic can be re-enabled via a separate scheduler service or restored
+  // once the explorer issue is debugged in I047.
+  providers: [BudgetService, VarianceService],
   exports: [BudgetService, VarianceService],
 })
 export class BudgetModule {}
