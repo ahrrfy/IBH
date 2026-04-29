@@ -21,6 +21,7 @@ import { RealtimeModule } from './platform/realtime/realtime.module';
 import { NotificationsModule } from './platform/notifications/notifications.module';
 import { EncryptionModule } from './platform/encryption/encryption.module';
 import { PlatformLicensingModule } from './platform/licensing/licensing.module';
+import { LicensingMirrorModule } from './platform/licensing/licensing-mirror.module';
 import { ExpiryWatcherModule } from './platform/licensing/expiry-watcher.module';
 import { IntegrationsModule } from './modules/admin/integrations/integrations.module';
 
@@ -118,6 +119,9 @@ const coreImports = [
   EncryptionModule,
   // PlatformLicensingModule moved to backgroundJobImports — its global
   // LicenseGuard blocks every endpoint until a subscription is seeded.
+  // I052 — but the read-only mirror (/licensing/me/features) must always
+  // be reachable so the web shell can boot. Always-on, no global guard.
+  LicensingMirrorModule,
 
   // ── Engines (M01) ──────────────────────────────────────────────────────
   AuthModule,

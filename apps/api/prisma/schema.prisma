@@ -3886,3 +3886,42 @@ model AutopilotJobRun {
   @@index([jobId, startedAt])
   @@map("autopilot_job_runs")
 }
+
+// ============================================================
+// COMPANY INTEGRATIONS — Per-tenant 3rd-party service configs
+// ============================================================
+//
+// One row per (companyId, type). Each row stores an encrypted JSON
+// payload with provider-specific credentials/settings. The encryption
+// happens application-side via INTEGRATION_ENCRYPTION_KEY (AES-256-GCM).
+// Plaintext credentials NEVER touch the DB.
+//
+// WhatsApp config payload shape:
+//   { token, phoneNumberId, businessAccountId, webhookVerifyToken }
+
+enum IntegrationType {
+  whatsapp
+  telegram
+  email_smtp
+  sms_provider
+}
+
+model CompanyIntegration {
+  id                String          @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String          @db.Char(26)
+  type              IntegrationType
+  isEnabled         Boolean         @default(false)
+  /// AES-256-GCM ciphertext (base64). Plaintext = JSON object whose
+  /// shape depends on `type` (see model docstring above).
+  configEncrypted   String
+  /// Brief metadata visible without decryption (provider, last test result).
+  publicMetadata    Json            @default("{}")
+  lastModifiedAt    DateTime        @default(now())
+  lastModifiedBy    String          @db.Char(26)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([companyId, type])
+  @@index([companyId, isEnabled])
+  @@map("company_integrations")
+}

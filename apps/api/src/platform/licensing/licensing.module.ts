@@ -2,11 +2,10 @@ import { Global, Module, forwardRef } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LicenseGuard } from './license.guard';
-import { FeatureCacheService } from './feature-cache.service';
 import { LicenseSignerService } from './license-signer.service';
 import { PlanChangeService } from './plan-change.service';
 import { LicenseActivationController } from './activation.controller';
-import { MeFeaturesController } from './me-features.controller';
+import { LicensingMirrorModule } from './licensing-mirror.module';
 import { LicensingModule } from '../../modules/licensing/licensing.module';
 
 /**
@@ -24,10 +23,9 @@ import { LicensingModule } from '../../modules/licensing/licensing.module';
  */
 @Global()
 @Module({
-  imports: [PrismaModule, forwardRef(() => LicensingModule)],
-  controllers: [LicenseActivationController, MeFeaturesController],
+  imports: [PrismaModule, LicensingMirrorModule, forwardRef(() => LicensingModule)],
+  controllers: [LicenseActivationController],
   providers: [
-    FeatureCacheService,
     LicenseGuard,
     LicenseSignerService,
     PlanChangeService,
@@ -38,6 +36,6 @@ import { LicensingModule } from '../../modules/licensing/licensing.module';
     // remain reachable when a tenant has no active license.
     { provide: APP_GUARD, useExisting: LicenseGuard },
   ],
-  exports: [FeatureCacheService, LicenseGuard, LicenseSignerService, PlanChangeService],
+  exports: [LicenseGuard, LicenseSignerService, PlanChangeService],
 })
 export class PlatformLicensingModule {}
