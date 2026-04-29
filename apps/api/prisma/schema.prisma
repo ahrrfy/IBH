@@ -2940,6 +2940,9 @@ enum LicenseEventType {
   payment_failed
   feature_overridden
   prorated_charge
+
+  // I058 — DB type created as `license_event_type` (snake_case migration).
+  @@map("license_event_type")
 }
 
 model Plan {
