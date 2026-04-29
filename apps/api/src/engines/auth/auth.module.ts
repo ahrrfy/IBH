@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -38,6 +39,13 @@ import { AuditModule } from '../audit/audit.module';
     RbacGuard,
     DataScopeGuard,
     RbacService,
+    // I059 — register JwtAuthGuard as APP_GUARD here so it shares the same
+    // execution phase as LicenseGuard (which is also APP_GUARD in
+    // PlatformLicensingModule). With both in APP_GUARD the order is
+    // deterministic by module-load order, and since AuthModule is imported
+    // BEFORE PlatformLicensingModule in app.module.ts, JwtAuthGuard runs
+    // first and populates req.user before LicenseGuard reads it.
+    { provide: APP_GUARD, useExisting: JwtAuthGuard },
   ],
   exports: [
     AuthService,

@@ -1,4 +1,4 @@
-import { NestFactory, Reflector } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
@@ -6,7 +6,6 @@ import compression from 'compression';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './platform/filters/http-exception.filter';
 import { RlsInterceptor } from './platform/interceptors/rls.interceptor';
-import { JwtAuthGuard } from './engines/auth/guards/jwt-auth.guard';
 import { PrismaService } from './platform/prisma/prisma.service';
 
 // I046 — bootstrap breadcrumbs. Production has been hanging silently between
@@ -110,8 +109,10 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   // ─── Global JWT guard ────────────────────────────────────────────────────
-  const reflector = app.get(Reflector);
-  app.useGlobalGuards(new JwtAuthGuard(reflector));
+  // I059 — JwtAuthGuard is registered as APP_GUARD in AuthModule (deterministic
+  // ordering with LicenseGuard's own APP_GUARD). The previous useGlobalGuards()
+  // call here ran in a separate phase that executed AFTER APP_GUARD providers,
+  // so the LicenseGuard saw req.user=null on every request and 403'd.
 
   // ─── RLS interceptor ─────────────────────────────────────────────────────
   const prisma = app.get(PrismaService);
