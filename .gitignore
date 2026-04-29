@@ -110,3 +110,6 @@ apps/web/tsconfig.tsbuildinfo
 .worktrees/
 .claude/worktrees/
 .clone/
+
+# UAT credentials — never commit
+governance/UAT_CREDENTIALS.md
