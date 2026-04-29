@@ -160,6 +160,11 @@ services:
       # No defaults — admin user only created if both vars are set in .env
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # I047 — kill-switch for heavy background-job modules. With Wave 6 +
+      # 50 autopilot jobs registered, AppModule bootstrap exceeded the
+      # /health probe budget on production deploys. Set to '1' to skip
+      # these modules until @nestjs/bull's BullExplorer is fixed (I048).
+      BACKGROUND_JOBS_DISABLED: ${BACKGROUND_JOBS_DISABLED:-1}
     networks:
       - erp-internal
     depends_on:

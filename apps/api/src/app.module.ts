@@ -59,6 +59,14 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { OnlineOrdersModule } from './modules/sales/online-orders/online-orders.module';
 
 const isTest = process.env.NODE_ENV === 'test';
+// I047 — temporary kill-switch for background-job modules in production.
+// 50 autopilot jobs + admin-licensing billing + license expiry watchers
+// inflate AppModule bootstrap time + dependency resolution past the
+// /health probe budget. Set BACKGROUND_JOBS_DISABLED=1 in VPS .env to
+// skip these modules until @nestjs/bull's BullExplorer double-registration
+// is resolved (I048). Routes for these features will return 404; their
+// services exist as classes but aren't wired.
+const skipBackgroundJobs = isTest || process.env.BACKGROUND_JOBS_DISABLED === '1';
 
 const coreImports = [
   // ── Config ────────────────────────────────────────────────────────────
@@ -159,7 +167,7 @@ const backgroundJobImports = [
 @Module({
   imports: [
     ...coreImports,
-    ...(isTest ? [] : backgroundJobImports),
+    ...(skipBackgroundJobs ? [] : backgroundJobImports),
   ],
 })
 export class AppModule {}
