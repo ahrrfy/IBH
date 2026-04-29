@@ -13,8 +13,8 @@ import { CurrentUser } from '../../../engines/auth/decorators/current-user.decor
 import { RequirePermission } from '../../../engines/auth/decorators/require-permission.decorator';
 import type { UserSession } from '@erp/shared-types';
 
-// I047 — Web uses /api/v1/sales/returns.
-@Controller('sales/returns')
+// I047 — both paths for backward compat.
+@Controller(['sales-returns', 'sales/returns'])
 export class SalesReturnsController {
   constructor(private readonly svc: SalesReturnsService) {}
 

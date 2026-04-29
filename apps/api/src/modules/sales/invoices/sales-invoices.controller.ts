@@ -13,9 +13,9 @@ import { CurrentUser } from '../../../engines/auth/decorators/current-user.decor
 import { RequirePermission } from '../../../engines/auth/decorators/require-permission.decorator';
 import type { UserSession } from '@erp/shared-types';
 
-// I047 — path realigned. Web pages call /api/v1/sales/invoices; controller
-// used to be at /api/v1/sales-invoices causing 404 on /sales/invoices.
-@Controller('sales/invoices')
+// I047 — exposed at BOTH paths. Old callers used /sales-invoices; new web
+// pages use /sales/invoices. Array form keeps backward compat.
+@Controller(['sales-invoices', 'sales/invoices'])
 export class SalesInvoicesController {
   constructor(private readonly svc: SalesInvoicesService) {}
 
