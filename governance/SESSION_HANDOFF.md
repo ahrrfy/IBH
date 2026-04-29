@@ -2,6 +2,61 @@
 
 ---
 
+## Session 19 — 2026-04-29 — Schema audit + 4 security fixes (3 SQLi + 1 cross-tenant leak)
+
+### Branch: main
+### Latest commit: 85f6be5 — fix(T71): resolve 3 TypeScript errors in autopilot job files
+### Pushed to origin: ✅ 57eba67..85f6be5
+
+### Completed this session
+
+1. **DB schema ↔ code sync audit** — confirmed system is fully dynamic/symmetric:
+   - 127 Prisma models + 57 enums in single schema
+   - 28 migrations with prefix-uniqueness CI gate
+   - `prisma generate` runs on build, post-merge git hook, and prod deploy
+   - Column naming: PostgreSQL columns are camelCase (matching Prisma fields), tables snake_case via `@@map()`
+
+2. **Schema column fixes** (commit `951e192`)
+   - `apps/api/src/modules/reporting/dashboards.service.ts:287-290`: raw SQL `"birthDate"` → `"dateOfBirth"` for Employee birthdays query
+   - `apps/api/src/modules/inventory/inventory.service.ts:871-901`: `getLowStockAlerts()` rewritten — was using snake_case columns (`variant_id`, `qty_on_hand`, `reorder_point`...) on a DB that uses camelCase. Also `reorder_point` does not exist — actual field is `reorderQty` on `ReorderPoint` model
+
+3. **3 SQL injection vectors closed** (commit `3fa658b`)
+   - `reports.service.ts:25` — `branchId` in `salesSummary(groupBy='branch')` was `'${params.branchId}'` concatenation → now `$4` parameterized
+   - `reports.service.ts:371` — `warehouseId` in inventory valuation → `$2` parameterized
+   - `forecasting.service.ts:31` — `variantId` in AI historical sales query → `$3` parameterized
+   - All 3 used `$queryRawUnsafe` with string concatenation of user-controlled filter values; authenticated users could bypass RLS via UNION SELECT or break out of filter clauses
+
+4. **Cross-tenant leak closed** (commit `3fa658b`)
+   - `vendor-invoices.service.ts:115` duplicate `vendorRef` check was missing `companyId` filter — could side-channel-leak existence of vendor invoice numbers in other companies, violating F1
+
+5. **Pushed to origin** — `git push origin main` → 57eba67..85f6be5 main->main
+
+### Verification
+- `pnpm --filter @erp/api exec tsc --noEmit` → **0 errors** ✅
+- `pnpm --filter @erp/api build` → ✅ `dist/main.js` present
+- `git diff` cross-checked against schema.prisma (line numbers + field types verified)
+- No more raw SQL with snake_case column references (grep confirmed)
+
+### Areas confirmed clean (audit findings)
+- **Append-only**: JournalEntryLine / StockLedgerEntry / AuditLog — no `.update()`/`.delete()` calls anywhere
+- **Double-entry**: `posting.service.ts:257` validates `totalDebit === totalCredit`; period locks enforced
+- **Auth guards**: global JWT guard + `@RequirePermission` on every sensitive endpoint
+- **Hardcoded secrets**: zero (all from env, JWT secret length-validated in main.ts)
+- **Multi-tenant isolation**: companyId consistently filtered (only the vendor-invoice dup check missed it)
+
+### New issue raised
+- **I048**: GitHub Dependabot reports **18 vulnerabilities** on default branch (12 high + 6 moderate). These are in npm dependencies, not project code. Needs a dedicated `pnpm audit` cycle to evaluate and update. Visible at https://github.com/ahrrfy/IBH/security/dependabot
+
+### Pending — uncommitted at session end
+- Three governance files have uncommitted edits from prior session: `MODULE_STATUS_BOARD.md`, `OPEN_ISSUES.md`, `SESSION_HANDOFF.md` — being committed now in this session-end protocol
+
+### Next safest step
+1. Run `pnpm audit --prod` in repo root to evaluate the 18 Dependabot findings; categorize: which are direct deps vs transitive, which have non-breaking patches available
+2. If `vps-disk-setup.yml` (I043 prevention) still hasn't been triggered manually from the GitHub Actions UI, do it
+3. e2e suite hasn't run this session — `pnpm --filter @erp/api test:e2e` to confirm no regression from the SQL parameterization changes (the queries now use `$N` placeholders; behavior should be identical but a smoke run is cheap insurance)
+
+---
+
 ## Session 18 addendum — 2026-04-29 — T71 Autopilot expansion (21 jobs)
 
 ### Branch: main
