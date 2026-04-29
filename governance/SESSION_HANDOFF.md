@@ -2,6 +2,53 @@
 
 ---
 
+## Session 20 — 2026-04-29 — T71 COMPLETE: all 50 autopilot jobs implemented
+
+### Branch: main
+### Latest commit: 6d877f2 — FEATURE-T71: implement final 14 autopilot jobs (batch 4) — 50/50 complete
+### Pushed to origin: ⏳ Not yet pushed
+
+### Completed this session
+
+1. **Governance updates** — MODULE_STATUS_BOARD.md M71 row updated to 50/50, TypeScript files ~190+
+
+2. **TypeScript fix** — `grn-inventory-posting.e2e-spec.ts` groupBy+take circular type error fixed with `(prisma.stockLedgerEntry as any).groupBy()` (commit `0ca7466`)
+
+3. **Autopilot batch 2** (6 jobs, commit `9863ab1`): `finance.unbalanced-je-detect`, `hr.birthday-greeting`, `hr.probation-end-flag`, `inventory.warehouse-balance`, `inventory.barcode-missing`, `inventory.stocktake-reminder`
+
+4. **Autopilot batch 3** (6 jobs, commit `38d60da`): `sales.loyalty-tier-recompute`, `sales.commission-calc`, `finance.exchange-rate-sync`, `license.heartbeat-check`, `license.usage-report`, `crm.duplicate-merge-suggest`
+
+5. **Autopilot batch 4** (14 jobs, commit `6d877f2`): `sales.price-list-rollover`, `sales.dormant-customer-revive`, `sales.target-vs-actual`, `sales.return-pattern-detect`, `sales.cross-sell-suggester`, `inventory.cost-recalculate`, `inventory.shelf-life-alert`, `finance.tax-liability-calc`, `finance.cashflow-forecast`, `crm.nps-pulse`, `delivery.driver-load-balance`, `delivery.eta-deviation`, `delivery.zone-coverage-audit`, `procurement.three-way-match`
+
+6. **stubs.ts EMPTIED** — all 50 T71 jobs now in dedicated files, SCAFFOLDS = []
+
+7. **Zero TypeScript errors** confirmed after every batch
+
+### Key patterns learned this session
+
+- `AutopilotJobResult.exceptionsRaised` is `number` (count), NOT an array — use `this.engine.raiseException()` to raise each one
+- Constructor: `constructor(private readonly prisma: PrismaService, private readonly engine: AutopilotEngineService)`
+- `GRNStatus` enum: `draft | quality_check | accepted | partially_accepted | rejected` (no `posted`)
+- `DeliveryStatus` enum: `pending_dispatch | assigned | in_transit | delivered | failed | returned | cancelled` (no `dispatched`)
+- `SalesInvoice.balanceIqd` (not `balanceDueIqd`)
+- `PurchaseOrderLine.qtyOrdered` (confirmed in schema)
+- VendorInvoice has `purchaseOrderId` field — use for 3-way match
+
+### Remaining work (next session)
+
+1. **Push to origin**: `git push origin main` — 5+ commits queued locally
+2. **Deploy to VPS**: GitHub Actions CI deploy should fire after push
+3. **TASK_QUEUE.md update**: T71 is complete — mark all subtasks done
+4. **Dependency freeze review** (I032): TypeScript 6, Prisma 7, Tailwind 4 — evaluate after VPS deploy stable
+5. **E2e test fixes**: Several e2e tests fail in CI (pre-existing: iraqi-tax-brackets, shift-open-close) — separate issue from T71
+
+### Next safest command
+```
+cd /d/al-ruya-erp && git push origin main
+```
+
+---
+
 ## Session 19 — 2026-04-29 — Schema audit + 4 security fixes (3 SQLi + 1 cross-tenant leak)
 
 ### Branch: main
