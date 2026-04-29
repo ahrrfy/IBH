@@ -2,6 +2,66 @@
 
 ---
 
+## Session 22 — 2026-04-29 — E2E CI Stabilization: 30/30 Green ✅
+
+### Branch: main
+### Latest commit: `5a9f085` — fix(e2e): seed CoA account 2411 in account-mapping test beforeAll
+### Pushed to origin: ✅ — CI run #25118171594 ALL GREEN (30/30 suites, 71/72 tests, 1 skipped)
+
+### Completed this session
+
+**Goal:** Take e2e CI from 28/30 → 30/30 passing (continuation of Session 21 stabilization).
+
+**Root causes fixed:**
+
+1. **`grn-inventory-posting.e2e-spec.ts`** — Raw SQL referenced wrong table name
+   - `"stock_ledger_entries"` → `"stock_ledger"` (matches Prisma `@@map` on `StockLedgerEntry`)
+   - Error was: `relation "stock_ledger_entries" does not exist`
+   - Commit: `b9f249a`
+
+2. **`account-mapping.e2e-spec.ts`** — Two compounding issues:
+   - **(a)** Direct Prisma upsert in `beforeAll` bypassed the service's internal 5-min Map cache → `getAccountForEvent` returned stale `null`. Fix: use `service.upsert()` which calls `invalidate()`.
+   - **(b)** CI bootstrap seed (`seed-bootstrap.ts`) only seeds company/branch/users — NOT the full Iraqi CoA. Account `2411` (Main Branch Cash) didn't exist → `service.upsert()` threw `ACCOUNT_NOT_FOUND`. Fix: directly upsert the CoA row via Prisma in `beforeAll` before calling `service.upsert()`.
+   - Commits: `b9f249a` (cache fix) + `5a9f085` (CoA seed fix)
+
+### CI Results (run 25118171594)
+
+```
+Test Suites: 30 passed, 30 total
+Tests:       1 skipped, 71 passed, 72 total
+Time:        ~30s
+```
+
+| Job | Time | Status |
+|-----|------|--------|
+| Typecheck + Build (api + workspace packages) | 1m0s | ✅ |
+| E2E acceptance tests (Postgres + Redis) | 1m53s | ✅ |
+| Standalone services (license-server + whatsapp-bridge) | 14s | ✅ |
+
+### Files touched
+
+- `apps/api/test/grn-inventory-posting.e2e-spec.ts`
+- `apps/api/test/account-mapping.e2e-spec.ts`
+- `governance/SESSION_HANDOFF.md` (this file)
+- `governance/MODULE_STATUS_BOARD.md`
+
+### Key learnings (memory candidates)
+
+- **Bootstrap seed scope:** `prisma db seed` runs `seed-bootstrap.ts` (minimal: company + branch + users), NOT `seed.ts` (full Iraqi CoA + roles + policies). Tests that depend on CoA accounts must seed them defensively in `beforeAll`.
+- **Service caches in tests:** `AccountMappingService` has a 5-min in-memory Map cache. Direct DB writes do NOT invalidate it — call `service.upsert()` so `invalidate()` runs.
+- **Prisma `@@map` matters in raw SQL:** Always use the mapped table name (e.g., `"stock_ledger"`) not the model name (`"StockLedgerEntry"`).
+
+### Remaining work (not blocking)
+
+- **🟢 Operational (manual):** S1.10 storefront DNS · S1.11 WhatsApp token · S1.12/I009 manual 2FA browser test
+- **🟡 Dedicated sessions:** I048 (18 Dependabot vulns) · I041 (Tailwind 4) · I040 (Prisma 7) · I037 (BatchLedger expiry — Wave 6)
+
+### Next safest step
+
+Address I048 (Dependabot) — run `pnpm audit --prod` to triage 18 vulnerabilities (direct vs transitive, available patches, what's gated by frozen-deps in I032).
+
+---
+
 ## Session 21 — 2026-04-29 — PHASE 1.A: Fix E2E TypeScript Compilation Blocker
 
 ### Branch: main
