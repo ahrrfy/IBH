@@ -104,8 +104,11 @@ export class FinanceKpisService {
 
   /** Cash on hand + in banks. */
   private async cashPosition(companyId: string) {
+    // I047 — BankAccount field is `type` (BankAccountType enum), not
+    // `accountType`. Identical fix to dashboards.service.ts. Without this
+    // the /finance/kpis/dashboard query 500'd silently.
     const rows: Array<{ kind: string; balance: number }> = await this.prisma.$queryRawUnsafe(
-      `SELECT ba."accountType" AS kind,
+      `SELECT ba."type" AS kind,
               COALESCE(SUM(CASE
                 WHEN cm."toAccountId" IS NOT NULL AND cm."fromAccountId" IS NULL THEN cm."amountIqd"
                 WHEN cm."fromAccountId" IS NOT NULL AND cm."toAccountId" IS NULL THEN -cm."amountIqd"
@@ -113,10 +116,10 @@ export class FinanceKpisService {
        FROM "bank_accounts" ba
        LEFT JOIN "cash_movements" cm ON cm."bankAccountId" = ba.id
        WHERE ba."companyId" = $1
-       GROUP BY ba."accountType"`,
+       GROUP BY ba."type"`,
       companyId,
     );
-    const cashInBanks = rows.filter((r) => r.kind === 'bank').reduce((s, r) => s + Number(r.balance), 0);
+    const cashInBanks = rows.filter((r) => r.kind !== 'cash').reduce((s, r) => s + Number(r.balance), 0);
     const cashInHand = rows.filter((r) => r.kind === 'cash').reduce((s, r) => s + Number(r.balance), 0);
     return { cashInBanks, cashInHand };
   }
