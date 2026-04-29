@@ -181,9 +181,9 @@
 | Restic backup 3-2-1-1 | ✅ |
 | GitHub repo | ✅ `ahrrfy/IBH` |
 | CI/CD Gitea + Woodpecker | 🔴 لم يبدأ (مُستعاض بـ GitHub Actions) |
-| GitHub Security Stack (CodeQL + Dependabot + Secret Scanning + Private Vuln Reporting) | ████████░░ جاهز للاختبار — PR #56 ينتظر merge |
-| Security Self-Healing Loop (bridge + sweep + close-hook + auto-merge + digest) | ████████░░ جاهز للاختبار — PR #56 ينتظر merge |
+| GitHub Security Stack (CodeQL + Dependabot + Secret Scanning + Private Vuln Reporting) | ██████████ ✅ مكتمل ومُختبر — commit c79ef16 |
+| Security Self-Healing Loop (bridge + sweep + close-hook + auto-merge + digest) | ██████████ ✅ مكتمل ومُختبر — كلا الـ workflows أخضران (runs 25119658244 + 25119685951) |
 
 ---
 
-*آخر تحديث: 2026-04-29 — ✅ G4 GATE CLOSED: 30/30 e2e tests passing (CI run 25118171594) · Sessions 21+22 fixed all blockers · Phase 2 (S2.4-S2.12 test coverage expansion) ready to begin · Phase 1.B (S1.9-S1.12 VPS ops) deferred to operational session*
+*آخر تحديث: 2026-04-29 — ✅ Security Self-Healing Loop: كلا الـ workflows يعملان (bridge ✓ 4s, close-hook ✓ 7s) · REST API polling يحل مشكلة GHAS triggers · T71 autopilot 50/50 jobs · G4 GATE CLOSED 30/30 e2e tests*

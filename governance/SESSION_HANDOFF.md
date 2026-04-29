@@ -2,6 +2,67 @@
 
 ---
 
+## Session 24 — 2026-04-29 — Security Self-Healing Loop: fixed + verified ✅
+
+### Branch: main
+### Latest commit: `c79ef16` — fix(security): replace unavailable GitHub event triggers with REST API polling
+### Pushed to origin: ✅ — both workflows confirmed active + running
+
+### Completed this session
+
+**Root cause fixed: security-bridge.yml + security-close-hook.yml "workflow file issue"**
+
+The two security workflows were failing with HTTP 422 `Unexpected value 'code_scanning_alert'` (and `secret_scanning_alert`, `dependabot_alert`). These webhook event triggers require **GitHub Advanced Security (GHAS)** which is not active on this repository.
+
+**Fix applied:**
+- Removed: `code_scanning_alert`, `secret_scanning_alert`, `dependabot_alert` event triggers from both files
+- Added: `schedule` cron triggers (06:00 UTC bridge, 07:00 UTC close-hook)  
+- Both files now poll REST APIs instead of waiting for webhooks:
+  ```
+  gh api repos/.../code-scanning/alerts?state=open&per_page=20
+  gh api repos/.../secret-scanning/alerts?state=open&per_page=20
+  gh api repos/.../dependabot/alerts?state=open&per_page=20
+  ```
+- Created `scripts/close-security-issue.sh` — extracted close logic that the new close-hook calls
+
+**Verification:**
+- Manual dispatch of Security Bridge: ✅ run 25119658244 — bridge job ✓ 4s
+- Manual dispatch of Security Close Hook (dummy alert SEC-code-scanning-999): ✅ run 25119685951 — close job ✓ 7s, found no open issue (expected), exited cleanly
+- MODULE_STATUS_BOARD updated: both rows now ██████████ ✅
+
+### Files touched this session
+
+- `.github/workflows/security-bridge.yml` (rewritten — REST API polling)
+- `.github/workflows/security-close-hook.yml` (rewritten — schedule + REST API polling)
+- `scripts/close-security-issue.sh` (new — close logic extracted from old inline yml)
+- `governance/MODULE_STATUS_BOARD.md` (security rows → ✅ complete)
+- `governance/SESSION_HANDOFF.md` (this entry)
+
+### Next priorities (from OPEN_ISSUES + MODULE_STATUS_BOARD)
+
+1. **I048** — 18 Dependabot vulnerabilities (12 high, 6 moderate): `pnpm audit --prod` + apply pnpm overrides (overrides exist in uncommitted `package.json` — see Session 23 note)
+2. **S2.4** — Delivery module e2e test coverage (COD settlement, auto-assignment)
+3. **S2.5** — POS sale flow e2e expansion
+4. **S2.6** — Licensing e2e expansion (activation, trial, proration)
+5. **I041** — Tailwind 4 upgrade (uncommitted changes in `apps/web/src/app/globals.css`)
+6. **VPS ops** — S1.9-S1.12 (disk setup, DNS+SSL for storefront, WhatsApp token, 2FA test)
+
+### Next safest commands
+
+```bash
+# 1. Review + commit the uncommitted Dependabot/Tailwind changes from earlier session
+git diff package.json apps/web/src/app/globals.css apps/web/postcss.config.js
+
+# 2. Start S2.4 delivery e2e coverage
+ls apps/api/test/
+# Write apps/api/test/delivery-cod-settlement.e2e-spec.ts
+
+# 3. Check security issues opened by bridge
+gh issue list --label security:auto --state open --limit 10
+```
+
+---
+
 ## Session 23 — 2026-04-29 — Phase 2 kickoff: G4 closed + CI test-discovery guard
 
 ### Branch: main
