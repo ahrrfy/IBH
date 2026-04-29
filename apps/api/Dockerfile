@@ -68,6 +68,11 @@ COPY --from=builder --chown=nestjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/dist ./apps/api/dist
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./apps/api/prisma
+# I040 — Prisma 7 reads datasource.url from prisma.config.ts (not schema.prisma).
+# This file is required at runtime by `prisma migrate deploy/resolve/status`
+# during the deploy script, even though the running app uses the driver-adapter
+# pattern and doesn't strictly need it after start-up.
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma.config.ts ./apps/api/prisma.config.ts
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/package.json ./apps/api/package.json
 COPY --from=builder --chown=nestjs:nodejs /app/packages ./packages
 
