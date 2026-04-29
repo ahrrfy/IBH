@@ -14,6 +14,28 @@ import { SalesOverdueReminderJob } from './jobs/sales.overdue-reminder.job';
 import { InventoryAutoReorderJob } from './jobs/inventory.auto-reorder.job';
 import { LicenseAutoRenewalJob } from './jobs/license.auto-renewal.job';
 import { AutopilotJobScaffolds } from './jobs/stubs';
+// ── T71 implemented jobs ────────────────────────────────────────────────────
+import { CrmLeadScoringRefreshJob } from './jobs/crm.lead-scoring-refresh.job';
+import { CrmFollowupReminderJob } from './jobs/crm.followup-reminder.job';
+import { CrmSilentChurnAlertJob } from './jobs/crm.silent-churn-alert.job';
+import { ProcurementVendorScorecardJob } from './jobs/procurement.vendor-scorecard.job';
+import { ProcurementPriceDriftAlertJob } from './jobs/procurement.price-drift-alert.job';
+import { SalesDailyRepSummaryJob } from './jobs/sales.daily-rep-summary.job';
+import { SalesQuotationFollowupJob } from './jobs/sales.quotation-followup.job';
+import { SalesChurnRiskFlagJob } from './jobs/sales.churn-risk-flag.job';
+import { FinancePeriodCloseCheckJob } from './jobs/finance.period-close-check.job';
+import { FinanceBankReconciliationJob } from './jobs/finance.bank-reconciliation.job';
+import { FinanceBudgetVarianceScanJob } from './jobs/finance.budget-variance-scan.job';
+import { FinanceDepreciationPostJob } from './jobs/finance.depreciation-post.job';
+import { HrAttendanceAnomalyJob } from './jobs/hr.attendance-anomaly.job';
+import { HrContractRenewalAlertJob } from './jobs/hr.contract-renewal-alert.job';
+import { HrPayrollPrepareJob } from './jobs/hr.payroll-prepare.job';
+import { HrLeaveBalanceRecomputeJob } from './jobs/hr.leave-balance-recompute.job';
+import { InventoryExpiryWatcherJob } from './jobs/inventory.expiry-watcher.job';
+import { InventoryDeadstockDetectJob } from './jobs/inventory.deadstock-detect.job';
+import { InventoryTransferSuggestJob } from './jobs/inventory.transfer-suggest.job';
+import { DeliveryCodSettlementJob } from './jobs/delivery.cod-settlement.job';
+import { DeliveryFailedRedeliveryJob } from './jobs/delivery.failed-redelivery.job';
 import type { AutopilotJob } from './autopilot.types';
 
 // ─── T71 — Autonomous Operations Engine Module ──────────────────────────────
@@ -45,27 +67,114 @@ import type { AutopilotJob } from './autopilot.types';
     InventoryAutoReorderJob,
     LicenseAutoRenewalJob,
 
-    // Scaffold builder.
+    // T71 implemented jobs — CRM
+    CrmLeadScoringRefreshJob,
+    CrmFollowupReminderJob,
+    CrmSilentChurnAlertJob,
+
+    // T71 implemented jobs — Procurement
+    ProcurementVendorScorecardJob,
+    ProcurementPriceDriftAlertJob,
+
+    // T71 implemented jobs — Sales extended
+    SalesDailyRepSummaryJob,
+    SalesQuotationFollowupJob,
+    SalesChurnRiskFlagJob,
+
+    // T71 implemented jobs — Finance
+    FinancePeriodCloseCheckJob,
+    FinanceBankReconciliationJob,
+    FinanceBudgetVarianceScanJob,
+    FinanceDepreciationPostJob,
+
+    // T71 implemented jobs — HR
+    HrAttendanceAnomalyJob,
+    HrContractRenewalAlertJob,
+    HrPayrollPrepareJob,
+    HrLeaveBalanceRecomputeJob,
+
+    // T71 implemented jobs — Inventory + Delivery
+    InventoryExpiryWatcherJob,
+    InventoryDeadstockDetectJob,
+    InventoryTransferSuggestJob,
+    DeliveryCodSettlementJob,
+    DeliveryFailedRedeliveryJob,
+
+    // Scaffold builder (remaining stubs).
     AutopilotJobScaffolds,
 
     // Multi-collection of every AutopilotJob — one provider per registration.
     {
       provide: AUTOPILOT_JOBS,
       useFactory: (
-        sales: SalesOverdueReminderJob,
+        salesOverdue: SalesOverdueReminderJob,
         inventory: InventoryAutoReorderJob,
         license: LicenseAutoRenewalJob,
+        crmScoring: CrmLeadScoringRefreshJob,
+        crmFollowup: CrmFollowupReminderJob,
+        crmChurn: CrmSilentChurnAlertJob,
+        procScorecard: ProcurementVendorScorecardJob,
+        procDrift: ProcurementPriceDriftAlertJob,
+        salesRepSummary: SalesDailyRepSummaryJob,
+        salesQuotation: SalesQuotationFollowupJob,
+        salesChurnRisk: SalesChurnRiskFlagJob,
+        finPeriodClose: FinancePeriodCloseCheckJob,
+        finBankRecon: FinanceBankReconciliationJob,
+        finBudgetVariance: FinanceBudgetVarianceScanJob,
+        finDepreciation: FinanceDepreciationPostJob,
+        hrAttendance: HrAttendanceAnomalyJob,
+        hrContractRenewal: HrContractRenewalAlertJob,
+        hrPayroll: HrPayrollPrepareJob,
+        hrLeaveBalance: HrLeaveBalanceRecomputeJob,
+        invExpiry: InventoryExpiryWatcherJob,
+        invDeadstock: InventoryDeadstockDetectJob,
+        invTransfer: InventoryTransferSuggestJob,
+        deliveryCod: DeliveryCodSettlementJob,
+        deliveryRedeliver: DeliveryFailedRedeliveryJob,
         scaffolds: AutopilotJobScaffolds,
       ): AutopilotJob[] => [
-        sales,
+        salesOverdue,
         inventory,
         license,
+        crmScoring,
+        crmFollowup,
+        crmChurn,
+        procScorecard,
+        procDrift,
+        salesRepSummary,
+        salesQuotation,
+        salesChurnRisk,
+        finPeriodClose, finBankRecon, finBudgetVariance, finDepreciation,
+        hrAttendance, hrContractRenewal, hrPayroll, hrLeaveBalance,
+        invExpiry, invDeadstock, invTransfer,
+        deliveryCod, deliveryRedeliver,
         ...scaffolds.buildAll(),
       ],
       inject: [
         SalesOverdueReminderJob,
         InventoryAutoReorderJob,
         LicenseAutoRenewalJob,
+        CrmLeadScoringRefreshJob,
+        CrmFollowupReminderJob,
+        CrmSilentChurnAlertJob,
+        ProcurementVendorScorecardJob,
+        ProcurementPriceDriftAlertJob,
+        SalesDailyRepSummaryJob,
+        SalesQuotationFollowupJob,
+        SalesChurnRiskFlagJob,
+        FinancePeriodCloseCheckJob,
+        FinanceBankReconciliationJob,
+        FinanceBudgetVarianceScanJob,
+        FinanceDepreciationPostJob,
+        HrAttendanceAnomalyJob,
+        HrContractRenewalAlertJob,
+        HrPayrollPrepareJob,
+        HrLeaveBalanceRecomputeJob,
+        InventoryExpiryWatcherJob,
+        InventoryDeadstockDetectJob,
+        InventoryTransferSuggestJob,
+        DeliveryCodSettlementJob,
+        DeliveryFailedRedeliveryJob,
         AutopilotJobScaffolds,
       ],
     },

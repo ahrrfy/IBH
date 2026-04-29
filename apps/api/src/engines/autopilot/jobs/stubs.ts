@@ -33,11 +33,11 @@ interface StubSpec {
 }
 
 const SCAFFOLDS: StubSpec[] = [
-  // ── Sales (10) ───────────────────────────────────────────────────────────
-  { meta: { id: 'sales.daily-rep-summary',     domain: 'sales',       schedule: '0 18 * * *',  companyScoped: true,  titleAr: 'ملخص يومي للمندوب',          titleEn: 'Daily Rep Summary' } },
-  { meta: { id: 'sales.churn-risk-flag',       domain: 'sales',       schedule: '0 3 * * 1',   companyScoped: true,  titleAr: 'رصد العملاء المعرّضين للفقدان', titleEn: 'Churn-Risk Flag' } },
+  // ── Sales (10, minus 3 implemented) ─────────────────────────────────────
+  // sales.daily-rep-summary    → implemented in sales.daily-rep-summary.job.ts
+  // sales.churn-risk-flag      → implemented in sales.churn-risk-flag.job.ts
+  // sales.quotation-followup   → implemented in sales.quotation-followup.job.ts
   { meta: { id: 'sales.commission-calc',       domain: 'sales',       schedule: '0 2 1 * *',   companyScoped: true,  titleAr: 'احتساب العمولات الشهرية',     titleEn: 'Monthly Commission Calc' } },
-  { meta: { id: 'sales.quotation-followup',    domain: 'sales',       schedule: '0 10 * * *',  companyScoped: true,  titleAr: 'متابعة عروض الأسعار',         titleEn: 'Quotation Follow-up' } },
   { meta: { id: 'sales.price-list-rollover',   domain: 'sales',       schedule: '0 1 1 * *',   companyScoped: true,  titleAr: 'تحديث قوائم الأسعار',         titleEn: 'Price List Rollover' } },
   { meta: { id: 'sales.loyalty-tier-recompute',domain: 'sales',       schedule: '0 4 * * *',   companyScoped: true,  titleAr: 'إعادة احتساب درجات الولاء',   titleEn: 'Loyalty Tier Recompute' } },
   { meta: { id: 'sales.dormant-customer-revive',domain: 'sales',      schedule: '0 11 * * 0',  companyScoped: true,  titleAr: 'تنبيه العملاء غير النشطين',   titleEn: 'Dormant Customer Revive' } },
@@ -46,51 +46,38 @@ const SCAFFOLDS: StubSpec[] = [
   { meta: { id: 'sales.cross-sell-suggester',  domain: 'sales',       schedule: 'event-driven',companyScoped: true,  titleAr: 'مقترحات البيع المتقاطع',      titleEn: 'Cross-sell Suggester' } },
 
   // ── Inventory (8) ────────────────────────────────────────────────────────
-  { meta: { id: 'inventory.expiry-watcher',    domain: 'inventory',   schedule: '0 6 * * *',   companyScoped: true,  titleAr: 'مراقبة المنتجات منتهية الصلاحية', titleEn: 'Expiry Watcher' } },
-  { meta: { id: 'inventory.deadstock-detect',  domain: 'inventory',   schedule: '0 4 * * 0',   companyScoped: true,  titleAr: 'رصد المخزون الراكد',          titleEn: 'Deadstock Detector' } },
   { meta: { id: 'inventory.stocktake-reminder',domain: 'inventory',   schedule: '0 8 1 * *',   companyScoped: true,  titleAr: 'تذكير الجرد الشهري',           titleEn: 'Stocktake Reminder' } },
-  { meta: { id: 'inventory.transfer-suggest',  domain: 'inventory',   schedule: '0 5 * * *',   companyScoped: true,  titleAr: 'اقتراح نقل بين الفروع',       titleEn: 'Cross-Branch Transfer Suggest' } },
   { meta: { id: 'inventory.cost-recalculate',  domain: 'inventory',   schedule: '0 2 * * *',   companyScoped: true,  titleAr: 'إعادة احتساب متوسط التكلفة',  titleEn: 'MWA Cost Recalculate' } },
   { meta: { id: 'inventory.barcode-missing',   domain: 'inventory',   schedule: '0 7 * * 1',   companyScoped: true,  titleAr: 'منتجات بدون باركود',           titleEn: 'Missing Barcode Detect' } },
   { meta: { id: 'inventory.warehouse-balance', domain: 'inventory',   schedule: '0 1 * * *',   companyScoped: true,  titleAr: 'تدقيق أرصدة المستودعات',      titleEn: 'Warehouse Balance Audit' } },
   { meta: { id: 'inventory.shelf-life-alert',  domain: 'inventory',   schedule: '0 6 * * 1',   companyScoped: true,  titleAr: 'تنبيهات قرب نهاية العمر',     titleEn: 'Shelf-Life Alert' } },
 
   // ── Finance (8) ──────────────────────────────────────────────────────────
-  { meta: { id: 'finance.period-close-check',  domain: 'finance',     schedule: '0 23 28 * *', companyScoped: true,  titleAr: 'تحقق من إقفال الفترة',         titleEn: 'Period-Close Check' } },
-  { meta: { id: 'finance.budget-variance-scan',domain: 'finance',     schedule: '0 6 * * *',   companyScoped: true,  titleAr: 'مسح انحراف الميزانية',         titleEn: 'Budget Variance Scan' } },
   { meta: { id: 'finance.exchange-rate-sync',  domain: 'finance',     schedule: '0 9 * * 1-6', companyScoped: true,  titleAr: 'تحديث أسعار الصرف',           titleEn: 'Exchange Rate Sync' } },
-  { meta: { id: 'finance.bank-reconciliation', domain: 'finance',     schedule: '0 22 * * *',  companyScoped: true,  titleAr: 'مطابقة البنوك',                titleEn: 'Bank Reconciliation' } },
-  { meta: { id: 'finance.depreciation-post',   domain: 'finance',     schedule: '0 1 1 * *',   companyScoped: true,  titleAr: 'ترحيل الإهلاك الشهري',         titleEn: 'Depreciation Post' } },
   { meta: { id: 'finance.unbalanced-je-detect',domain: 'finance',     schedule: '0 */6 * * *', companyScoped: true,  titleAr: 'كشف القيود غير المتوازنة',     titleEn: 'Unbalanced JE Detect' } },
   { meta: { id: 'finance.tax-liability-calc',  domain: 'finance',     schedule: '0 7 1 * *',   companyScoped: true,  titleAr: 'احتساب الالتزامات الضريبية',   titleEn: 'Tax Liability Calc' } },
   { meta: { id: 'finance.cashflow-forecast',   domain: 'finance',     schedule: '0 7 * * 0',   companyScoped: true,  titleAr: 'توقع التدفق النقدي',           titleEn: 'Cashflow Forecast' } },
 
   // ── HR (6) ───────────────────────────────────────────────────────────────
-  { meta: { id: 'hr.attendance-anomaly',       domain: 'hr',          schedule: '0 12 * * *',  companyScoped: true,  titleAr: 'كشف شذوذ الحضور',              titleEn: 'Attendance Anomaly' } },
-  { meta: { id: 'hr.contract-renewal-alert',   domain: 'hr',          schedule: '0 8 * * *',   companyScoped: true,  titleAr: 'تنبيه تجديد العقود',           titleEn: 'Contract Renewal Alert' } },
-  { meta: { id: 'hr.payroll-prepare',          domain: 'hr',          schedule: '0 2 25 * *',  companyScoped: true,  titleAr: 'تهيئة كشوف الرواتب',           titleEn: 'Payroll Prepare' } },
-  { meta: { id: 'hr.leave-balance-recompute',  domain: 'hr',          schedule: '0 3 1 1 *',   companyScoped: true,  titleAr: 'إعادة احتساب أرصدة الإجازات',  titleEn: 'Leave Balance Recompute' } },
   { meta: { id: 'hr.birthday-greeting',        domain: 'hr',          schedule: '0 9 * * *',   companyScoped: true,  titleAr: 'تهنئة أعياد الميلاد',          titleEn: 'Birthday Greeting' } },
   { meta: { id: 'hr.probation-end-flag',       domain: 'hr',          schedule: '0 10 * * *',  companyScoped: true,  titleAr: 'تنبيه نهاية فترة التجربة',     titleEn: 'Probation End Flag' } },
 
-  // ── CRM (5) ──────────────────────────────────────────────────────────────
-  { meta: { id: 'crm.lead-scoring-refresh',    domain: 'crm',         schedule: '0 5 * * *',   companyScoped: true,  titleAr: 'تحديث تقييم العملاء المحتملين', titleEn: 'Lead Scoring Refresh' } },
-  { meta: { id: 'crm.followup-reminder',       domain: 'crm',         schedule: '0 9 * * *',   companyScoped: true,  titleAr: 'تذكير المتابعات المعلقة',      titleEn: 'Follow-up Reminder' } },
+  // ── CRM (5, minus 3 implemented) ─────────────────────────────────────────
+  // crm.lead-scoring-refresh   → implemented in crm.lead-scoring-refresh.job.ts
+  // crm.followup-reminder      → implemented in crm.followup-reminder.job.ts
+  // crm.silent-churn-alert     → implemented in crm.silent-churn-alert.job.ts
   { meta: { id: 'crm.duplicate-merge-suggest', domain: 'crm',         schedule: '0 4 * * 1',   companyScoped: true,  titleAr: 'مقترحات دمج العملاء المكررين',  titleEn: 'Duplicate Merge Suggest' } },
-  { meta: { id: 'crm.silent-churn-alert',      domain: 'crm',         schedule: '0 6 * * 1',   companyScoped: true,  titleAr: 'تنبيه الفقدان الصامت',         titleEn: 'Silent Churn Alert' } },
   { meta: { id: 'crm.nps-pulse',               domain: 'crm',         schedule: '0 10 * * 0',  companyScoped: true,  titleAr: 'إرسال استطلاع رضا',            titleEn: 'NPS Pulse' } },
 
   // ── Delivery (5) ─────────────────────────────────────────────────────────
-  { meta: { id: 'delivery.cod-settlement',     domain: 'delivery',    schedule: '0 23 * * *',  companyScoped: true,  titleAr: 'تسوية الدفع عند الاستلام',     titleEn: 'COD Settlement' } },
   { meta: { id: 'delivery.driver-load-balance',domain: 'delivery',    schedule: '0 6 * * *',   companyScoped: true,  titleAr: 'موازنة حمل السائقين',          titleEn: 'Driver Load Balance' } },
-  { meta: { id: 'delivery.failed-redelivery',  domain: 'delivery',    schedule: '0 8 * * *',   companyScoped: true,  titleAr: 'إعادة جدولة التوصيل الفاشل',   titleEn: 'Failed Redelivery' } },
   { meta: { id: 'delivery.eta-deviation',      domain: 'delivery',    schedule: '*/30 * * * *',companyScoped: true,  titleAr: 'كشف انحراف وقت الوصول',        titleEn: 'ETA Deviation' } },
   { meta: { id: 'delivery.zone-coverage-audit',domain: 'delivery',    schedule: '0 2 * * 1',   companyScoped: true,  titleAr: 'تدقيق تغطية المناطق',          titleEn: 'Zone Coverage Audit' } },
 
-  // ── Procurement (3) ──────────────────────────────────────────────────────
-  { meta: { id: 'procurement.vendor-scorecard',domain: 'procurement', schedule: '0 3 1 * *',   companyScoped: true,  titleAr: 'بطاقة أداء الموردين',          titleEn: 'Vendor Scorecard' } },
+  // ── Procurement (3, minus 2 implemented) ─────────────────────────────────
+  // procurement.vendor-scorecard  → implemented in procurement.vendor-scorecard.job.ts
+  // procurement.price-drift-alert → implemented in procurement.price-drift-alert.job.ts
   { meta: { id: 'procurement.three-way-match', domain: 'procurement', schedule: '0 4 * * *',   companyScoped: true,  titleAr: 'مطابقة ثلاثية تلقائية',        titleEn: 'Three-way Match' } },
-  { meta: { id: 'procurement.price-drift-alert',domain: 'procurement',schedule: '0 5 * * 1',   companyScoped: true,  titleAr: 'تنبيه ارتفاع أسعار المورد',    titleEn: 'Price Drift Alert' } },
 
   // ── License (2) ──────────────────────────────────────────────────────────
   { meta: { id: 'license.heartbeat-check',     domain: 'license',     schedule: '0 */4 * * *', companyScoped: true,  titleAr: 'فحص نبضات التراخيص',           titleEn: 'License Heartbeat Check' } },
