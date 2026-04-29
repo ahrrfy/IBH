@@ -2,6 +2,111 @@
 
 ---
 
+## Session 33 — 2026-04-29 — VPS ops + WhatsApp per-tenant + Phase 4.A pre-UAT ready
+
+### Branch: main
+### Latest commit: `aa70c24` (after parallel sessions) · my last: `dcb7bfc` (Phase 4.A)
+### Pushed to origin: ✅ all 7 commits pushed
+
+### Completed this session
+
+**VPS Operations (S1.9, S1.10, S1.12 + Phase 3.D):**
+- S1.9: `/etc/docker/daemon.json` log rotation (10m × 3) + `/etc/cron.weekly/docker-prune` deployed via SSH. Reclaimed 8.8 GB on rollout. (commit `f9cdcd0`)
+- S1.10: DNS A `shop.ibherp.cloud` → 187.124.183.140, certbot SSL, host vhost installed, storefront container built + healthy. HTTPS 200 verified. (commits `fb3a154`, `053d04d`, `fbb4941`)
+- S1.12: API-side 2FA verification — `/auth/2fa/{setup,confirm,verify-login,disable}` all registered. Owner has 2FA disabled (opt-in). (commit `710fa49`)
+- Phase 3.D: Smoke test report + CSP added to host nginx for both ibherp.cloud + shop.ibherp.cloud + docker bootstrap.conf. (commit `710fa49`)
+
+**WhatsApp per-tenant integration (full feature build):**
+- Schema: `CompanyIntegration` model + `IntegrationType` enum (whatsapp/telegram/email_smtp/sms_provider)
+- Migration `20260429170000_company_integrations` with RLS policy
+- `EncryptionService` (AES-256-GCM, INTEGRATION_ENCRYPTION_KEY env)
+- `IntegrationsModule` + controller + service + DTO with masked-token responses + test endpoint
+- Admin UI page `/settings/integrations/whatsapp` (Arabic, RTL, full form + test button)
+- Settings page wired to include التكاملات الخارجية section
+- Initial commit `1f69162` (parallel session) + my schema/module wiring commit
+
+**I058 fix (Prisma 7 enum mismatch):**
+- DB had `subscription_status` + `billing_cycle` (snake_case) but schema declared PascalCase enums without `@@map`
+- Prisma 7 driver-adapter quoted PascalCase → 500 on `/licensing/me/features`
+- Added `@@map("subscription_status")` + `@@map("billing_cycle")` (commit `5984ea6`)
+- Verified on production: `/licensing/me/features` now returns 200
+
+**Phase 3.A — API captures:**
+- Generated `governance/evidence/api-captures/all-waves-summary.md` covering 23 endpoints across 6 waves
+- 14 of 23 return 200 OK · 9 return 404 (mostly module-root vs sub-path mismatch — not regressions)
+- Wave 1 detailed JSON capture in `wave1-foundation.md`
+
+**Phase 4.A — Pre-UAT infrastructure:**
+- Fixed `apps/api/prisma/uat-seed.ts` for Prisma 7 driver-adapter (commit `72a882d`)
+- Ran `uat-seed.ts` on production via `docker exec` → 50 products, 22 customers, 10 suppliers, 10 employees
+- Created 3 UAT accounts via API (branch_manager, cashier, accountant) — all 3 verified to authenticate
+- `governance/UAT_CREDENTIALS.md` (gitignored) — passwords stored
+- `governance/PHASE4_PRE_UAT_READY.md` — public summary of what's ready (commit `dcb7bfc`)
+
+**Infrastructure setup on VPS (one-time, persisted in /opt + /etc):**
+- INTEGRATION_ENCRYPTION_KEY added to `/opt/al-ruya-erp/infra/.env`
+- API container rebuilt with Prisma 7 driver-adapter
+
+### Files touched this session
+
+**Code:**
+- `apps/api/prisma/schema.prisma` (+CompanyIntegration model, +@@map enums)
+- `apps/api/prisma/migrations/20260429170000_company_integrations/migration.sql`
+- `apps/api/src/platform/encryption/{encryption.service.ts,encryption.module.ts}`
+- `apps/api/src/modules/admin/integrations/{integrations.{controller,service,module}.ts, dto/whatsapp-config.dto.ts}`
+- `apps/api/src/app.module.ts` (+EncryptionModule, +IntegrationsModule)
+- `apps/api/prisma/uat-seed.ts` (Prisma 7 driver-adapter)
+- `apps/storefront/src/app/globals.css.d.ts` (TS6 + Tailwind 4 fix)
+- `apps/storefront/public/.gitkeep` (Docker COPY fix)
+- `apps/web/src/app/(app)/settings/integrations/whatsapp/page.tsx`
+- `apps/web/src/app/(app)/settings/page.tsx` (+التكاملات section)
+- `infra/nginx/conf.d/bootstrap.conf` (CSP header)
+
+**Governance:**
+- `governance/PHASE1_OPERATIONS_GUIDE.md` (S1.9 + S1.10 status)
+- `governance/PHASES_3_5_ROADMAP.md`
+- `governance/PHASE4_PRE_UAT_READY.md` (new)
+- `governance/UAT_CREDENTIALS.md` (gitignored)
+- `governance/evidence/smoke-tests/smoke-test-2026-04-29.md`
+- `governance/evidence/api-captures/{all-waves-summary,wave1-foundation}.md`
+- `governance/T70_BILLING_CRON_RCA.md`
+- `governance/OWNER_ACTION_PHASES.md`
+- `.gitignore` (UAT_CREDENTIALS.md)
+
+### Status by Phase
+
+| Phase | Status |
+|-------|--------|
+| Phase 1 (Stabilization) | 🟢 95% — S1.11 = UI ready per-tenant (no global token) |
+| Phase 2 (Testing) | 🟢 100% |
+| Phase 3 (Hardening) | 🟡 40% — A + C + D ✅ · B (flow demos) needs browser |
+| Phase 4 (UAT) | 🟢 A ready — B/C blocked on real users |
+| Phase 5 (Post-Launch) | 🟢 90% — 5.A + 5.B + 5.D ✅ · 5.C needs paid certs |
+
+### Next safest commands
+
+```bash
+# 1. Owner shares UAT credentials with 3 testers via Signal/1Password
+cat governance/UAT_CREDENTIALS.md
+
+# 2. Verify production health one more time
+curl -sI https://ibherp.cloud | grep -i content-security
+curl -s https://ibherp.cloud/api/v1/health
+
+# 3. After UAT findings come in:
+#    - Triage in DECISIONS_LOG.md (P0/P1/P2/P3)
+#    - Reopen Claude Code session for fixes
+#    - Phase 4.C: Final launch + DR drill
+```
+
+### Known caveats for next session
+
+- **9 of 23 sampled API endpoints return 404** in `governance/evidence/api-captures/all-waves-summary.md`. These are mostly module roots that need a sub-path (e.g., `/finance/period-close/list`). Not regressions — triage during UAT.
+- **WhatsApp test endpoint** requires real Meta credentials to verify end-to-end. Until a tenant configures one, the integration is dormant (correct behavior).
+- **2FA is opt-in** for all UAT accounts.
+
+---
+
 ## Session 32 — 2026-04-29 — I058 + I059 closed, full E2E green on production
 
 ### Branch: main
