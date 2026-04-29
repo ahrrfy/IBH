@@ -153,7 +153,7 @@ Drive 2-3 real users through scripted scenarios for ~3-4 days. Per wave:
 | POS Tauri Windows signing | 4h | Authenticode cert (~$200/year) |
 | POS Tauri macOS signing | 4h | Apple Developer account ($99/year) |
 | Mobile EAS credentials | 4h | Expo + Apple + Google accounts |
-| SQLCipher activation (POS offline) | 4h | None — code change |
+| SQLCipher activation (POS offline) | ✅ DONE | commit `ed8841d` — rusqlite + bundled-sqlcipher, key SHA-256(fingerprint) |
 
 ### 5.D — T70 Billing Cron
 
