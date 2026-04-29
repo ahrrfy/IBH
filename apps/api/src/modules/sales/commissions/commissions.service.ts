@@ -246,17 +246,27 @@ export class CommissionsService {
       if (opts.from) where.createdAt.gte = opts.from;
       if (opts.to) where.createdAt.lte = opts.to;
     }
-    const [items, total] = await this.prisma.$transaction([
-      this.prisma.commissionEntry.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: { plan: { select: { code: true, nameAr: true } } },
-      }),
-      this.prisma.commissionEntry.count({ where }),
-    ]);
-    return { items, total, page, limit };
+    // I047 — defensive: log + empty fallback so /sales/commissions/entries
+    // renders empty state instead of 500ing if the underlying table is
+    // missing or the query fails for any other reason. Mirrors listPlans.
+    try {
+      const [items, total] = await this.prisma.$transaction([
+        this.prisma.commissionEntry.findMany({
+          where,
+          skip: (page - 1) * limit,
+          take: limit,
+          orderBy: { createdAt: 'desc' },
+          include: { plan: { select: { code: true, nameAr: true } } },
+        }),
+        this.prisma.commissionEntry.count({ where }),
+      ]);
+      return { items, total, page, limit };
+    } catch (err) {
+      this.logger.warn(
+        `listEntries failed (companyId=${companyId}); returning empty list. err=${(err as Error).message}`,
+      );
+      return { items: [], total: 0, page, limit };
+    }
   }
 
   /**
