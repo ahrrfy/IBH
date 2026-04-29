@@ -2,6 +2,76 @@
 
 ---
 
+## Session 23 — 2026-04-29 — Phase 2 kickoff: G4 closed + CI test-discovery guard
+
+### Branch: main
+### Latest commit: `b0877de` — ci(s2.11) + docs(s2.3): e2e test discovery guard + G4 gate closed
+### Pushed to origin: ✅ — CI run 25119397307 in progress (verifying new guard)
+
+### Completed this session
+
+**Phase 1 wrap-up (after Sessions 21+22 fixed all e2e blockers):**
+- Confirmed branch state: 30/30 e2e suites green (CI run 25118171594 from Session 22)
+- Reviewed all 30 e2e test files — every Phase 1 task (S1.1-S1.7) verified done
+- Created `governance/PHASE1_OPERATIONS_GUIDE.md` — runbook for S1.9-S1.12 (VPS ops: disk setup, DNS+SSL, WhatsApp token, manual 2FA test). These require SSH/DNS/Meta access so deferred to operational session. Commit `f9081b4`.
+- Imported `scripts/operational-audit-prod.sh` (4-layer reality audit: data, workflows, F1/F2/F3 integrity, UI). Same commit.
+
+**Phase 2 (Testing & Quality) — kickoff:**
+
+| Task | Status | What was done |
+|------|--------|---------------|
+| **S2.3** | ✅ DONE | MODULE_STATUS_BOARD.md G4 gate closed for all 6 waves (9+3+4+7+4+3 = 30/30). Both "Tests written" and "Tests running" rows now ██████████ green. |
+| **S2.7** | ✅ ALREADY DONE | 16 autopilot unit tests already exist: `autopilot.service.spec.ts` (9 tests covering registration, runJob success/failure, raiseException severity routing, resolve/dismiss, dashboard) + `jobs.spec.ts` (7 tests across 3 jobs: sales.overdue-reminder, inventory.auto-reorder, license.auto-renewal). |
+| **S2.10** | ✅ ALREADY DONE | `--forceExit --detectOpenHandles` already in `apps/api/package.json` test:e2e script. |
+| **S2.11** | ✅ DONE | New CI step compares `find -name *.e2e-spec.ts` count vs `jest --listTests` count. Fails build if Jest skips a file (e.g., testRegex typo, file outside rootDir). Prevents the regression where a test is added but never executed. Commit `b0877de`. |
+
+### Files touched this session
+
+- `governance/PHASE1_OPERATIONS_GUIDE.md` (new)
+- `scripts/operational-audit-prod.sh` (new)
+- `.github/workflows/ci.yml` (added e2e test-discovery guard step before "Run e2e suite")
+- `governance/MODULE_STATUS_BOARD.md` (G4 gate rows + summary section)
+- `governance/SESSION_HANDOFF.md` (this entry)
+
+### Remaining Phase 2 work
+
+**Test coverage expansion (need new specs written):**
+
+| Task | Scope | Effort |
+|------|-------|--------|
+| S2.4 | Delivery module (COD settlement, auto-assignment) | 4h |
+| S2.5 | POS sale flow (split payment, receipt creation) — `pos-idempotency.e2e-spec.ts` exists, expand it | 3h |
+| S2.6 | Licensing (activation, trial expiry, feature gating, proration) — `license-heartbeat.e2e-spec.ts` exists, expand | 6h |
+| S2.8 | HR recruitment (T51), contracts (T52), promotions (T53) | 4h |
+| S2.9 | Reports module — verify 3+ slugs return real data, not mocked | 3h |
+| S2.12 | Parallelize e2e by wave to reduce CI time | 2h |
+
+### Uncommitted local changes (NOT mine — leave for next session/owner)
+
+These appeared in `git status` but were not made by Session 23. Likely from a parallel/earlier session:
+- `infra/.env.production.example` (M) — adds `COMPOSE_PROJECT_NAME=al-ruya-erp` (good change, prevents volume orphaning on rename)
+- `package.json` + `pnpm-lock.yaml` (M) — pnpm overrides for lodash/js-yaml/tar/@xmldom/xmldom/postcss/@babel/runtime (likely addresses I048 Dependabot vulns)
+- `infra/docker-compose.vps.yml` (D), `infra/nginx/conf.d/erp-api.conf` (D), `infra/scripts/deploy.sh` (D) — Replaced by `docker-compose.bootstrap.yml`+`docker-compose.vps-override.yml`, `host-vhost-ibherp.conf`+`host-vhost-shop.conf`, and the new `infra/scripts/*.sh` family. **These deletions look intentional but should be verified before commit.**
+
+### Next safest commands
+
+```bash
+# 1. Verify Session 23 CI run passes the new guard
+gh run view 25119397307 --json status,conclusion
+
+# 2. If next session wants to commit the uncommitted local changes:
+git diff package.json infra/.env.production.example
+# Review carefully, then:
+git add infra/.env.production.example package.json pnpm-lock.yaml
+git commit -m "fix(security): pnpm overrides for I048 Dependabot vulns + COMPOSE_PROJECT_NAME pin"
+
+# 3. To start S2.4 (delivery test coverage):
+ls apps/api/src/modules/delivery/
+# Then write apps/api/test/delivery-cod-settlement.e2e-spec.ts
+```
+
+---
+
 ## Session 22 — 2026-04-29 — E2E CI Stabilization: 30/30 Green ✅
 
 ### Branch: main
