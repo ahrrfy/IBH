@@ -32,51 +32,9 @@ interface StubSpec {
   meta: AutopilotJobMeta;
 }
 
-const SCAFFOLDS: StubSpec[] = [
-  // ── Sales (10, minus 5 implemented) ─────────────────────────────────────
-  // sales.daily-rep-summary    → implemented in sales.daily-rep-summary.job.ts
-  // sales.churn-risk-flag      → implemented in sales.churn-risk-flag.job.ts
-  // sales.quotation-followup   → implemented in sales.quotation-followup.job.ts
-  // sales.commission-calc      → implemented in sales.commission-calc.job.ts
-  // sales.loyalty-tier-recompute → implemented in sales.loyalty-tier-recompute.job.ts
-  { meta: { id: 'sales.price-list-rollover',   domain: 'sales',       schedule: '0 1 1 * *',   companyScoped: true,  titleAr: 'تحديث قوائم الأسعار',         titleEn: 'Price List Rollover' } },
-  { meta: { id: 'sales.dormant-customer-revive',domain: 'sales',      schedule: '0 11 * * 0',  companyScoped: true,  titleAr: 'تنبيه العملاء غير النشطين',   titleEn: 'Dormant Customer Revive' } },
-  { meta: { id: 'sales.target-vs-actual',      domain: 'sales',       schedule: '0 8 * * *',   companyScoped: true,  titleAr: 'مقارنة الأهداف بالمتحقق',     titleEn: 'Target vs Actual' } },
-  { meta: { id: 'sales.return-pattern-detect', domain: 'sales',       schedule: '0 5 * * 1',   companyScoped: true,  titleAr: 'كشف أنماط الإرجاع المريبة',    titleEn: 'Return Pattern Detect' } },
-  { meta: { id: 'sales.cross-sell-suggester',  domain: 'sales',       schedule: 'event-driven',companyScoped: true,  titleAr: 'مقترحات البيع المتقاطع',      titleEn: 'Cross-sell Suggester' } },
-
-  // ── Inventory (8) ────────────────────────────────────────────────────────
-  { meta: { id: 'inventory.cost-recalculate',  domain: 'inventory',   schedule: '0 2 * * *',   companyScoped: true,  titleAr: 'إعادة احتساب متوسط التكلفة',  titleEn: 'MWA Cost Recalculate' } },
-  { meta: { id: 'inventory.shelf-life-alert',  domain: 'inventory',   schedule: '0 6 * * 1',   companyScoped: true,  titleAr: 'تنبيهات قرب نهاية العمر',     titleEn: 'Shelf-Life Alert' } },
-
-  // ── Finance (8) ──────────────────────────────────────────────────────────
-  // finance.exchange-rate-sync → implemented in finance.exchange-rate-sync.job.ts
-  { meta: { id: 'finance.tax-liability-calc',  domain: 'finance',     schedule: '0 7 1 * *',   companyScoped: true,  titleAr: 'احتساب الالتزامات الضريبية',   titleEn: 'Tax Liability Calc' } },
-  { meta: { id: 'finance.cashflow-forecast',   domain: 'finance',     schedule: '0 7 * * 0',   companyScoped: true,  titleAr: 'توقع التدفق النقدي',           titleEn: 'Cashflow Forecast' } },
-
-  // ── HR (6) ───────────────────────────────────────────────────────────────
-
-  // ── CRM (5, minus 3 implemented) ─────────────────────────────────────────
-  // crm.lead-scoring-refresh   → implemented in crm.lead-scoring-refresh.job.ts
-  // crm.followup-reminder      → implemented in crm.followup-reminder.job.ts
-  // crm.silent-churn-alert     → implemented in crm.silent-churn-alert.job.ts
-  // crm.duplicate-merge-suggest → implemented in crm.duplicate-merge-suggest.job.ts
-  { meta: { id: 'crm.nps-pulse',               domain: 'crm',         schedule: '0 10 * * 0',  companyScoped: true,  titleAr: 'إرسال استطلاع رضا',            titleEn: 'NPS Pulse' } },
-
-  // ── Delivery (5) ─────────────────────────────────────────────────────────
-  { meta: { id: 'delivery.driver-load-balance',domain: 'delivery',    schedule: '0 6 * * *',   companyScoped: true,  titleAr: 'موازنة حمل السائقين',          titleEn: 'Driver Load Balance' } },
-  { meta: { id: 'delivery.eta-deviation',      domain: 'delivery',    schedule: '*/30 * * * *',companyScoped: true,  titleAr: 'كشف انحراف وقت الوصول',        titleEn: 'ETA Deviation' } },
-  { meta: { id: 'delivery.zone-coverage-audit',domain: 'delivery',    schedule: '0 2 * * 1',   companyScoped: true,  titleAr: 'تدقيق تغطية المناطق',          titleEn: 'Zone Coverage Audit' } },
-
-  // ── Procurement (3, minus 2 implemented) ─────────────────────────────────
-  // procurement.vendor-scorecard  → implemented in procurement.vendor-scorecard.job.ts
-  // procurement.price-drift-alert → implemented in procurement.price-drift-alert.job.ts
-  { meta: { id: 'procurement.three-way-match', domain: 'procurement', schedule: '0 4 * * *',   companyScoped: true,  titleAr: 'مطابقة ثلاثية تلقائية',        titleEn: 'Three-way Match' } },
-
-  // ── License (2, both implemented) ────────────────────────────────────────
-  // license.heartbeat-check → implemented in license.heartbeat-check.job.ts
-  // license.usage-report    → implemented in license.usage-report.job.ts
-];
+// All 50 jobs are now fully implemented — stubs list is empty.
+// Each job has its own dedicated file in this directory.
+const SCAFFOLDS: StubSpec[] = [];
 
 @Injectable()
 export class AutopilotJobScaffolds {

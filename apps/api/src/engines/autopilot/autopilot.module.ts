@@ -49,6 +49,21 @@ import { FinanceExchangeRateSyncJob } from './jobs/finance.exchange-rate-sync.jo
 import { LicenseHeartbeatCheckJob } from './jobs/license.heartbeat-check.job';
 import { LicenseUsageReportJob } from './jobs/license.usage-report.job';
 import { CrmDuplicateMergeSuggestJob } from './jobs/crm.duplicate-merge-suggest.job';
+// ── T71 — Batch 4 jobs (final 14) ───────────────────────────────────────────
+import { SalesPriceListRolloverJob } from './jobs/sales.price-list-rollover.job';
+import { SalesDormantCustomerReviveJob } from './jobs/sales.dormant-customer-revive.job';
+import { SalesTargetVsActualJob } from './jobs/sales.target-vs-actual.job';
+import { SalesReturnPatternDetectJob } from './jobs/sales.return-pattern-detect.job';
+import { SalesCrossSellSuggesterJob } from './jobs/sales.cross-sell-suggester.job';
+import { InventoryCostRecalculateJob } from './jobs/inventory.cost-recalculate.job';
+import { InventoryShelfLifeAlertJob } from './jobs/inventory.shelf-life-alert.job';
+import { FinanceTaxLiabilityCalcJob } from './jobs/finance.tax-liability-calc.job';
+import { FinanceCashflowForecastJob } from './jobs/finance.cashflow-forecast.job';
+import { CrmNpsPulseJob } from './jobs/crm.nps-pulse.job';
+import { DeliveryDriverLoadBalanceJob } from './jobs/delivery.driver-load-balance.job';
+import { DeliveryEtaDeviationJob } from './jobs/delivery.eta-deviation.job';
+import { DeliveryZoneCoverageAuditJob } from './jobs/delivery.zone-coverage-audit.job';
+import { ProcurementThreeWayMatchJob } from './jobs/procurement.three-way-match.job';
 import type { AutopilotJob } from './autopilot.types';
 
 // ─── T71 — Autonomous Operations Engine Module ──────────────────────────────
@@ -129,7 +144,23 @@ import type { AutopilotJob } from './autopilot.types';
     LicenseUsageReportJob,
     CrmDuplicateMergeSuggestJob,
 
-    // Scaffold builder (remaining stubs).
+    // T71 implemented jobs — Batch 4 (final 14)
+    SalesPriceListRolloverJob,
+    SalesDormantCustomerReviveJob,
+    SalesTargetVsActualJob,
+    SalesReturnPatternDetectJob,
+    SalesCrossSellSuggesterJob,
+    InventoryCostRecalculateJob,
+    InventoryShelfLifeAlertJob,
+    FinanceTaxLiabilityCalcJob,
+    FinanceCashflowForecastJob,
+    CrmNpsPulseJob,
+    DeliveryDriverLoadBalanceJob,
+    DeliveryEtaDeviationJob,
+    DeliveryZoneCoverageAuditJob,
+    ProcurementThreeWayMatchJob,
+
+    // Scaffold builder (remaining stubs — none).
     AutopilotJobScaffolds,
 
     // Multi-collection of every AutopilotJob — one provider per registration.
@@ -172,6 +203,20 @@ import type { AutopilotJob } from './autopilot.types';
         licHeartbeat: LicenseHeartbeatCheckJob,
         licUsageReport: LicenseUsageReportJob,
         crmDupMerge: CrmDuplicateMergeSuggestJob,
+        salesPriceRollover: SalesPriceListRolloverJob,
+        salesDormant: SalesDormantCustomerReviveJob,
+        salesTargetActual: SalesTargetVsActualJob,
+        salesReturnPattern: SalesReturnPatternDetectJob,
+        salesCrossSell: SalesCrossSellSuggesterJob,
+        invCostRecalc: InventoryCostRecalculateJob,
+        invShelfLife: InventoryShelfLifeAlertJob,
+        finTaxLiability: FinanceTaxLiabilityCalcJob,
+        finCashflow: FinanceCashflowForecastJob,
+        crmNps: CrmNpsPulseJob,
+        delDriverLoad: DeliveryDriverLoadBalanceJob,
+        delEta: DeliveryEtaDeviationJob,
+        delZoneCoverage: DeliveryZoneCoverageAuditJob,
+        procThreeWay: ProcurementThreeWayMatchJob,
         scaffolds: AutopilotJobScaffolds,
       ): AutopilotJob[] => [
         salesOverdue,
@@ -193,6 +238,13 @@ import type { AutopilotJob } from './autopilot.types';
         invWarehouseBalance, invBarcodesMissing, invStocktake,
         salesLoyaltyTier, salesCommission, finExchangeRate,
         licHeartbeat, licUsageReport, crmDupMerge,
+        salesPriceRollover, salesDormant, salesTargetActual,
+        salesReturnPattern, salesCrossSell,
+        invCostRecalc, invShelfLife,
+        finTaxLiability, finCashflow,
+        crmNps,
+        delDriverLoad, delEta, delZoneCoverage,
+        procThreeWay,
         ...scaffolds.buildAll(),
       ],
       inject: [
@@ -232,6 +284,20 @@ import type { AutopilotJob } from './autopilot.types';
         LicenseHeartbeatCheckJob,
         LicenseUsageReportJob,
         CrmDuplicateMergeSuggestJob,
+        SalesPriceListRolloverJob,
+        SalesDormantCustomerReviveJob,
+        SalesTargetVsActualJob,
+        SalesReturnPatternDetectJob,
+        SalesCrossSellSuggesterJob,
+        InventoryCostRecalculateJob,
+        InventoryShelfLifeAlertJob,
+        FinanceTaxLiabilityCalcJob,
+        FinanceCashflowForecastJob,
+        CrmNpsPulseJob,
+        DeliveryDriverLoadBalanceJob,
+        DeliveryEtaDeviationJob,
+        DeliveryZoneCoverageAuditJob,
+        ProcurementThreeWayMatchJob,
         AutopilotJobScaffolds,
       ],
     },
