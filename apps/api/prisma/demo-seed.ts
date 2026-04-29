@@ -49,8 +49,10 @@ async function main() {
   }
   console.log(`✅ category: ${generalCategory.nameAr}`);
 
+  // UnitOfMeasure has no `code` column; the unique key is `abbreviation`
+  // (see seed.ts which seeds PCS/KG/G/M/CM/L/ML, all keyed by `abbr`).
   const pieceUnit = await prisma.unitOfMeasure.findFirst({
-    where: { companyId: company.id, code: 'PCS' },
+    where: { companyId: company.id, abbreviation: 'PCS' },
   });
   if (!pieceUnit) throw new Error('PCS unit not found — run seed.ts first');
 
