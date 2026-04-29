@@ -20,7 +20,7 @@ import { HealthModule }   from './platform/health/health.module';
 import { RealtimeModule } from './platform/realtime/realtime.module';
 import { NotificationsModule } from './platform/notifications/notifications.module';
 import { EncryptionModule } from './platform/encryption/encryption.module';
-import { PlatformLicensingModule } from './platform/licensing/licensing.module';
+import { PlatformLicensingModule, LicenseGuardEnforcementModule } from './platform/licensing/licensing.module';
 import { LicensingMirrorModule } from './platform/licensing/licensing-mirror.module';
 import { ExpiryWatcherModule } from './platform/licensing/expiry-watcher.module';
 import { IntegrationsModule } from './modules/admin/integrations/integrations.module';
@@ -126,10 +126,10 @@ const coreImports = [
   RealtimeModule,
   NotificationsModule,
   EncryptionModule,
-  // PlatformLicensingModule moved to backgroundJobImports — its global
-  // LicenseGuard blocks every endpoint until a subscription is seeded.
-  // I052 — but the read-only mirror (/licensing/me/features) must always
-  // be reachable so the web shell can boot. Always-on, no global guard.
+  // I052 — read-only feature mirror (/licensing/me/features). Always-on
+  // so the web shell can boot even with the global guard disabled.
+  // Sibling PlatformLicensingModule (entitlement primitives) lives lower
+  // in this list; the gated APP_GUARD lives in LicenseGuardEnforcementModule.
   LicensingMirrorModule,
 
   // ── Engines (M01) ──────────────────────────────────────────────────────
@@ -185,6 +185,13 @@ const coreImports = [
 
   // ── Admin: per-tenant integrations (WhatsApp, SMTP, SMS, ...) ──────────
   IntegrationsModule,
+
+  // ── Licensing entitlements (read-only services) ───────────────────────
+  // Provides PlanChangeService / LicenseSignerService / LicenseGuard as
+  // @Global so AdminLicensing + Autopilot can inject them. Does NOT register
+  // APP_GUARD — that lives in LicenseGuardEnforcementModule below, gated
+  // separately by LICENSE_GUARD_DISABLED.
+  PlatformLicensingModule,
 ];
 
 // Background-job modules with heavy BullMQ queue connections.
@@ -196,7 +203,7 @@ const coreImports = [
 //     Gated separately by LICENSE_GUARD_DISABLED (default ON until seeded).
 //   - AdminLicensing/ExpiryWatcher/Autopilot inflate boot time with
 //     50+ BullMQ-bound providers — gated by BACKGROUND_JOBS_DISABLED.
-const licenseGuardImports = [PlatformLicensingModule];
+const licenseGuardImports = [LicenseGuardEnforcementModule];
 const backgroundJobImports = [
   AdminLicensingModule,
   ExpiryWatcherModule,

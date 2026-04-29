@@ -29,6 +29,22 @@ import { LicensingModule } from '../../modules/licensing/licensing.module';
     LicenseGuard,
     LicenseSignerService,
     PlanChangeService,
+  ],
+  exports: [LicenseGuard, LicenseSignerService, PlanChangeService],
+})
+export class PlatformLicensingModule {}
+
+/**
+ * 5.D split — APP_GUARD registration is the *only* thing that 403s every
+ * route on a greenfield install (no Subscription seeded). Extracted into
+ * its own module so {@link PlatformLicensingModule} can stay loaded
+ * unconditionally — its read services (PlanChangeService etc.) are needed
+ * by AdminLicensingModule + AutopilotModule even when the global guard is
+ * intentionally off. Gated by LICENSE_GUARD_DISABLED in app.module.ts.
+ */
+@Module({
+  imports: [PlatformLicensingModule],
+  providers: [
     // T66 — register the LicenseGuard as a GLOBAL APP_GUARD so license
     // enforcement is on by default for every authenticated route. The
     // guard internally honors `@SkipLicense()` and `@Public()` so auth,
@@ -36,6 +52,5 @@ import { LicensingModule } from '../../modules/licensing/licensing.module';
     // remain reachable when a tenant has no active license.
     { provide: APP_GUARD, useExisting: LicenseGuard },
   ],
-  exports: [LicenseGuard, LicenseSignerService, PlanChangeService],
 })
-export class PlatformLicensingModule {}
+export class LicenseGuardEnforcementModule {}
