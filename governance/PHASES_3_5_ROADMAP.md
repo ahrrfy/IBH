@@ -4,7 +4,7 @@
 
 | Phase | Title | Hours | Calendar | Done? |
 |-------|-------|-------|----------|-------|
-| **Phase 1** | Stabilization | 18-20h | 5 days | 🟢 90% (S1.9-S1.12 = VPS ops, deferred) |
+| **Phase 1** | Stabilization | 18-20h | 5 days | 🟢 92% (S1.9 ✅ done Session 27; S1.10 needs DNS; S1.11 needs Meta token; S1.12 needs browser) |
 | **Phase 2** | Testing & Quality (G4) | 37-42h | 10 days | 🟢 ~80% (S2.12 deferred — CI is 1m53s, no need yet) |
 | **Phase 3** | Production Hardening (G5) | 41-48h | 12 days | 🟡 15% — 3.C ✅ done (UAT seed), 3.A/3.B/3.D need VPS |
 | **Phase 4** | UAT & Launch (G6) | 53-60h | 21 days | 🔴 0% — needs real users |
