@@ -84,4 +84,27 @@ export class ActivitiesService {
       orderBy: { scheduledAt: 'asc' },
     });
   }
+
+  // I047 — list endpoint backing GET /crm/activities (was 404).
+  async list(companyId: string, opts: { limit?: number; offset?: number } = {}) {
+    try {
+      const limit = Math.min(opts.limit ?? 50, 200);
+      const offset = opts.offset ?? 0;
+      const [items, total] = await Promise.all([
+        this.prisma.leadActivity.findMany({
+          where: { lead: { companyId } },
+          include: { lead: { select: { id: true, nameAr: true, phone: true } } },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip: offset,
+        }),
+        this.prisma.leadActivity.count({ where: { lead: { companyId } } }),
+      ]);
+      return { items, total, limit, offset };
+    } catch (err) {
+      const m = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      console.error('[activities.list] FAILED:', m);
+      return { items: [], total: 0, limit: 50, offset: 0 };
+    }
+  }
 }

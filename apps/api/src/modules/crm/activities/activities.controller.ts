@@ -8,6 +8,20 @@ import type { UserSession } from '@erp/shared-types';
 export class ActivitiesController {
   constructor(private readonly activities: ActivitiesService) {}
 
+  // I047 — list endpoint for /crm/activities (was 404 before).
+  @Get()
+  @RequirePermission('Lead', 'read')
+  list(
+    @CurrentUser() session: UserSession,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.activities.list(session.companyId, {
+      limit: limit ? parseInt(limit, 10) : undefined,
+      offset: offset ? parseInt(offset, 10) : undefined,
+    });
+  }
+
   @Post()
   @RequirePermission('Lead', 'update')
   create(@Body() dto: any, @CurrentUser() session: UserSession) {
