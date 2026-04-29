@@ -2,10 +2,10 @@
 
 ---
 
-## Session 26 — 2026-04-29 — I032 CLOSED + Phase 5 ~70% complete
+## Session 27 — 2026-04-29 — Phase 5.B 100% + typecheck clean
 
 ### Branch: main
-### Latest commit: 0940b73
+### Latest commit: 611f35a
 ### Pushed to origin: ✅
 
 ---
@@ -14,13 +14,8 @@
 
 | # | What | Commit |
 |---|------|--------|
-| 1 | Phase 3 smoke test scripts: `scripts/health-check.sh`, `infra/scripts/restore-test.sh`, `infra/k6/load-test.js` | `e4311c4` |
-| 2 | Phase 3 evidence collection: `scripts/collect-evidence.sh` + `governance/evidence/` structure + 4 flow docs | `e4311c4` |
-| 3 | I032 Batch 5: recharts 2→3 (web, 1 Pie label type fix), react-router-dom removed from POS (unused) | `3f919cf` |
-| 4 | I032 Batch 6: zod 3.23.0→4.3.6 all apps. 2 schema fixes: `z.record(val)` → `z.record(z.string(), val)` | `e29be9e` |
-| 5 | I032 CLOSED: all 18 dependency upgrades complete (Batches 3-6) | `cdfde32` |
-| 6 | Phase 5.D: re-wire BillingSweepProcessor into AdminLicensingModule providers (safe with @nestjs/bull v11 + @Optional() guards) | `0940b73` |
-| 7 | PHASES_3_5_ROADMAP updated: Phase 5 → 70%, Phase 3 → 20% | `0940b73` |
+| 1 | PHASES_3_5_ROADMAP: mark 5.B steps 4-5 as ✅ DONE (NestJS 11 + Zod 4 + Recharts 3). Phase 5 → 85% | `ed615e8` |
+| 2 | Fix duplicate `useAuth()` destructuring in login page (TS2451) | `611f35a` |
 
 ---
 
@@ -30,8 +25,7 @@
 
 | Item | Effort | Notes |
 |------|--------|-------|
-| zod 4 `errorMap` deprecations | ~30min | Check if any `z.string().min(1, { errorMap: ... })` remain — zod 4 uses `error` param. Campaign schemas were already fixed (`f9cdcd0`). |
-| Audit remaining `z.string().email()` etc. for zod 4 compat | ~1h | Run `pnpm --filter api exec tsc --noEmit` to catch anything missed |
+| Nothing actionable | — | All code tasks complete. Typechecks clean (api + web). |
 
 #### Needs owner (VPS access)
 
@@ -55,11 +49,21 @@
 
 ---
 
+### Phase Status Summary
+
+| Phase | Status | Remaining |
+|-------|--------|-----------|
+| Phase 1 | 🟢 92% | S1.10 DNS, S1.11 Meta token, S1.12 browser — owner action |
+| Phase 2 | 🟢 ~80% | S2.12 deferred (e2e parallelization not needed yet) |
+| Phase 3 | 🟡 20% | VPS execution: evidence collection, load test, restore drill |
+| Phase 4 | 🔴 0% | Needs real UAT users + VPS |
+| Phase 5 | 🟢 85% | 5.A ✅ 50/50 · 5.B ✅ 18/18 · 5.D ✅ · 5.C blocked (signing certs) |
+
 ### Final state of all open issues
 
 | Issue | Status |
 |-------|--------|
-| I032 — 18 dep upgrades | ✅ CLOSED all batches 3-6 |
+| I032 — 18 dep upgrades | ✅ CLOSED all 18/18 |
 | I040 — Prisma 7 | ✅ CLOSED |
 | I041 — Tailwind 4 | ✅ CLOSED |
 | I048 — Security audit | ✅ CLOSED (uuid moderate risk-accepted) |
@@ -70,10 +74,10 @@
 ### Latest 6 commits
 
 ```
+611f35a fix(web): remove duplicate useAuth() destructuring in login page
+ed615e8 docs(roadmap): mark 5.B steps 4-5 complete — I032 18/18
+30112ce fix(I047 cycle 9): defensive try/catch in commissions.listEntries
+e9b33db docs(handoff): Session 26 final closeout
 0940b73 feat(phase5-d): re-enable BillingSweepProcessor cron
 f9cdcd0 ops(s1.9): VPS disk-setup deployed
-bbcc570 docs(governance): mark S1.9 VPS disk setup as complete
-5f9ba7f fix(zod4): replace deprecated errorMap in campaign schemas
-cdfde32 docs(governance): close I032
-e29be9e chore(deps): I032 Batch 6 — zod 3.23.0 → 4.3.6
 ```
