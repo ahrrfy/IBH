@@ -246,12 +246,14 @@ export class ReportsService {
 
   async apAgingReport(companyId: string, asOf?: Date) {
     const date = asOf ?? new Date();
+    // I047 — `$2 - timestamp` mixes date with timestamp returning INTERVAL,
+    // which can't be compared with `BETWEEN integer`. Cast both to date.
     return this.prisma.$queryRawUnsafe(
       `SELECT pi."supplierId", s."nameAr" AS supplier_name,
-              SUM(CASE WHEN $2 - pi."invoiceDate" <= INTERVAL '30 days' THEN pi."balanceIqd" ELSE 0 END)::float AS bucket_0_30,
-              SUM(CASE WHEN $2 - pi."invoiceDate" > INTERVAL '30 days' AND $2 - pi."invoiceDate" <= INTERVAL '60 days' THEN pi."balanceIqd" ELSE 0 END)::float AS bucket_31_60,
-              SUM(CASE WHEN $2 - pi."invoiceDate" > INTERVAL '60 days' AND $2 - pi."invoiceDate" <= INTERVAL '90 days' THEN pi."balanceIqd" ELSE 0 END)::float AS bucket_61_90,
-              SUM(CASE WHEN $2 - pi."invoiceDate" > INTERVAL '90 days' THEN pi."balanceIqd" ELSE 0 END)::float AS bucket_90_plus,
+              SUM(CASE WHEN ($2::date - pi."invoiceDate"::date) <= 30 THEN pi."balanceIqd" ELSE 0 END)::float AS bucket_0_30,
+              SUM(CASE WHEN ($2::date - pi."invoiceDate"::date) > 30 AND ($2::date - pi."invoiceDate"::date) <= 60 THEN pi."balanceIqd" ELSE 0 END)::float AS bucket_31_60,
+              SUM(CASE WHEN ($2::date - pi."invoiceDate"::date) > 60 AND ($2::date - pi."invoiceDate"::date) <= 90 THEN pi."balanceIqd" ELSE 0 END)::float AS bucket_61_90,
+              SUM(CASE WHEN ($2::date - pi."invoiceDate"::date) > 90 THEN pi."balanceIqd" ELSE 0 END)::float AS bucket_90_plus,
               SUM(pi."balanceIqd")::float AS total
        FROM "vendor_invoices" pi
        LEFT JOIN "suppliers" s ON s.id = pi."supplierId"

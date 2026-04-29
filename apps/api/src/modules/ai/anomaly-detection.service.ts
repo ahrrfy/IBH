@@ -78,8 +78,9 @@ export class AnomalyDetectionService {
     const anomalies: Anomaly[] = [];
     try {
       const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      // I047 — VendorInvoiceLine field is `unitCostIqd`, not `unitPriceIqd`.
       const rows: any[] = await this.prisma.$queryRawUnsafe(
-        `SELECT pil."variantId", pil."unitPriceIqd"::float AS price, pi."invoiceDate"
+        `SELECT pil."variantId", pil."unitCostIqd"::float AS price, pi."invoiceDate"
          FROM "vendor_invoice_lines" pil
          JOIN "vendor_invoices" pi ON pi.id = pil."invoiceId"
          WHERE pi."companyId" = $1 AND pi."invoiceDate" >= $2
