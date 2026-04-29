@@ -2,6 +2,93 @@
 
 ---
 
+## Session 36 — 2026-04-29 — README auto-update + 5.C SQLCipher + 5.D BillingSweep + 3.A/3.D evidence
+
+### Branch: main
+### Latest commit: `8562312`
+### Pushed to origin: ✅
+### VPS state: api healthy, LICENSE_GUARD_DISABLED=0 (guard ON), Enterprise sub active until 2027-04-29
+
+### Completed this session
+
+**12 commits, all deployed and verified:**
+
+| # | Commit | Phase | What |
+|---|--------|-------|------|
+| 1 | `059bbaa` | README | Auto-update workflow (`scripts/update-readme.sh` + `.github/workflows/update-readme.yml`). Real stats now: 127 models · 859 files · ~116k LoC. Triggers after each successful CI on main. |
+| 2 | `ed8841d` | 5.C | POS SQLCipher activation. Replaced `tauri-plugin-sql` with `rusqlite + bundled-sqlcipher-vendored-openssl`. DB key = SHA-256(fingerprint + salt). New `apps/pos/src-tauri/src/db.rs` runs PRAGMA key first + decrypt-verify probe. |
+| 3 | `907143d` | 5.C | Governance docs — close 5.C SQLCipher in PHASES_3_5_ROADMAP. |
+| 4 | `af3d3be` | 5.D | Initial split of `BACKGROUND_JOBS_DISABLED` into `LICENSE_GUARD_DISABLED` + per-module flags. *Caused crash loop on VPS — see I060 cycle._ |
+| 5 | `31648c5` | 5.D | Fix DI: extract APP_GUARD into `LicenseGuardEnforcementModule` so PlatformLicensingModule's read services (PlanChangeService) stay loaded even when guard is off. |
+| 6 | `821378d` | 5.D | Granular kill-switches: `ADMIN_LICENSING_DISABLED`, `EXPIRY_WATCHER_DISABLED`, `AUTOPILOT_DISABLED` each independent. Boot hangs avoided by enabling only AdminLicensing for 5.D. |
+| 7 | `29916a4` | 5.D | Governance — close 5.D in roadmap. **Verified live**: BillingSweep cron registered in Redis, next fire 2026-04-30 02:00 UTC. |
+| 8 | `fa70d7d` | 3.A | First evidence script run. |
+| 9 | `deffd68` | 3.A | Evidence collection — 47/53 endpoints captured (89%). Paths corrected against actual VPS routes. Per-wave SUMMARY.md + cross-wave roll-up + PHASE_3A_REPORT.md. |
+| 10 | `ad8ae06` | 3.D | Production smoke tests — `scripts/smoke-tests.sh`. 28✅ / 2⚠️ / 4❌. The 4 fails confirm I062 (RLS gap on 68 of 79 multi-tenant tables). |
+| 11 | `8562312` | 3.D | Roadmap → Phase 3 = 70%. |
+
+### VPS env confirmed restored to Session 35's intended state
+
+| Var | Value | Why |
+|---|---|---|
+| `LICENSE_GUARD_DISABLED` | 0 | Guard ACTIVE — Enterprise sub valid → all routes pass |
+| `ADMIN_LICENSING_DISABLED` | 0 | BillingSweep cron RUNNING (new this session) |
+| `AUTOPILOT_DISABLED` | 1 | 50-job DI graph hangs boot — staged for later |
+| `EXPIRY_WATCHER_DISABLED` | 1 | Staged with Autopilot |
+
+### One operational change made directly on VPS (not in repo)
+
+- Assigned `super_admin` role to `ahrrfy@al-ruya.iq` (greenfield install
+  had owner created without any role). SQL was `INSERT INTO user_roles
+  (...) SELECT u.id, r.id, NOW(), u.id FROM users u, roles r WHERE
+  u.email = 'ahrrfy@al-ruya.iq' AND r.name = 'super_admin'`. Idempotent
+  via `ON CONFLICT DO NOTHING`.
+
+This should be folded into `seed-bootstrap.ts` so future fresh installs
+don't repeat the manual step — opening as **I063** in OPEN_ISSUES.md.
+
+### New issues discovered (3 production 5xx bugs from 3.A sweep)
+
+| Issue | Endpoint | Symptom |
+|---|---|---|
+| **I064** | `GET /api/v1/finance/periods/status` | 500 on greenfield (empty period table) |
+| **I065** | `GET /api/v1/hr/attendance/report/monthly` | 500 — missing default month/year params |
+| **I066** | `GET /api/v1/admin/licensing/analytics/summary` | 500 on greenfield (no subs to aggregate) |
+
+All three are 500-on-greenfield bugs — services should return zeroed
+shapes rather than crash. Tracker entries added to OPEN_ISSUES.md.
+
+### Phase progress
+
+| Phase | Was | Now |
+|---|---|---|
+| 3.A Evidence (API) | scripts only | ✅ 47/53 captured live |
+| 3.D Smoke tests | scripts only | ✅ executed (28/4/2) |
+| 5.C SQLCipher activation | ⏳ TODO | ✅ DONE |
+| 5.D BillingSweep cron | ⏳ TODO | ✅ DONE — cron in Redis |
+| README auto-update | n/a | ✅ workflow live |
+
+### What remains (next session)
+
+| Item | Owner | Why blocked |
+|---|---|---|
+| **I062 — RLS rollout** | Backend | Still open. Mechanical migration but high risk. Needs RCA session. |
+| **I063 — owner role seeding** | Backend | New. Fold into `seed-bootstrap.ts`. |
+| **I064/I065/I066 — 5xx greenfield bugs** | Backend | New. Each is a small per-controller fix. |
+| **3.B flow demonstrations** | Owner | 4 lifecycles (sale / procurement / payroll / license). Needs UAT seed data. |
+| **3.D load test + DR drill** | Owner/DevOps | Needs Restic install on VPS first (currently 1-2-1-1, target 3-2-1-1). |
+| **3.A/3.B screenshots** | Owner | Manual browser session — out of scope for AI. |
+| **Phase 4 — UAT** | Owner | Needs 2-3 real users + 21 days. |
+
+### Next safest step
+
+1. Open **I062 RCA session** — write the RLS migration as a draft PR
+   (don't merge), validate on staging or via local docker stack first.
+2. Or pick off **I064/I065/I066** — each is ~30 min, low-risk per-controller
+   fix returning empty/zero shape on greenfield instead of throwing.
+
+---
+
 ## Session 35 — 2026-04-29 — Wave 6 fully unlocked (80/80 PASS) + F1 RLS gap logged
 
 ### Branch: main
