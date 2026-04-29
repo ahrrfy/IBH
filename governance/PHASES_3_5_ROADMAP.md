@@ -155,13 +155,21 @@ Drive 2-3 real users through scripted scenarios for ~3-4 days. Per wave:
 | Mobile EAS credentials | 4h | Expo + Apple + Google accounts |
 | SQLCipher activation (POS offline) | ✅ DONE | commit `ed8841d` — rusqlite + bundled-sqlcipher, key SHA-256(fingerprint) |
 
-### 5.D — T70 Billing Cron
+### 5.D — T70 Billing Cron — ✅ DONE
 
-**WARNING:** Previously crashed production (I047). Investigate root cause before re-enabling.
+- Code: BillingSweepProcessor with `@Optional()` queue injection (commit `0940b73`)
+- Production enablement: commits `821378d` (granular kill-switches) + `31648c5`
+  (split LicenseGuard APP_GUARD from PlatformLicensingModule's read services
+  so `ADMIN_LICENSING_DISABLED=0` works without DI errors).
+- Verified on VPS 2026-04-29 17:32 UTC:
+  - Log: `[BillingSweepProcessor] Billing sweep cron scheduled (02:00 UTC daily)`
+  - Redis: `erp:queue:billing-sweep:repeat:...:1777514400000` registered
+    (next run = 2026-04-30 02:00 UTC)
+  - `https://ibherp.cloud/api/v1/health` = 200 OK
 
-- Schedule `BillingSweepProcessor` in BullMQ
-- Effort: 4h (after RCA)
-- Risk: HIGH (history of crashing)
+**Remaining staged enablements (separate work, not 5.D):**
+- `AUTOPILOT_DISABLED=1` — 50-job DI graph hangs boot, needs profiling
+- `EXPIRY_WATCHER_DISABLED=1` — staged for later
 
 ---
 
