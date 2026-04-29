@@ -30,21 +30,23 @@ async function main() {
   console.log(`✅ context: company=${company.id} branch=${branch.id}`);
 
   // ── Categories ────────────────────────────────────────────────────────────
-  const generalCategory = await prisma.productCategory.upsert({
-    where: { companyId_code: { companyId: company.id, code: 'GEN' } },
-    update: {},
-    create: {
-      companyId: company.id,
-      code: 'GEN',
-      nameAr: 'عام',
-      nameEn: 'General',
-      level: 0,
-      path: '/GEN',
-      isActive: true,
-      createdBy: 'demo-seed',
-      updatedBy: 'demo-seed',
-    },
+  // ProductCategory has no `code` field & no unique constraint beyond id, so
+  // we look up by name and create if missing.
+  let generalCategory = await prisma.productCategory.findFirst({
+    where: { companyId: company.id, nameAr: 'عام' },
   });
+  if (!generalCategory) {
+    generalCategory = await prisma.productCategory.create({
+      data: {
+        companyId: company.id,
+        nameAr: 'عام',
+        nameEn: 'General',
+        level: 0,
+        path: '',
+        isActive: true,
+      },
+    });
+  }
   console.log(`✅ category: ${generalCategory.nameAr}`);
 
   const pieceUnit = await prisma.unitOfMeasure.findFirst({
@@ -116,17 +118,16 @@ async function main() {
       update: {},
       create: {
         companyId: company.id,
-        branchId: branch.id,
         code: c.code,
         nameAr: c.nameAr,
         phone: c.phone,
         type: c.creditLimit > 0 ? 'wholesale' : 'regular',
         creditLimitIqd: c.creditLimit,
-        balanceIqd: 0,
+        creditBalanceIqd: 0,
         isActive: true,
         createdBy: 'demo-seed',
         updatedBy: 'demo-seed',
-      } as any,
+      },
     });
   }
   console.log(`✅ customers: ${sampleCustomers.length}`);
@@ -142,15 +143,12 @@ async function main() {
       update: {},
       create: {
         companyId: company.id,
-        branchId: branch.id,
         code: s.code,
         nameAr: s.nameAr,
         phone: s.phone,
         balanceIqd: 0,
         isActive: true,
-        createdBy: 'demo-seed',
-        updatedBy: 'demo-seed',
-      } as any,
+      },
     });
   }
   console.log(`✅ suppliers: ${sampleSuppliers.length}`);
