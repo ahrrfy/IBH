@@ -2,6 +2,38 @@
 
 ---
 
+## Session 31 — 2026-04-29 — VPS deploy verification + I058 discovered
+
+### Branch: main
+### Latest commit: 5258bae
+### Pushed to origin: ✅
+
+### Completed this session
+
+VPS SSH access enabled by owner. Logged into `ibherp` (root@187.124.183.140), project at `/opt/al-ruya-erp/`. Verified deployment of I051-I055 directly against production HTTPS:
+
+| Check | Result |
+|-------|--------|
+| `company_integrations` migration applied | ✅ table exists |
+| API rebuild --no-cache (LicensingMirrorModule) | ✅ `Mapped {/api/licensing/me/features, GET}` in startup logs |
+| **I051+I054** auth fix end-to-end | ✅ `GET /sales/invoices` w/ cookie → `HTTP/2 200 OK` (the original bug is fixed) |
+| **I053** host vhost `/socket.io/` block | ✅ copied from source `host-vhost-ibherp.conf` to `/etc/nginx/sites-available/erp`, `nginx -t` ok, `systemctl reload nginx` |
+| **I055** split rate limits | ✅ `erp_login` + `erp_refresh` zones loaded after `docker compose up -d --force-recreate nginx` |
+| **I052** `/licensing/me/features` | ⚠️ route mapped, but the controller throws 500 → root cause turned out to be a separate schema bug (I058) |
+
+### New issue filed: I058
+
+`DriverAdapterError: type "public.SubscriptionStatus" does not exist` — Prisma 7 schema declares `enum SubscriptionStatus` (PascalCase), but the DB ENUM type is `subscription_status` (snake_case, from an old migration). Prisma 7's driver-adapter quotes the type name in casts, so the query fails. Also violates CLAUDE.md F2 (no PostgreSQL ENUMs — use VARCHAR + CHECK). Documented in `OPEN_ISSUES.md` (commit `5258bae`). Production impact: feature-gating UI is broken; navigation/login still works.
+
+### What remains
+
+| Item | Owner | Notes |
+|------|-------|-------|
+| I058 fix | Backend | Migrate enums → VARCHAR + CHECK constraint to match F2. Affects SubscriptionStatus, BillingCycle, possibly others. Requires new migration + Prisma schema edit. |
+| Web image rebuild on VPS | DevOps | Web container is still the old image. Run `docker compose build web && docker compose up -d --force-recreate web` to deploy I051's `apps/web` changes (cookie max-age, login auto-redirect, root page redirects, refresh-token client). |
+
+---
+
 ## Session 30 — 2026-04-29 — I047 cycle 9 closure (79/79 = 100%) + Phase A-D plan complete
 
 ### Branch: main
