@@ -14,6 +14,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Optional,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AuditService } from '../../../engines/audit/audit.service';
@@ -38,10 +40,18 @@ export interface ListTenantsParams {
 
 @Injectable()
 export class AdminLicensingService {
+  // I059 — PlanChangeService is provided by PlatformLicensingModule, which
+  // sits behind LICENSE_GUARD_DISABLED. After the 5.D kill-switch split
+  // (commit af3d3be), it's possible to enable AdminLicensingModule (via
+  // BACKGROUND_JOBS_DISABLED=0) WITHOUT enabling PlatformLicensingModule.
+  // We accept that asymmetry: read-only operations (listTenants, getTenant,
+  // events log, billing) still work; only changePlan() — which needs the
+  // proration engine — degrades to a 503 with a clear message until the
+  // global LicenseGuard is also re-enabled.
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-    private readonly planChange: PlanChangeService,
+    @Optional() private readonly planChange?: PlanChangeService,
   ) {}
 
   /**
@@ -223,6 +233,17 @@ export class AdminLicensingService {
     newPlanId: string,
     session: UserSession,
   ) {
+    if (!this.planChange) {
+      // PlatformLicensingModule isn't loaded (LICENSE_GUARD_DISABLED=1).
+      // PlanChange depends on the proration engine in that module, so we
+      // cannot honour upgrade/downgrade requests here without it.
+      throw new ServiceUnavailableException({
+        code: 'LICENSE_GUARD_DISABLED',
+        messageAr: 'تغيير الخطة معطّل — لم يُفعَّل نظام التراخيص بعد',
+        messageEn:
+          'Plan changes are unavailable until the platform licensing module is enabled (set LICENSE_GUARD_DISABLED=0 once a Subscription is seeded).',
+      });
+    }
     const result = await this.planChange.changePlan({
       subscriptionId,
       newPlanId,
