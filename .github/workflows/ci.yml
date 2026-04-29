@@ -44,6 +44,7 @@ jobs:
   e2e-tests:
     name: E2E acceptance tests (Postgres + Redis)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       postgres:
         # pgvector/pgvector:pg16 — schema.prisma requires the vector extension.
