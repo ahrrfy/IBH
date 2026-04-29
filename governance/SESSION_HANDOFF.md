@@ -2,6 +2,40 @@
 
 ---
 
+## Session 34 — 2026-04-29 — I058 complete (LicenseEventType @@map) + VPS deploy verified
+
+### Branch: main
+### Latest commit: `93adae2`
+### Pushed to origin: ✅
+
+### Completed this session
+
+**I058 final fix — LicenseEventType @@map:**
+- The previous session (33) fixed `SubscriptionStatus` + `BillingCycle` `@@map` directives.
+- This session added the missing third: `@@map("license_event_type")` to `enum LicenseEventType` in `schema.prisma`.
+- Prisma client regenerated (`prisma generate`) — typecheck passes (zero errors).
+- Commit: `93adae2`
+
+**VPS deploy + full verification:**
+- `git pull` on VPS → applied `93adae2`
+- Rebuilt API image: `docker compose build api --no-cache` ✅
+- Recreated API + web containers
+- **Final verification:**
+  - `/api/v1/health` → `HTTP:200` ✅
+  - `/api/v1/licensing/me/features` → `HTTP:200` with `planCode: enterprise`, `status: active` ✅ (no more DriverAdapterError)
+  - `BillingSweepProcessor` → `"Billing sweep cron scheduled (02:00 UTC daily)"` in logs ✅
+- All 9 infra containers healthy: api, web, nginx, postgres, redis, minio, storefront, ai-brain, license-server ✅
+
+### What remains
+
+Per Session 33 handoff — all AI-doable work is complete:
+- Phase 3.B (flow recordings) — needs browser + VPS
+- Phase 4.B/C — real UAT users
+- I009 — 2FA manual browser test
+- 5.C — native app signing (paid certs)
+
+---
+
 ## Session 33 — 2026-04-29 — VPS ops + WhatsApp per-tenant + Phase 4.A pre-UAT ready
 
 ### Branch: main
