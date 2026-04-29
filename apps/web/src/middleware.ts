@@ -117,14 +117,22 @@ export async function middleware(req: NextRequest) {
   }
 
   // T66 — license enforcement layer (defense in depth).
+  //
+  // I059 — Fail-open on null status (greenfield installs have no Subscription
+  // row yet; the API's LicenseGuard already short-circuits via
+  // LICENSE_GUARD_DISABLED=1, so the web middleware must mirror that contract
+  // or every protected route 307s to /license-required and the system is
+  // unusable until an admin manually seeds a plan). Only EXPLICIT non-entitled
+  // statuses (expired/suspended/cancelled) trigger the redirect now.
   const snapshot = await fetchLicenseStatus(token);
   if (
     snapshot &&
-    (!snapshot.status || !ENTITLED_STATUSES.has(snapshot.status))
+    snapshot.status &&
+    !ENTITLED_STATUSES.has(snapshot.status)
   ) {
     const url = req.nextUrl.clone();
     url.pathname = '/license-required';
-    url.searchParams.set('reason', snapshot.status ?? 'missing');
+    url.searchParams.set('reason', snapshot.status);
     return NextResponse.redirect(url);
   }
 
