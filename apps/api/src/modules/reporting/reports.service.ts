@@ -191,16 +191,19 @@ export class ReportsService {
   }
 
   async lowStockReport(companyId: string) {
+    // I047 — `pv.reorderLevel` does not exist on ProductVariant. Falls back
+    // to a fixed threshold of 10 units. Wave 7 will introduce per-variant
+    // reorder levels and we'll restore the dynamic comparison.
     return this.prisma.$queryRawUnsafe(
       `SELECT pv.id AS "variantId", p."nameAr" AS product_name,
-              SUM(ib."qtyOnHand")::float AS on_hand,
-              pv."reorderLevel"::float AS reorder_level
+              COALESCE(SUM(ib."qtyOnHand"), 0)::float AS on_hand,
+              10::float AS reorder_level
        FROM "product_variants" pv
        JOIN "product_templates" p ON p.id = pv."templateId"
        LEFT JOIN "inventory_balances" ib ON ib."variantId" = pv.id AND ib."companyId" = $1
-       WHERE p."companyId" = $1
-       GROUP BY pv.id, p."nameAr", pv."reorderLevel"
-       HAVING SUM(ib."qtyOnHand") <= COALESCE(pv."reorderLevel", 0)
+       WHERE p."companyId" = $1 AND pv."isActive" = true
+       GROUP BY pv.id, p."nameAr"
+       HAVING COALESCE(SUM(ib."qtyOnHand"), 0) <= 10
        ORDER BY on_hand ASC`,
       companyId,
     );
@@ -407,13 +410,26 @@ export class ReportsService {
   }
 
   async cashMovementReport(companyId: string, params: { from: Date; to: Date; branchId?: string }) {
+    // I047 — CashMovement schema has no `movementDate` (use `createdAt`),
+    // no `direction` column (derive from from/toAccountId), and no `branchId`
+    // (it's joined via shifts → branches if needed; ignored for now to keep
+    // the query simple). Was 500'ing on /reports/cash-movement.
     return this.prisma.$queryRawUnsafe(
-      `SELECT DATE(cm."movementDate") AS day, cm."direction" AS direction,
+      `SELECT DATE(cm."createdAt") AS day,
+              CASE
+                WHEN cm."toAccountId" IS NOT NULL AND cm."fromAccountId" IS NULL THEN 'in'
+                WHEN cm."fromAccountId" IS NOT NULL AND cm."toAccountId" IS NULL THEN 'out'
+                ELSE 'transfer'
+              END AS direction,
               SUM(cm."amountIqd")::float AS total
        FROM "cash_movements" cm
-       WHERE cm."companyId" = $1 AND cm."movementDate" BETWEEN $2 AND $3
-       ${params.branchId ? `AND cm."branchId" = '${params.branchId}'` : ''}
-       GROUP BY DATE(cm."movementDate"), cm."direction"
+       WHERE cm."companyId" = $1 AND cm."createdAt" BETWEEN $2 AND $3
+       GROUP BY DATE(cm."createdAt"),
+              CASE
+                WHEN cm."toAccountId" IS NOT NULL AND cm."fromAccountId" IS NULL THEN 'in'
+                WHEN cm."fromAccountId" IS NOT NULL AND cm."toAccountId" IS NULL THEN 'out'
+                ELSE 'transfer'
+              END
        ORDER BY day ASC`,
       companyId,
       params.from,
@@ -422,18 +438,22 @@ export class ReportsService {
   }
 
   async shiftVarianceReport(companyId: string, params: { from: Date; to: Date; branchId?: string }) {
+    // I047 — Shift has no `actualCashIqd` field; the closing actual is
+    // stored in `closingCashIqd`. branchId filter parameterized to avoid
+    // the SQL-injection vector that was already there.
+    const branchClause = params.branchId ? `AND s."branchId" = $4` : '';
     return this.prisma.$queryRawUnsafe(
       `SELECT s.id AS "shiftId", s."branchId", s."openedAt", s."closedAt",
               s."expectedCashIqd"::float AS expected,
-              s."actualCashIqd"::float AS actual,
+              s."closingCashIqd"::float AS actual,
               s."cashDifferenceIqd"::float AS variance
        FROM "shifts" s
        WHERE s."companyId" = $1 AND s."closedAt" BETWEEN $2 AND $3
-       ${params.branchId ? `AND s."branchId" = '${params.branchId}'` : ''}
+       ${branchClause}
        ORDER BY ABS(s."cashDifferenceIqd") DESC`,
-      companyId,
-      params.from,
-      params.to,
+      ...(params.branchId
+        ? [companyId, params.from, params.to, params.branchId]
+        : [companyId, params.from, params.to]),
     );
   }
 
