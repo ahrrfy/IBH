@@ -162,7 +162,7 @@ describe('Purchases — GRN inventory posting invariants (e2e)', () => {
       { variantId: string; warehouseId: string; companyId: string }[]
     >`
       SELECT "variantId", "warehouseId", "companyId"
-      FROM "stock_ledger_entries"
+      FROM "stock_ledger"
       GROUP BY "variantId", "warehouseId", "companyId"
       HAVING COUNT(*) > 1
       ORDER BY "variantId" ASC

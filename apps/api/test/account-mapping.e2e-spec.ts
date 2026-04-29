@@ -31,17 +31,8 @@ describe('AccountMappingService (e2e)', () => {
     expect(company).toBeTruthy();
     companyId = company!.id;
 
-    // Ensure the sale.cash mapping exists (may not be in bootstrap seed).
-    const cashAccount = await prisma.chartOfAccount.findFirst({
-      where: { companyId, code: '2411', isActive: true },
-    });
-    if (cashAccount) {
-      await prisma.accountMapping.upsert({
-        where: { companyId_eventType: { companyId, eventType: 'sale.cash' } },
-        update: { accountCode: '2411' },
-        create: { companyId, eventType: 'sale.cash', accountCode: '2411', description: 'e2e-seed' },
-      });
-    }
+    // Seed via service.upsert() so the internal cache is properly populated.
+    await service.upsert(companyId, 'sale.cash', '2411', 'e2e-seed');
   });
 
   afterAll(async () => {
