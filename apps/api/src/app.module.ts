@@ -69,14 +69,23 @@ import { PaymentsModule } from './modules/payments/payments.module';
 import { OnlineOrdersModule } from './modules/sales/online-orders/online-orders.module';
 
 const isTest = process.env.NODE_ENV === 'test';
-// I047 — temporary kill-switch for background-job modules in production.
-// 50 autopilot jobs + admin-licensing billing + license expiry watchers
-// inflate AppModule bootstrap time + dependency resolution past the
-// /health probe budget. Set BACKGROUND_JOBS_DISABLED=1 in VPS .env to
-// skip these modules until @nestjs/bull's BullExplorer double-registration
-// is resolved (I050). Routes for these features will return 404; their
-// services exist as classes but aren't wired.
+
+// 5.D — Split kill-switch into two independent flags so we can re-enable
+// the billing cron + autopilot jobs (the actually-needed background work)
+// without re-enabling the global LicenseGuard (which 403s every endpoint
+// on greenfield installs that haven't seeded a Subscription yet).
+//
+// LICENSE_GUARD_DISABLED=1 (default 1)  → skip PlatformLicensingModule
+//   Guard is OFF by default until a Subscription row exists. The read-only
+//   /licensing/me/features endpoint is provided by LicensingMirrorModule
+//   in coreImports regardless, so the web shell still boots.
+//
+// BACKGROUND_JOBS_DISABLED=1 (default 0) → skip AdminLicensing + Autopilot +
+//   ExpiryWatcher. These are the BullMQ-heavy modules. Default OFF (i.e.
+//   jobs RUN) now that I047's Optional()-injection fix in BillingSweepProcessor
+//   has stabilised dev/prod against ECONNREFUSED on Redis.
 const skipBackgroundJobs = isTest || process.env.BACKGROUND_JOBS_DISABLED === '1';
+const skipLicenseGuard   = isTest || process.env.LICENSE_GUARD_DISABLED   !== '0';
 
 const coreImports = [
   // ── Config ────────────────────────────────────────────────────────────
@@ -184,10 +193,11 @@ const coreImports = [
 //   - PlatformLicensingModule registers a global LicenseGuard that 403s
 //     every authed request when there's no active subscription (greenfield
 //     installs). Until subscriptions are seeded, this blocks the entire app.
+//     Gated separately by LICENSE_GUARD_DISABLED (default ON until seeded).
 //   - AdminLicensing/ExpiryWatcher/Autopilot inflate boot time with
-//     50+ BullMQ-bound providers.
+//     50+ BullMQ-bound providers — gated by BACKGROUND_JOBS_DISABLED.
+const licenseGuardImports = [PlatformLicensingModule];
 const backgroundJobImports = [
-  PlatformLicensingModule,
   AdminLicensingModule,
   ExpiryWatcherModule,
   AutopilotModule,
@@ -196,6 +206,7 @@ const backgroundJobImports = [
 @Module({
   imports: [
     ...coreImports,
+    ...(skipLicenseGuard ? [] : licenseGuardImports),
     ...(skipBackgroundJobs ? [] : backgroundJobImports),
   ],
 })
