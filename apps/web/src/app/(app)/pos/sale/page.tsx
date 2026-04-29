@@ -221,7 +221,7 @@ export default function POSSalePage() {
           <h1 className="text-2xl font-bold">شاشة البيع</h1>
           <p className="text-xs text-slate-500">
             وردية: <span className="font-mono">{shift.shiftNumber}</span>
-            {shift.device.nameAr ? <> · جهاز: {shift.device.nameAr}</> : null}
+            {shift.device?.nameAr ? <> · جهاز: {shift.device.nameAr}</> : null}
           </p>
         </div>
         <div className="flex items-center gap-2">
