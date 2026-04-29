@@ -1,0 +1,52 @@
+name: License Seed — Active Enterprise Subscription
+
+# Manual workflow that ensures an active Enterprise subscription exists for
+# the singleton company (RUA), enabling the global LicenseGuard to pass.
+# Idempotent — safe to re-run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why are you running the license seed? (logged for audit)'
+        required: false
+        default: 'manual'
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    name: Seed Enterprise subscription on VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Setup SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          for i in 1 2 3 4; do
+            if ssh-keyscan -T 15 -t rsa,ecdsa,ed25519 -H "$VPS_HOST" > ~/.ssh/known_hosts 2>/dev/null; then
+              [ -s ~/.ssh/known_hosts ] && break
+            fi
+            sleep 5
+          done
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Run license-seed inside the api container
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o ServerAliveInterval=15 \
+            "root@${{ secrets.VPS_HOST }}" '
+              set -e
+              cd /opt/al-ruya-erp/infra
+              docker compose -f docker-compose.bootstrap.yml exec -T api sh -c \
+                "cd /app/apps/api && npx tsx prisma/license-seed.ts"
+            '
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/id_ed25519
