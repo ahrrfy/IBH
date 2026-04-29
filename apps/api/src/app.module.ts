@@ -106,7 +106,8 @@ const coreImports = [
   HealthModule,
   RealtimeModule,
   NotificationsModule,
-  PlatformLicensingModule,
+  // PlatformLicensingModule moved to backgroundJobImports — its global
+  // LicenseGuard blocks every endpoint until a subscription is seeded.
 
   // ── Engines (M01) ──────────────────────────────────────────────────────
   AuthModule,
@@ -158,7 +159,14 @@ const coreImports = [
 
 // Background-job modules with heavy BullMQ queue connections.
 // Skipped in test to keep AppModule bootstrap under 30s on CI.
+// Also skipped in production via BACKGROUND_JOBS_DISABLED=1 because:
+//   - PlatformLicensingModule registers a global LicenseGuard that 403s
+//     every authed request when there's no active subscription (greenfield
+//     installs). Until subscriptions are seeded, this blocks the entire app.
+//   - AdminLicensing/ExpiryWatcher/Autopilot inflate boot time with
+//     50+ BullMQ-bound providers.
 const backgroundJobImports = [
+  PlatformLicensingModule,
   AdminLicensingModule,
   ExpiryWatcherModule,
   AutopilotModule,
