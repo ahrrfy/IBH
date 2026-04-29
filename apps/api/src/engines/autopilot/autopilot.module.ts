@@ -36,6 +36,12 @@ import { InventoryDeadstockDetectJob } from './jobs/inventory.deadstock-detect.j
 import { InventoryTransferSuggestJob } from './jobs/inventory.transfer-suggest.job';
 import { DeliveryCodSettlementJob } from './jobs/delivery.cod-settlement.job';
 import { DeliveryFailedRedeliveryJob } from './jobs/delivery.failed-redelivery.job';
+import { FinanceUnbalancedJeDetectJob } from './jobs/finance.unbalanced-je-detect.job';
+import { HrBirthdayGreetingJob } from './jobs/hr.birthday-greeting.job';
+import { HrProbationEndFlagJob } from './jobs/hr.probation-end-flag.job';
+import { InventoryWarehouseBalanceJob } from './jobs/inventory.warehouse-balance.job';
+import { InventoryBarcodeMissingJob } from './jobs/inventory.barcode-missing.job';
+import { InventoryStocktakeReminderJob } from './jobs/inventory.stocktake-reminder.job';
 import type { AutopilotJob } from './autopilot.types';
 
 // ─── T71 — Autonomous Operations Engine Module ──────────────────────────────
@@ -100,6 +106,14 @@ import type { AutopilotJob } from './autopilot.types';
     DeliveryCodSettlementJob,
     DeliveryFailedRedeliveryJob,
 
+    // T71 implemented jobs — Batch 2
+    FinanceUnbalancedJeDetectJob,
+    HrBirthdayGreetingJob,
+    HrProbationEndFlagJob,
+    InventoryWarehouseBalanceJob,
+    InventoryBarcodeMissingJob,
+    InventoryStocktakeReminderJob,
+
     // Scaffold builder (remaining stubs).
     AutopilotJobScaffolds,
 
@@ -131,6 +145,12 @@ import type { AutopilotJob } from './autopilot.types';
         invTransfer: InventoryTransferSuggestJob,
         deliveryCod: DeliveryCodSettlementJob,
         deliveryRedeliver: DeliveryFailedRedeliveryJob,
+        finUnbalancedJe: FinanceUnbalancedJeDetectJob,
+        hrBirthday: HrBirthdayGreetingJob,
+        hrProbation: HrProbationEndFlagJob,
+        invWarehouseBalance: InventoryWarehouseBalanceJob,
+        invBarcodesMissing: InventoryBarcodeMissingJob,
+        invStocktake: InventoryStocktakeReminderJob,
         scaffolds: AutopilotJobScaffolds,
       ): AutopilotJob[] => [
         salesOverdue,
@@ -148,6 +168,8 @@ import type { AutopilotJob } from './autopilot.types';
         hrAttendance, hrContractRenewal, hrPayroll, hrLeaveBalance,
         invExpiry, invDeadstock, invTransfer,
         deliveryCod, deliveryRedeliver,
+        finUnbalancedJe, hrBirthday, hrProbation,
+        invWarehouseBalance, invBarcodesMissing, invStocktake,
         ...scaffolds.buildAll(),
       ],
       inject: [
@@ -175,6 +197,12 @@ import type { AutopilotJob } from './autopilot.types';
         InventoryTransferSuggestJob,
         DeliveryCodSettlementJob,
         DeliveryFailedRedeliveryJob,
+        FinanceUnbalancedJeDetectJob,
+        HrBirthdayGreetingJob,
+        HrProbationEndFlagJob,
+        InventoryWarehouseBalanceJob,
+        InventoryBarcodeMissingJob,
+        InventoryStocktakeReminderJob,
         AutopilotJobScaffolds,
       ],
     },

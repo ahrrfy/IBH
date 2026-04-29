@@ -46,21 +46,15 @@ const SCAFFOLDS: StubSpec[] = [
   { meta: { id: 'sales.cross-sell-suggester',  domain: 'sales',       schedule: 'event-driven',companyScoped: true,  titleAr: 'مقترحات البيع المتقاطع',      titleEn: 'Cross-sell Suggester' } },
 
   // ── Inventory (8) ────────────────────────────────────────────────────────
-  { meta: { id: 'inventory.stocktake-reminder',domain: 'inventory',   schedule: '0 8 1 * *',   companyScoped: true,  titleAr: 'تذكير الجرد الشهري',           titleEn: 'Stocktake Reminder' } },
   { meta: { id: 'inventory.cost-recalculate',  domain: 'inventory',   schedule: '0 2 * * *',   companyScoped: true,  titleAr: 'إعادة احتساب متوسط التكلفة',  titleEn: 'MWA Cost Recalculate' } },
-  { meta: { id: 'inventory.barcode-missing',   domain: 'inventory',   schedule: '0 7 * * 1',   companyScoped: true,  titleAr: 'منتجات بدون باركود',           titleEn: 'Missing Barcode Detect' } },
-  { meta: { id: 'inventory.warehouse-balance', domain: 'inventory',   schedule: '0 1 * * *',   companyScoped: true,  titleAr: 'تدقيق أرصدة المستودعات',      titleEn: 'Warehouse Balance Audit' } },
   { meta: { id: 'inventory.shelf-life-alert',  domain: 'inventory',   schedule: '0 6 * * 1',   companyScoped: true,  titleAr: 'تنبيهات قرب نهاية العمر',     titleEn: 'Shelf-Life Alert' } },
 
   // ── Finance (8) ──────────────────────────────────────────────────────────
   { meta: { id: 'finance.exchange-rate-sync',  domain: 'finance',     schedule: '0 9 * * 1-6', companyScoped: true,  titleAr: 'تحديث أسعار الصرف',           titleEn: 'Exchange Rate Sync' } },
-  { meta: { id: 'finance.unbalanced-je-detect',domain: 'finance',     schedule: '0 */6 * * *', companyScoped: true,  titleAr: 'كشف القيود غير المتوازنة',     titleEn: 'Unbalanced JE Detect' } },
   { meta: { id: 'finance.tax-liability-calc',  domain: 'finance',     schedule: '0 7 1 * *',   companyScoped: true,  titleAr: 'احتساب الالتزامات الضريبية',   titleEn: 'Tax Liability Calc' } },
   { meta: { id: 'finance.cashflow-forecast',   domain: 'finance',     schedule: '0 7 * * 0',   companyScoped: true,  titleAr: 'توقع التدفق النقدي',           titleEn: 'Cashflow Forecast' } },
 
   // ── HR (6) ───────────────────────────────────────────────────────────────
-  { meta: { id: 'hr.birthday-greeting',        domain: 'hr',          schedule: '0 9 * * *',   companyScoped: true,  titleAr: 'تهنئة أعياد الميلاد',          titleEn: 'Birthday Greeting' } },
-  { meta: { id: 'hr.probation-end-flag',       domain: 'hr',          schedule: '0 10 * * *',  companyScoped: true,  titleAr: 'تنبيه نهاية فترة التجربة',     titleEn: 'Probation End Flag' } },
 
   // ── CRM (5, minus 3 implemented) ─────────────────────────────────────────
   // crm.lead-scoring-refresh   → implemented in crm.lead-scoring-refresh.job.ts
