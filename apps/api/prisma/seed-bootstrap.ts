@@ -17,7 +17,9 @@ const prisma = new PrismaClient();
 // Set these on the VPS in /opt/al-ruya-erp/infra/.env (chmod 600).
 const OWNER_USERNAME = process.env.OWNER_USERNAME;
 const OWNER_PASSWORD = process.env.OWNER_PASSWORD;
-const OWNER_EMAIL    = process.env.OWNER_EMAIL ?? `${OWNER_USERNAME}@al-ruya.iq`;
+// Fallback email uses the deployed brand domain. Override via OWNER_EMAIL
+// if a different mailbox is preferred.
+const OWNER_EMAIL    = process.env.OWNER_EMAIL ?? `${OWNER_USERNAME}@ibherp.cloud`;
 
 // Test admin is OPTIONAL — only created if both env vars are set explicitly.
 // Never use default credentials.

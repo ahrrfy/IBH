@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https://api.al-ruya.iq ipc: http://ipc.localhost; img-src 'self' data: https://*; style-src 'self' 'unsafe-inline'; script-src 'self'"
+      "csp": "default-src 'self'; connect-src 'self' https://ibherp.cloud ipc: http://ipc.localhost; img-src 'self' data: https://*; style-src 'self' 'unsafe-inline'; script-src 'self'"
     }
   },
   "bundle": {

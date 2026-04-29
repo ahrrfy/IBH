@@ -134,7 +134,7 @@ async function main() {
   const passwordHash = await argon2.hash(adminPwd, {
     type: argon2.argon2id, memoryCost: 65536, timeCost: 3, parallelism: 4,
   });
-  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@al-ruya.iq';
+  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@ibherp.cloud';
   const adminUser = await prisma.user.upsert({
     where: { companyId_email: { companyId: company.id, email: adminEmail } },
     update: {},
