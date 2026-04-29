@@ -15,7 +15,7 @@ type Step = 'credentials' | 'mfa';
  */
 export default function LoginPage() {
   const router = useRouter();
-  const { login, verifyMfa } = useAuth();
+  const { login, verifyMfa, token, initialized } = useAuth();
 
   const [step, setStep] = useState<Step>('credentials');
   const [emailOrUsername, setEmailOrUsername] = useState('');
@@ -37,6 +37,12 @@ export default function LoginPage() {
     const n = params.get('next');
     if (n && n.startsWith('/')) setNextPath(n);
   }, []);
+
+  useEffect(() => {
+    if (initialized && token) {
+      router.replace(nextPath);
+    }
+  }, [initialized, token, nextPath, router]);
 
   useEffect(() => {
     if (step === 'mfa') codeRef.current?.focus();
