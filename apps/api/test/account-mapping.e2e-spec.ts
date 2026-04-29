@@ -31,6 +31,18 @@ describe('AccountMappingService (e2e)', () => {
     expect(company).toBeTruthy();
     companyId = company!.id;
 
+    // Ensure CoA account 2411 exists (bootstrap seed may not include it).
+    await prisma.chartOfAccount.upsert({
+      where: { companyId_code: { companyId, code: '2411' } },
+      update: {},
+      create: {
+        companyId, code: '2411',
+        nameAr: 'صندوق الفرع الرئيسي', nameEn: 'Main Branch Cash',
+        category: 'current_assets', accountType: 'debit_normal',
+        isHeader: false, isCashAccount: true, isBankAccount: false,
+        isActive: true, allowDirectPosting: true, createdBy: 'e2e-seed',
+      },
+    });
     // Seed via service.upsert() so the internal cache is properly populated.
     await service.upsert(companyId, 'sale.cash', '2411', 'e2e-seed');
   });
