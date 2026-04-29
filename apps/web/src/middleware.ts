@@ -14,6 +14,11 @@ const PROTECTED_PREFIXES = [
   '/settings',
   '/profile',
   '/super-admin',
+  '/delivery',
+  '/assets',
+  '/job-orders',
+  '/marketing',
+  '/autopilot',
 ];
 
 const TOKEN_COOKIE = 'al-ruya.token';
@@ -37,10 +42,16 @@ const LICENSE_BYPASS_PREFIXES = [
  */
 const ENTITLED_STATUSES = new Set(['active', 'trial', 'grace']);
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
+/**
+ * Internal API URL for server-to-server calls from middleware.
+ * Priority: API_INTERNAL_URL (Docker-internal) > API_BASE_URL > fallback.
+ * NEVER use NEXT_PUBLIC_API_URL here — it includes '/api' suffix and
+ * goes through the public internet, causing double-/api and latency.
+ */
+const INTERNAL_API =
   process.env.API_INTERNAL_URL ??
-  'http://localhost:3001';
+  process.env.API_BASE_URL ??
+  'http://localhost:3000';
 
 interface LicenseSnapshot {
   status: string | null;
@@ -59,10 +70,14 @@ async function fetchLicenseStatus(
   token: string,
 ): Promise<LicenseSnapshot | undefined> {
   try {
-    const res = await fetch(`${API_BASE_URL}/api/v1/licensing/me/features`, {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
+    const res = await fetch(`${INTERNAL_API}/api/v1/licensing/me/features`, {
       headers: { authorization: `Bearer ${token}` },
       cache: 'no-store',
+      signal: ctrl.signal,
     });
+    clearTimeout(timer);
     if (!res.ok) return undefined;
     return (await res.json()) as LicenseSnapshot;
   } catch {
@@ -130,5 +145,10 @@ export const config = {
     '/settings/:path*',
     '/profile/:path*',
     '/super-admin/:path*',
+    '/delivery/:path*',
+    '/assets/:path*',
+    '/job-orders/:path*',
+    '/marketing/:path*',
+    '/autopilot/:path*',
   ],
 };

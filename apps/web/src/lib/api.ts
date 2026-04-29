@@ -33,10 +33,15 @@ export function getToken(): string | null {
  * would 307-redirect back to /login even after a successful API login.
  *
  * Cookie attributes:
- *   - path=/         visible to every route under the domain
- *   - max-age=900    matches JWT access-token expiry (15 min); browser auto-clears
- *   - SameSite=Lax   sent on top-level navigations (needed for the redirect flow)
- *   - Secure         only on HTTPS — skipped in dev (localhost over plain HTTP)
+ *   - path=/           visible to every route under the domain
+ *   - max-age=86400    24 hours — intentionally longer than the JWT's 15-min
+ *                      expiry so the middleware never 307s an expired-but-
+ *                      recently-refreshed session. The API's JwtGuard is the
+ *                      authoritative expiry check; the cookie is only a
+ *                      "there might be a session" hint for middleware.
+ *   - SameSite=Lax     sent on same-site requests and top-level cross-site
+ *                      navigations (safe for RSC fetch + redirect flows)
+ *   - Secure           only on HTTPS — skipped in dev (localhost over HTTP)
  *
  * NOT HttpOnly: api.ts also reads it client-side via getToken() to attach
  * the Authorization header, so the cookie must be JS-readable. The same JS
@@ -48,7 +53,7 @@ export function setToken(token: string | null): void {
   const secureAttr = isSecure ? '; Secure' : '';
   if (token) {
     window.localStorage.setItem(TOKEN_KEY, token);
-    document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; path=/; max-age=900; SameSite=Lax${secureAttr}`;
+    document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=86400; SameSite=Lax${secureAttr}`;
   } else {
     window.localStorage.removeItem(TOKEN_KEY);
     document.cookie = `${TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax${secureAttr}`;

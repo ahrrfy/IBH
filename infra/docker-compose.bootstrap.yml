@@ -194,6 +194,7 @@ services:
     environment:
       NODE_ENV: production
       API_BASE_URL: http://api:3000
+      API_INTERNAL_URL: http://api:3000
       NEXT_PUBLIC_API_URL: ${APP_URL:-http://187.124.183.140}/api
     networks:
       - erp-internal
