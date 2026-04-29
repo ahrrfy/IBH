@@ -30,6 +30,13 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 // Business Modules (Wave 2)
 import { SalesModule }     from './modules/sales/sales.module';
 import { POSModule }       from './modules/pos/pos.module';
+// I050 — DeliveryCompaniesModule must be imported BEFORE DeliveryModule so its
+// static `/delivery/companies` route registers before DeliveryController's
+// wildcard `/delivery/:id`. NestJS uses Map insertion order when resolving
+// routes, and modules imported deeper in the tree (DeliveryModule imports
+// DeliveryCompaniesModule) get inserted AFTER their parent, which is the
+// opposite of what we want here.
+import { DeliveryCompaniesModule } from './modules/delivery/delivery-companies/delivery-companies.module';
 import { DeliveryModule }  from './modules/delivery/delivery.module';
 
 // Business Modules (Wave 3)
@@ -64,7 +71,7 @@ const isTest = process.env.NODE_ENV === 'test';
 // inflate AppModule bootstrap time + dependency resolution past the
 // /health probe budget. Set BACKGROUND_JOBS_DISABLED=1 in VPS .env to
 // skip these modules until @nestjs/bull's BullExplorer double-registration
-// is resolved (I048). Routes for these features will return 404; their
+// is resolved (I050). Routes for these features will return 404; their
 // services exist as classes but aren't wired.
 const skipBackgroundJobs = isTest || process.env.BACKGROUND_JOBS_DISABLED === '1';
 
@@ -125,6 +132,10 @@ const coreImports = [
   // ── Business Modules — Wave 2 ───────────────────────────────────────────
   SalesModule,
   POSModule,
+  // I050 — register DeliveryCompaniesModule before DeliveryModule so the
+  // static /delivery/companies (and /delivery/zones, /delivery/rates) routes
+  // win over the wildcard /delivery/:id handler. See the import comment.
+  DeliveryCompaniesModule,
   DeliveryModule,
 
   // ── Business Modules — Wave 3 ───────────────────────────────────────────

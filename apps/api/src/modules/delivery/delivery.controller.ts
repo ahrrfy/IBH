@@ -7,6 +7,7 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
 import { DeliveryService } from './delivery.service';
 import { CurrentUser } from '../../engines/auth/decorators/current-user.decorator';
@@ -14,6 +15,16 @@ import { RequirePermission } from '../../engines/auth/decorators/require-permiss
 import { Public } from '../../engines/auth/decorators/public.decorator';
 import type { UserSession } from '@erp/shared-types';
 import { DeliveryStatus } from '@prisma/client';
+
+// I050 — defense-in-depth for the `@Get(':id')` wildcard. The primary fix for
+// `/delivery/companies` precedence lives in app.module.ts (DeliveryCompanies-
+// Module is imported before DeliveryModule so its static route registers first).
+// This regex is a backstop: if any future refactor reorders the modules, a
+// non-ULID id will still be rejected here as a clean 404 instead of being
+// passed to DeliveryService.findOne and surfacing as a misleading DLV_NOT_FOUND.
+// ULID = 26 Crockford-Base32 chars (no I, L, O, U). path-to-regexp@8 dropped
+// inline regex route constraints, so we validate in code instead.
+const ULID_RE = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 
 @Controller('delivery')
 export class DeliveryController {
@@ -82,6 +93,13 @@ export class DeliveryController {
   @Get(':id')
   @RequirePermission('Delivery', 'read')
   findOne(@CurrentUser() user: UserSession, @Param('id') id: string) {
+    if (!ULID_RE.test(id)) {
+      // Defensive 404: the request reached the wildcard but the id is not a
+      // ULID, so it's almost certainly a sub-path that should have been
+      // handled by a sibling controller (e.g. /delivery/companies). Surface
+      // a clean "no route" 404 instead of DLV_NOT_FOUND from the service.
+      throw new NotFoundException(`No route for /delivery/${id}`);
+    }
     return this.svc.findOne(id, user.companyId);
   }
 
