@@ -263,7 +263,7 @@ export default function LicenseAnalyticsPage() {
                     cy="50%"
                     innerRadius={50}
                     outerRadius={90}
-                    label={(entry) => entry.planName}
+                    label={(entry) => entry.name}
                   >
                     {breakdown.map((_, i) => (
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />

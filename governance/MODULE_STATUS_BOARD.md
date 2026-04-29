@@ -24,16 +24,21 @@
 | Production HTTP 200 | ✅ مؤكد 2026-04-27 |
 | Open T-tasks (Wave 1-6) | **0** ✅ Wave 6 complete 2026-04-27 |
 
-## 🔧 Dependency Health — 2026-04-29
+## 🔧 Dependency Health — 2026-04-29 (Session 26 update)
 
 | الحزمة | الإصدار الحالي | الإصدار الجديد | الحالة |
 |---|---|---|---|
 | TypeScript | 6.0.3 | 6.0.3 | ✅ مُرقَّى (I032 batch 3) |
 | Tailwind CSS | 4.1.11 (web+storefront+pos) | — | ✅ مُرقَّى (I041) |
 | Prisma | 7.8.0 | — | ✅ مُرقَّى (I040) — driver-adapter pattern |
-| react-router-dom | 6.30.3 | 7.14.2 | 🔴 مجمّد — (I032) |
-| @nestjs/swagger | 8.1.1 | 11.4.1 | 🔴 مجمّد — (I032) |
-| باقي 13 حزمة | — | — | 🔴 مجمّد — (I032) |
+| @nestjs/swagger | 11.4.2 | — | ✅ مُرقَّى (I032 batch 4) — 8→11 |
+| @nestjs/bull | 11.0.4 | — | ✅ مُرقَّى (I032 batch 4) — 10→11 |
+| @nestjs/config | 4.0.4 | — | ✅ مُرقَّى (I032 batch 4) — 3→4 |
+| @nestjs/jwt/@nestjs/passport | 11.x | — | ✅ مُرقَّى (I032 batch 4) |
+| cache-manager | 7.2.8 | — | ✅ مُرقَّى (I032 batch 4) — 5→7 |
+| recharts | 3.8.1 (web) | — | ✅ مُرقَّى (I032 batch 4) — 2→3 |
+| react-router-dom | — | — | ✅ حُذف من apps/pos (unused) |
+| باقي حزم (zod 3→4, react-router-dom 6→7 in web) | — | — | 🔴 مجمّد — (I032) |
 | Security (pnpm audit) | — | — | ✅ 20→2 vulns (I048) — uuid moderate risk-accepted |
 
 ---
@@ -187,4 +192,4 @@
 
 ---
 
-*آخر تحديث: 2026-04-29 — Session 26: Root fixes complete (I048 20→2 vulns, I041 TW4 ✅, I040 Prisma 7.8.0 ✅, I037 ✅) · Autopilot 50/50 jobs verified · Phase 5.B steps 1-3 done · G4 GATE CLOSED 30/30 e2e tests*
+*آخر تحديث: 2026-04-29 — Session 26: I032 Batch 4 ✅ (swagger 8→11, bull 10→11, config 3→4, jwt/passport/event-emitter, cache-manager 5→7, recharts 2→3, react-router-dom removed from POS) · Phase 3 artifacts ✅ (health-check, restore-test, k6, evidence scripts, flow docs) · Phase 5.A ✅ 50/50 jobs real · G4 GATE CLOSED 30/30 e2e tests*
