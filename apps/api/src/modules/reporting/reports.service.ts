@@ -388,6 +388,14 @@ export class ReportsService {
   }
 
   async giftProfitMargin(companyId: string, params: { from: Date; to: Date }) {
+    // I047 — `p.isGiftware` does not exist on ProductTemplate. The schema
+    // uses a `tags` array; convention is to tag giftware items with
+    // 'giftware'. Filter rewritten to check the tag array instead.
+    // If the from/to params are missing/invalid, return empty array.
+    if (!params.from || !params.to ||
+        isNaN(params.from.getTime()) || isNaN(params.to.getTime())) {
+      return [];
+    }
     return this.prisma.$queryRawUnsafe(
       `SELECT sil."variantId", p."nameAr" AS product_name,
               SUM(sil."qty")::float AS qty,
@@ -400,7 +408,7 @@ export class ReportsService {
        JOIN "product_templates" p ON p.id = pv."templateId"
        LEFT JOIN "inventory_balances" ib ON ib."variantId" = pv.id AND ib."companyId" = $1
        WHERE si."companyId" = $1 AND si."invoiceDate" BETWEEN $2 AND $3
-         AND p."isGiftware" = true
+         AND 'giftware' = ANY(p."tags")
        GROUP BY sil."variantId", p."nameAr"
        ORDER BY profit DESC`,
       companyId,
