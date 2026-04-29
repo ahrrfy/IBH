@@ -37,8 +37,8 @@
 | @nestjs/jwt/@nestjs/passport | 11.x | — | ✅ مُرقَّى (I032 batch 4) |
 | cache-manager | 7.2.8 | — | ✅ مُرقَّى (I032 batch 4) — 5→7 |
 | recharts | 3.8.1 (web) | — | ✅ مُرقَّى (I032 batch 4) — 2→3 |
-| react-router-dom | — | — | ✅ حُذف من apps/pos (unused) |
-| باقي حزم (zod 3→4, react-router-dom 6→7 in web) | — | — | 🔴 مجمّد — (I032) |
+| react-router-dom | — | — | ✅ حُذف من apps/pos (unused) · web uses Next.js router (not needed) |
+| zod | 4.3.6 (all apps) | — | ✅ مُرقَّى (I032 batch 6) — 3→4 · 2 schema fixes |
 | Security (pnpm audit) | — | — | ✅ 20→2 vulns (I048) — uuid moderate risk-accepted |
 
 ---
@@ -192,4 +192,4 @@
 
 ---
 
-*آخر تحديث: 2026-04-29 — Session 26: I032 Batch 4 ✅ (swagger 8→11, bull 10→11, config 3→4, jwt/passport/event-emitter, cache-manager 5→7, recharts 2→3, react-router-dom removed from POS) · Phase 3 artifacts ✅ (health-check, restore-test, k6, evidence scripts, flow docs) · Phase 5.A ✅ 50/50 jobs real · G4 GATE CLOSED 30/30 e2e tests*
+*آخر تحديث: 2026-04-29 — Session 26: ✅ I032 مغلق كاملاً (Batch 3-6: TS6, TW4, Prisma7, NestJS v11 stack, recharts 3, zod 4) · Phase 3 artifacts ✅ · Phase 5.A ✅ 50/50 jobs real · G4 GATE CLOSED 30/30 e2e tests*

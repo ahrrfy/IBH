@@ -325,31 +325,19 @@ pnpm --filter api exec prisma generate
 
 ---
 
-## §I032 — 18 Major Dependency PRs — خارطة الترحيل (2026-04-27)
+## ✅ §I032 — 18 Major Dependency PRs — مغلق 2026-04-29
 
-**الخلفية:** Dependabot فتح 18 PR لتحديثات major version دفعة واحدة عقب تفعيل `dependabot.yml` في PR #56. كل هذه الـ PRs كانت تفشل CI. أُغلقت جميعها في 2026-04-27 مع تعليق موضّح في كل PR. أُضيفت `ignore` rules في `.github/dependabot.yml` لمنع إعادة الفتح الأسبوعي.
+**الحالة:** ✅ **مغلق كاملاً** — جميع المسارات الخمسة مكتملة
 
-**لإعادة تفعيل أي ترحيل:** احذف الـ `ignore` rule المقابلة في `.github/dependabot.yml` — Dependabot يفتح PR جديد في الإثنين التالي.
+| المسار | الترقية | الحالة | Commit |
+|--------|---------|--------|--------|
+| 1 — TypeScript | 5 → 6.0.3 | ✅ | `05c2e29` |
+| 2 — Tailwind CSS | 3 → 4.1.11 | ✅ | `69e0603` |
+| 3 — Prisma | 6.19.3 → 7.8.0 | ✅ | `4739b05` |
+| 4 — NestJS ecosystem | swagger 8→11, bull 10→11, config 3→4, jwt/passport v11, cache-manager 5→7 | ✅ | `5d5a79e` |
+| 5 — Frontend libs | recharts 2→3, zod 3→4 (all apps), react-router-dom removed (unused) | ✅ | `3f919cf` + `e29be9e` |
 
-### مسار 1 — TypeScript 5 → 6
-PRs المغلقة: #74 (api) · #72 (web) · #68 (pos) · #67 (storefront) + #71 (@types/node web)
-**شروط الترحيل:** Next.js 15 + NestJS + Prisma يدعمون TS 6 رسمياً · مراجعة 258 موقع `as any` · تشغيل `pnpm typecheck` صفر errors على كل التطبيقات.
-
-### مسار 2 — Tailwind CSS 3 → 4
-PRs المغلقة: #79 (root) · #60 (pos) · #70 (tailwind-merge web) · #66 (lucide-react web) · #62 (lucide-react storefront)
-**شروط الترحيل:** إعادة كتابة `tailwind.config.js` → CSS-first `@theme` · مراجعة `tailwind-merge` v3 API · فحص أسماء الأيقونات في `lucide-react` v1 · اختبار بصري كامل.
-
-### مسار 3 — Prisma 6 → 7
-PRs المغلقة: #77 (api)
-**شروط الترحيل:** مراجعة `$transaction` API changes · اختبار شامل لـ StockLedger + JournalEntries + AuditLogs (F2/F3 critical) · e2e tests كاملة على DB نظيف.
-
-### مسار 4 — NestJS major bumps
-PRs المغلقة: #83 (@nestjs/swagger 8→11) · #75 (@nestjs/bull 10→11) · #76 (@nestjs/config 3→4)
-**شروط الترحيل:** ترقية منسّقة لكل حزم NestJS معاً · مراجعة `@ApiProperty()` decorators · `BullModule.registerQueue()` API · `ConfigModule.forRoot()` options.
-
-### مسار 5 — Frontend libraries
-PRs المغلقة: #80 + #65 (react-router-dom 6→7) · #82 (recharts 2→3) · #69 (zod 3→4 storefront)
-**شروط الترحيل:** react-router-dom 7: مراجعة كل Router/useNavigate/Link · recharts 3: chart components في Reports · zod 4: كل `.parse()` و `z.infer<>`.
+**ملاحظة:** react-router-dom لم يُرحَّل — تبيّن أنه غير مستخدم في كود POS (Next.js web app يستخدم مسارها الخاص).
 
 ---
 
