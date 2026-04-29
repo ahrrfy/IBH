@@ -12,8 +12,13 @@ const nextConfig = {
   images: {
     formats: ['image/webp'],
     remotePatterns: [
-      { protocol: 'https', hostname: 'erp.al-ruya.iq' },
-      { protocol: 'https', hostname: 'minio.al-ruya.iq' },
+      // Production: API + MinIO are exposed under ibherp.cloud (and a
+      // dedicated subdomain once T55-shop DNS lands). Legacy al-ruya.iq
+      // patterns were dropped — the prior deploy on this VPS used those
+      // hostnames but the current domain is ibherp.cloud.
+      { protocol: 'https', hostname: 'ibherp.cloud' },
+      { protocol: 'https', hostname: 'shop.ibherp.cloud' },
+      { protocol: 'https', hostname: 'minio.ibherp.cloud' },
     ],
   },
   async headers() {

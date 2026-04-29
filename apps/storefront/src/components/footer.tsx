@@ -29,7 +29,7 @@ export function Footer() {
           <ul className="space-y-2 text-sm text-gray-400">
             <li>هاتف: 07700000000</li>
             <li>واتساب: 07700000000</li>
-            <li>البريد: info@al-ruya.iq</li>
+            <li>البريد: info@ibherp.cloud</li>
             <li>بغداد، العراق</li>
           </ul>
         </div>

@@ -7,7 +7,9 @@ export const metadata: Metadata = {
     template: '%s | الرؤية العربية',
   },
   description: 'متجر الرؤية العربية الإلكتروني — تسوّق بأمان في العراق',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://store.al-ruya.iq'),
+  // metadataBase fallback uses the production storefront subdomain. Override
+  // via NEXT_PUBLIC_SITE_URL for staging/preview builds.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://shop.ibherp.cloud'),
   openGraph: {
     type: 'website',
     locale: 'ar_IQ',
