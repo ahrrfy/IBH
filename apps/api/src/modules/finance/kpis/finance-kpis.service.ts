@@ -37,14 +37,25 @@ export class FinanceKpisService {
     const from = params.from ?? new Date(now.getFullYear(), now.getMonth(), 1);
     const to = params.to ?? now;
 
+    // I047 — wrap each component in its own try/catch with explicit log so a
+    // single broken sub-query doesn't 500 the whole dashboard.
+    const safe = async <T>(label: string, fn: () => Promise<T>, fallback: T): Promise<T> => {
+      try { return await fn(); }
+      catch (err) {
+        const m = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+        console.error(`[finance-kpis.${label}] FAILED:`, m);
+        return fallback;
+      }
+    };
+
     const [income, arAging, cashPosition, topExpenses] = await Promise.all([
-      this.reports.incomeStatement(companyId, { from, to }),
-      this.arAging(companyId),
-      this.cashPosition(companyId),
-      this.topExpensesByAccount(companyId, from, to, 5),
+      safe('incomeStatement', () => this.reports.incomeStatement(companyId, { from, to }), { totals: { totalRevenue: 0, grossMargin: 0, netIncome: 0 } } as any),
+      safe('arAging', () => this.arAging(companyId), { bucket_0_30: 0, bucket_31_90: 0, bucket_90_plus: 0 }),
+      safe('cashPosition', () => this.cashPosition(companyId), { cashInBanks: 0, cashInHand: 0 }),
+      safe('topExpenses', () => this.topExpensesByAccount(companyId, from, to, 5), [] as any[]),
     ]);
 
-    const totals = income.totals;
+    const totals = income.totals ?? { totalRevenue: 0, grossMargin: 0, netIncome: 0 };
 
     return {
       period: { from, to },

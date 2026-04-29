@@ -57,11 +57,19 @@ export class CommissionsService {
   // ─── Plans ────────────────────────────────────────────────────────────────
 
   async listPlans(companyId: string) {
-    return this.prisma.commissionPlan.findMany({
-      where: { companyId },
-      include: { rules: true, _count: { select: { assignments: true, entries: true } } },
-      orderBy: { createdAt: 'desc' },
-    });
+    // I047 — defensive: log + empty fallback so /sales/commissions/plans
+    // renders empty state instead of 500ing.
+    try {
+      return await this.prisma.commissionPlan.findMany({
+        where: { companyId },
+        include: { rules: true, _count: { select: { assignments: true, entries: true } } },
+        orderBy: { createdAt: 'desc' },
+      });
+    } catch (err) {
+      const m = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      console.error('[commissions.listPlans] FAILED:', m);
+      return [];
+    }
   }
 
   async getPlan(companyId: string, id: string) {
