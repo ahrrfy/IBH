@@ -1,0 +1,2 @@
+{"stages":[{"status":"new","leads":[],"count":0,"totalValueIqd":0},{"status":"contacted","leads":[],"count":0,"totalValueIqd":0},{"status":"qualified","leads":[],"count":0,"totalValueIqd":0},{"status":"proposal","leads":[],"count":0,"totalValueIqd":0},{"status":"negotiation","leads":[],"count":0,"totalValueIqd":0},{"status":"won","leads":[],"count":0,"totalValueIqd":0},{"status":"lost","leads":[],"count":0,"totalValueIqd":0}]}
+{"_meta":{"status":200,"time_ms":0.281732}}
