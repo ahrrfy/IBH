@@ -24,8 +24,15 @@
  * F2/F3 invariants enforced by the posting/inventory engines.
  */
 import { PrismaClient, ProductType, CustomerType } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
-const prisma = new PrismaClient();
+// Prisma 7 (I040) requires the driver-adapter pattern instead of a plain
+// `new PrismaClient()`. Construct the same way PrismaService does in
+// apps/api/src/platform/prisma/prisma.service.ts.
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 const CATEGORIES = [
   { code: 'FOOD',     nameAr: 'مواد غذائية',    nameEn: 'Food' },
