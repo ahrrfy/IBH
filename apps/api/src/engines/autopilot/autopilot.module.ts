@@ -42,6 +42,13 @@ import { HrProbationEndFlagJob } from './jobs/hr.probation-end-flag.job';
 import { InventoryWarehouseBalanceJob } from './jobs/inventory.warehouse-balance.job';
 import { InventoryBarcodeMissingJob } from './jobs/inventory.barcode-missing.job';
 import { InventoryStocktakeReminderJob } from './jobs/inventory.stocktake-reminder.job';
+// ── T71 — Batch 3 jobs ──────────────────────────────────────────────────────
+import { SalesLoyaltyTierRecomputeJob } from './jobs/sales.loyalty-tier-recompute.job';
+import { SalesCommissionCalcJob } from './jobs/sales.commission-calc.job';
+import { FinanceExchangeRateSyncJob } from './jobs/finance.exchange-rate-sync.job';
+import { LicenseHeartbeatCheckJob } from './jobs/license.heartbeat-check.job';
+import { LicenseUsageReportJob } from './jobs/license.usage-report.job';
+import { CrmDuplicateMergeSuggestJob } from './jobs/crm.duplicate-merge-suggest.job';
 import type { AutopilotJob } from './autopilot.types';
 
 // ─── T71 — Autonomous Operations Engine Module ──────────────────────────────
@@ -114,6 +121,14 @@ import type { AutopilotJob } from './autopilot.types';
     InventoryBarcodeMissingJob,
     InventoryStocktakeReminderJob,
 
+    // T71 implemented jobs — Batch 3
+    SalesLoyaltyTierRecomputeJob,
+    SalesCommissionCalcJob,
+    FinanceExchangeRateSyncJob,
+    LicenseHeartbeatCheckJob,
+    LicenseUsageReportJob,
+    CrmDuplicateMergeSuggestJob,
+
     // Scaffold builder (remaining stubs).
     AutopilotJobScaffolds,
 
@@ -151,6 +166,12 @@ import type { AutopilotJob } from './autopilot.types';
         invWarehouseBalance: InventoryWarehouseBalanceJob,
         invBarcodesMissing: InventoryBarcodeMissingJob,
         invStocktake: InventoryStocktakeReminderJob,
+        salesLoyaltyTier: SalesLoyaltyTierRecomputeJob,
+        salesCommission: SalesCommissionCalcJob,
+        finExchangeRate: FinanceExchangeRateSyncJob,
+        licHeartbeat: LicenseHeartbeatCheckJob,
+        licUsageReport: LicenseUsageReportJob,
+        crmDupMerge: CrmDuplicateMergeSuggestJob,
         scaffolds: AutopilotJobScaffolds,
       ): AutopilotJob[] => [
         salesOverdue,
@@ -170,6 +191,8 @@ import type { AutopilotJob } from './autopilot.types';
         deliveryCod, deliveryRedeliver,
         finUnbalancedJe, hrBirthday, hrProbation,
         invWarehouseBalance, invBarcodesMissing, invStocktake,
+        salesLoyaltyTier, salesCommission, finExchangeRate,
+        licHeartbeat, licUsageReport, crmDupMerge,
         ...scaffolds.buildAll(),
       ],
       inject: [
@@ -203,6 +226,12 @@ import type { AutopilotJob } from './autopilot.types';
         InventoryWarehouseBalanceJob,
         InventoryBarcodeMissingJob,
         InventoryStocktakeReminderJob,
+        SalesLoyaltyTierRecomputeJob,
+        SalesCommissionCalcJob,
+        FinanceExchangeRateSyncJob,
+        LicenseHeartbeatCheckJob,
+        LicenseUsageReportJob,
+        CrmDuplicateMergeSuggestJob,
         AutopilotJobScaffolds,
       ],
     },
