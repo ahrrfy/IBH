@@ -13,9 +13,8 @@ const nextConfig = {
     formats: ['image/webp'],
     remotePatterns: [
       // Production: API + MinIO are exposed under ibherp.cloud (and a
-      // dedicated subdomain once T55-shop DNS lands). Legacy al-ruya.iq
-      // patterns were dropped — the prior deploy on this VPS used those
-      // hostnames but the current domain is ibherp.cloud.
+      // dedicated subdomain once T55-shop DNS lands). The previous deploy
+      // on this VPS used a different domain — those patterns were removed.
       { protocol: 'https', hostname: 'ibherp.cloud' },
       { protocol: 'https', hostname: 'shop.ibherp.cloud' },
       { protocol: 'https', hostname: 'minio.ibherp.cloud' },

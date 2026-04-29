@@ -88,7 +88,7 @@ export default async function LicenseRequiredPage({ searchParams }: PageProps) {
 
         <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
           <a
-            href="mailto:support@al-ruya.iq?subject=License%20Renewal"
+            href="mailto:support@ibherp.cloud?subject=License%20Renewal"
             className="rounded-lg bg-sky-700 px-5 py-2.5 text-center text-sm font-medium text-white transition hover:bg-sky-800"
           >
             تواصل مع المسؤول · Contact Admin
