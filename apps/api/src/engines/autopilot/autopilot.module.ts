@@ -5,11 +5,10 @@ import { NotificationsModule } from '../../platform/notifications/notifications.
 import { ProcurementAutoReorderModule } from '../../modules/procurement/auto-reorder/auto-reorder.module';
 import { AutopilotEngineService } from './autopilot.service';
 import { AutopilotController } from './autopilot.controller';
-import {
-  AUTOPILOT_QUEUE,
-  AutopilotProcessor,
-  AutopilotScheduler,
-} from './autopilot.scheduler';
+// I047 — AutopilotProcessor + AutopilotScheduler classes excluded from
+// providers below to bypass @nestjs/bull explorer double-registration.
+// Cron jobs paused; engine still callable manually via /autopilot/run.
+import { AUTOPILOT_QUEUE } from './autopilot.scheduler';
 import { AUTOPILOT_JOBS } from './autopilot.tokens';
 import { SalesOverdueReminderJob } from './jobs/sales.overdue-reminder.job';
 import { InventoryAutoReorderJob } from './jobs/inventory.auto-reorder.job';
@@ -40,8 +39,6 @@ import type { AutopilotJob } from './autopilot.types';
   controllers: [AutopilotController],
   providers: [
     AutopilotEngineService,
-    AutopilotScheduler,
-    AutopilotProcessor,
 
     // Reference jobs.
     SalesOverdueReminderJob,

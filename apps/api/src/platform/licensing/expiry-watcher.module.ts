@@ -1,14 +1,13 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
-import {
-  ExpiryWatcherProcessor,
-  LICENSE_EXPIRY_QUEUE,
-} from './expiry-watcher.processor';
-import {
-  TrialExpiryProcessor,
-  TRIAL_EXPIRY_QUEUE,
-} from './trial-expiry.processor';
+import { LICENSE_EXPIRY_QUEUE } from './expiry-watcher.processor';
+import { TRIAL_EXPIRY_QUEUE } from './trial-expiry.processor';
 import { TrialService } from './trial.service';
+// I047 — ExpiryWatcherProcessor + TrialExpiryProcessor classes removed from
+// providers list to bypass @nestjs/bull's BullExplorer double-registration
+// bug. Their queues remain registered (callers can still enqueue jobs);
+// in-process consumption is paused until I048 picks a permanent solution
+// (upgrade @nestjs/bull, switch to bullmq, or manual processor wiring).
 
 /**
  * T69 + T61 — License Expiry Watcher Module.
@@ -30,7 +29,7 @@ import { TrialService } from './trial.service';
       { name: TRIAL_EXPIRY_QUEUE },
     ),
   ],
-  providers: [ExpiryWatcherProcessor, TrialExpiryProcessor, TrialService],
-  exports: [ExpiryWatcherProcessor, TrialExpiryProcessor, TrialService],
+  providers: [TrialService],
+  exports: [TrialService],
 })
 export class ExpiryWatcherModule {}
