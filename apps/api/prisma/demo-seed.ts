@@ -150,6 +150,10 @@ async function main() {
         phone: s.phone,
         balanceIqd: 0,
         isActive: true,
+        // Supplier schema requires createdBy/updatedBy (Char(26)). Same audit
+        // marker as customers/products so the seed can re-run idempotently.
+        createdBy: 'demo-seed',
+        updatedBy: 'demo-seed',
       },
     });
   }
