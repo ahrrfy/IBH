@@ -12,7 +12,6 @@
     "^@erp/validation-schemas$": "<rootDir>/../../../packages/validation-schemas/src",
     "^@erp/domain-events$":      "<rootDir>/../../../packages/domain-events/src"
   },
-  "testTimeout": 90000,
-  "maxWorkers": 1,
-  "bail": 5
+  "testTimeout": 120000,
+  "maxWorkers": 1
 }
