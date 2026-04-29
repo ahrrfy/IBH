@@ -60,7 +60,42 @@ ssh ibherp "cat /etc/docker/daemon.json && ls -la /etc/cron.weekly/docker-prune 
 
 ---
 
-## S1.10 — Storefront DNS & SSL
+## S1.10 — Storefront DNS & SSL ⚠️ PARTIAL (2026-04-29 Session 27)
+
+**Status:** Infrastructure done · App build blocked
+
+**What was deployed:**
+- DNS A record: `shop.ibherp.cloud` → `187.124.183.140` (TTL 3600)
+- DNS propagated globally (verified via 8.8.8.8 + 1.1.1.1)
+- nginx vhost installed at `/etc/nginx/sites-enabled/shop.ibherp.cloud`
+- Let's Encrypt SSL cert issued (expires 2026-07-28, auto-renewal scheduled)
+- HTTPS:443 reaches the nginx → docker-nginx proxy chain
+
+**Still blocked:**
+Storefront container fails to build with Tailwind 4 CSS module type error:
+```
+Type error: Cannot find module or type declarations for side-effect import of './globals.css'.
+```
+This is a fallout from I041 (Tailwind 3→4 upgrade) — the storefront app's
+TypeScript config doesn't allow side-effect CSS imports the way Tailwind 4
+expects them. Currently returns 502 at `https://shop.ibherp.cloud`.
+
+**Fix needed (separate session):** Add to `apps/storefront/src/app/global.d.ts`:
+```typescript
+declare module '*.css';
+```
+Or update `tsconfig.json` `compilerOptions.types` to include the CSS module.
+
+**Verification:**
+```bash
+curl -sI https://shop.ibherp.cloud
+# Currently: 502 Bad Gateway (storefront container not running)
+# Target: 200 OK with valid SSL
+```
+
+---
+
+### Original Plan (kept for reference)
 
 **Objective:** Enable e-commerce storefront at shop.ibherp.cloud with valid SSL
 
