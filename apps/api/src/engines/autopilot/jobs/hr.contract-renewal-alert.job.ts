@@ -24,7 +24,7 @@ const LOOKAHEAD_DAYS = 30;
 /** Maps days-remaining to a severity level. */
 function resolveSeverity(daysLeft: number): AutopilotSeverity {
   if (daysLeft <= 7) return 'critical';
-  if (daysLeft <= 14) return 'warning';
+  if (daysLeft <= 14) return 'medium';
   return 'low';
 }
 

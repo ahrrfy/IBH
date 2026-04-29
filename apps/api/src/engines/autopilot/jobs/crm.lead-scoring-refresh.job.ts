@@ -62,7 +62,7 @@ export class CrmLeadScoringRefreshJob implements AutopilotJob {
       const leads = await this.prisma.lead.findMany({
         where: {
           companyId: ctx.companyId,
-          status: { notIn: OPEN_LEAD_STATUSES_EXCLUDED },
+          status: { notIn: OPEN_LEAD_STATUSES_EXCLUDED as any[] },
         },
         select: {
           id: true,

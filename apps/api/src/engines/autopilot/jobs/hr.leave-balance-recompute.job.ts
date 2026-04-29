@@ -99,7 +99,7 @@ export class HrLeaveBalanceRecomputeJob implements AutopilotJob {
     }> = [];
 
     try {
-      leaveAggregates = await this.prisma.leaveRequest.groupBy({
+      leaveAggregates = await (this.prisma.leaveRequest as any).groupBy({
         by: ['employeeId'],
         where: {
           companyId: ctx.companyId,
