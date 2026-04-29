@@ -200,8 +200,8 @@ Each phase has a clear "done" criteria:
 
 - **Phase 3 Done:** `governance/evidence/` has screenshots + captures for every wave + 4 flow demos. G5 gate filled in MODULE_STATUS_BOARD.md.
 - **Phase 4 Done:** UAT_PLAYBOOK scenarios all marked Pass. G6 gate filled. Launch sign-off documented in DECISIONS_LOG.md.
-- **Phase 5 Done:** ✅ All 50 autopilot jobs production-ready (no scaffolds). ✅ TS6+TW4+Prisma7 upgraded. Remaining: NestJS + frontend libs upgraded. Native apps published to stores.
+- **Phase 5 Done:** ✅ All 50 autopilot jobs production-ready (no scaffolds). ✅ All 18 frozen deps upgraded (TS6+TW4+Prisma7+NestJS11+Zod4+Recharts3). Remaining: Native apps published to stores (5.C — needs signing certs).
 
 ---
 
-**Last Updated:** 2026-04-29 — Session 26 (5.A ✅ 50/50 autopilot, 5.B steps 1-3 ✅ TS6+TW4+Prisma7, 3.C ✅ UAT seed)
+**Last Updated:** 2026-04-29 — Session 27 (5.B steps 4-5 ✅ NestJS11+Zod4+Recharts3 — I032 fully closed 18/18)
