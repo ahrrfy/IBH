@@ -13,7 +13,11 @@ tauri-build = { version = "2", features = [] }
 serde         = { version = "1", features = ["derive"] }
 serde_json    = "1"
 tauri         = { version = "2", features = [] }
-tauri-plugin-sql      = { version = "2", features = ["sqlite"] }
+# SQLCipher-encrypted SQLite via rusqlite. The bundled-sqlcipher-vendored-openssl
+# feature compiles SQLCipher (and OpenSSL) from source so the bundle is
+# self-contained — no system libcrypto needed on end-user Windows machines.
+# DB key is derived per-device from hardware fingerprint at first connect.
+rusqlite              = { version = "0.31", features = ["bundled-sqlcipher-vendored-openssl"] }
 tauri-plugin-store    = "2"
 tauri-plugin-shell    = "2"
 tauri-plugin-dialog   = "2"

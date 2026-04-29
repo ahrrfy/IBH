@@ -49,9 +49,5 @@
       }
     }
   },
-  "plugins": {
-    "sql": {
-      "preload": ["sqlite:pos.db"]
-    }
-  }
+  "plugins": {}
 }

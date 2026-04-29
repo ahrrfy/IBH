@@ -1,86 +1,45 @@
 // Al-Ruya ERP POS — Tauri main entry point
-// Offline-first POS with SQLite encrypted store + sync to cloud API
+// Offline-first POS with SQLCipher-encrypted SQLite + sync to cloud API.
+//
+// 5.C — SQLCipher activation: pos.db is opened by db::open_encrypted with a
+// device-bound key (SHA-256 of hardware fingerprint). Replaces the previous
+// tauri-plugin-sql setup which left the DB unencrypted at rest.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri_plugin_sql::{Migration, MigrationKind};
+use std::sync::Mutex;
+use tauri::Manager;
 
+mod db;
 mod fingerprint;
 mod license;
 
 fn main() {
-    let migrations = vec![
-        // Wave 1 — Offline schema for POS SQLite
-        Migration {
-            version: 1,
-            description: "offline pos schema v1",
-            sql: r#"
-                -- Pending receipts awaiting sync to cloud
-                CREATE TABLE IF NOT EXISTS pending_receipts (
-                    id TEXT PRIMARY KEY,                -- ULID (client-generated)
-                    client_ulid TEXT UNIQUE NOT NULL,
-                    shift_id TEXT NOT NULL,
-                    receipt_json TEXT NOT NULL,         -- full receipt payload
-                    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-                    sync_attempts INTEGER NOT NULL DEFAULT 0,
-                    last_sync_error TEXT,
-                    synced_at TEXT
-                );
-                CREATE INDEX IF NOT EXISTS idx_pending_receipts_shift ON pending_receipts(shift_id);
-                CREATE INDEX IF NOT EXISTS idx_pending_receipts_unsynced ON pending_receipts(synced_at) WHERE synced_at IS NULL;
-
-                -- Cached product catalog (last 5,000 active variants)
-                CREATE TABLE IF NOT EXISTS product_cache (
-                    variant_id TEXT PRIMARY KEY,
-                    sku TEXT NOT NULL,
-                    name_ar TEXT NOT NULL,
-                    barcode TEXT,
-                    price_iqd REAL NOT NULL,
-                    qty_available REAL NOT NULL,
-                    cached_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-                );
-                CREATE INDEX IF NOT EXISTS idx_product_cache_barcode ON product_cache(barcode);
-                CREATE INDEX IF NOT EXISTS idx_product_cache_name ON product_cache(name_ar);
-
-                -- Current shift state (one row)
-                CREATE TABLE IF NOT EXISTS current_shift (
-                    id TEXT PRIMARY KEY,
-                    shift_number TEXT NOT NULL,
-                    cashier_id TEXT NOT NULL,
-                    pos_device_id TEXT NOT NULL,
-                    opened_at TEXT NOT NULL,
-                    opening_cash_iqd REAL NOT NULL
-                );
-
-                -- Sync log
-                CREATE TABLE IF NOT EXISTS sync_log (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    event_type TEXT NOT NULL,
-                    status TEXT NOT NULL,
-                    details TEXT,
-                    at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-                );
-            "#,
-            kind: MigrationKind::Up,
-        },
-    ];
-
     tauri::Builder::default()
-        .plugin(
-            tauri_plugin_sql::Builder::default()
-                .add_migrations("sqlite:pos.db", migrations)
-                .build(),
-        )
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .setup(|app| {
+            // Bind the SQLCipher key to the same hardware fingerprint that
+            // license.rs uses for offline activation (CPUID + MAC + BIOS via
+            // fingerprint::compute_fingerprint). A DB file copied to a
+            // different machine fails the decrypt-verify probe in
+            // db::open_encrypted and we abort startup — better than letting
+            // the cashier hit corrupt-data errors mid-sale.
+            let fp = fingerprint::compute_fingerprint();
+            let conn = db::open_encrypted(app.handle(), &fp)
+                .map_err(|e| format!("encrypted DB init failed: {e}"))?;
+            app.manage(db::DbState(Mutex::new(conn)));
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             get_hardware_fingerprint,
             fingerprint::get_fingerprint,
             open_cash_drawer,
             print_receipt,
             check_license,
+            db::db_schema_version,
             // T66 — offline license verification (defense in depth)
             license::cache_activation_token,
             license::check_offline_license,
@@ -91,11 +50,12 @@ fn main() {
 
 // ─── Tauri Commands ──────────────────────────────────────────────────────────
 
-/// Stable hardware fingerprint derived from hostname + OS + arch.
-/// Hashed with SHA-256 so the raw values never leave the device.
-/// Persisted across runs via tauri_plugin_store on the frontend side.
-#[tauri::command]
-fn get_hardware_fingerprint() -> Result<String, String> {
+/// Stable hardware fingerprint derived from hostname + OS + arch + user.
+/// Same value used both as the SQLCipher key seed (db.rs) and as the
+/// device identity for offline license verification (license.rs), so
+/// any change here invalidates both — version-bump the salt in db.rs
+/// before changing this function.
+pub(crate) fn compute_hardware_fingerprint() -> String {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
 
@@ -110,7 +70,14 @@ fn get_hardware_fingerprint() -> Result<String, String> {
 
     let mut hasher = DefaultHasher::new();
     (host, os, arch, user).hash(&mut hasher);
-    Ok(format!("hw-{:016x}", hasher.finish()))
+    format!("hw-{:016x}", hasher.finish())
+}
+
+/// Tauri-command wrapper around `compute_hardware_fingerprint`.
+/// Persisted across runs via tauri_plugin_store on the frontend side.
+#[tauri::command]
+fn get_hardware_fingerprint() -> Result<String, String> {
+    Ok(compute_hardware_fingerprint())
 }
 
 /// ESC/POS pulse command to open the cash drawer connected to the
