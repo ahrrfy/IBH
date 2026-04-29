@@ -444,11 +444,39 @@ export class InventoryIntelligenceService {
       map.set(key, existing);
     }
 
-    // Batch expiry tracking is out of scope for T42 — the current StockLedger
-    // schema does not carry batch/expiry columns. Q04 will silently no-op
-    // until a future task adds a BatchLedger model. This is a deliberate
-    // forward-compatible stub: the rule is wired and will activate as soon as
-    // earliestExpiryAt is populated.
+    // I037 — Populate earliestExpiryAt from GRNLine.expiryDate.
+    // GRNLine carries the batch expiry entered during goods receipt. We join via
+    // GoodsReceiptNote (which owns warehouseId) to key by (variantId, warehouseId).
+    // We include items that expired up to 7 days ago so the Q04 "Expired" critical
+    // flag still fires for recently-expired batches not yet disposed.
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const expiryRows = await this.prisma.gRNLine.findMany({
+      where: {
+        variantId: { in: variantIds },
+        expiryDate: { not: null, gte: cutoff },
+        grn: {
+          companyId,
+          warehouseId: { in: warehouseIds },
+          status: { in: ['accepted', 'partially_accepted'] },
+        },
+      },
+      select: {
+        variantId: true,
+        expiryDate: true,
+        grn: { select: { warehouseId: true } },
+      },
+      orderBy: { expiryDate: 'asc' },
+    });
+    for (const row of expiryRows) {
+      if (!row.expiryDate) continue;
+      const key = `${row.variantId}|${row.grn.warehouseId}`;
+      const existing = map.get(key) ?? { lastMovementAt: null, lastInboundCostIqd: null, earliestExpiryAt: null };
+      // Keep only the earliest expiry per (variant, warehouse).
+      if (!existing.earliestExpiryAt || row.expiryDate < existing.earliestExpiryAt) {
+        existing.earliestExpiryAt = row.expiryDate;
+        map.set(key, existing);
+      }
+    }
 
     return map;
   }
