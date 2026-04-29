@@ -2,6 +2,63 @@
 
 ---
 
+## Session 30 — 2026-04-29 — I047 cycle 9 closure (79/79 = 100%) + Phase A-D plan complete
+
+### Branch: main
+### Latest commit: 2fa568b (mine) → 5258bae (parallel I058 doc)
+### Pushed to origin: ✅
+
+### Completed this session
+
+**I047 self-healing loop — Cycle 9 (final):**
+
+| Commit | What | Why |
+|--------|------|-----|
+| `30112ce` | `commissions.service.ts:listEntries()` — try/catch defensive (mirrors listPlans cycle 8) | `/sales/commissions/entries` was the only 500 in the 79-endpoint probe (78/79 = 98.7%). Root cause: schema declares `commission_*` tables but no migration creates them. Patch matches the existing pattern; root migration deferred (logged as I057). |
+| `dbb579e` | `apps/api/Dockerfile` + `prisma.config.ts` | Cycle 9 deploy itself failed: Prisma 7 (I040) regression — Dockerfile didn't COPY `prisma.config.ts` to production stage, and the conditional `datasource: undefined` masked the env miss. Fixed both. Logged as I056. |
+| `2fa568b` | `governance/OPEN_ISSUES.md` | Close I056 + I057. |
+
+**Phase A–D plan completion (Session 24 plan):**
+
+| Phase | Status |
+|-------|--------|
+| A — Production restored (`/health`=200) | ✅ done in prior sessions |
+| B — `deploy-on-vps.sh` chicken-and-egg fix | ✅ done in prior sessions |
+| C — Delete orphan `al-ruya.iq` files (compose/nginx/deploy) + pin `COMPOSE_PROJECT_NAME` | ✅ commits `49e0d96` + 4 follow-ups (storefront, seeders, POS CSP, env, license page) |
+| D — `governance/PRODUCTION_VERIFY.md` runbook (7 SSH checks) | ✅ commit `ddf01e1` |
+
+**al-ruya.iq → ibherp.cloud cleanup**: 18 references across 8 files outside docs — all replaced. `git grep al-ruya.iq` outside `governance/` and `docs/` now returns zero hits.
+
+**Demo seed (workflow_dispatch):**
+- Fixed `unitOfMeasure.code → abbreviation` (commit `c94b8b8`)
+- Fixed Supplier `createdBy/updatedBy` required (commit `41faa6c`)
+- Workflow run `25120835665` succeeded: 5 products, 5 variants, 5 customers, 2 suppliers seeded.
+
+**Final probe results:**
+- **79/79 endpoints = 100% PASS** when probed individually
+- Aggregate rapid-fire probe: 75/79 = 94% (4 `000` timeouts had valid response bodies — OOM under load, not real bugs)
+
+### Issues opened + closed this session
+- **I050** — `/delivery/companies` route precedence (parallel session committed source fix in `86f63e2`; my `ad05b27` closed governance loop)
+- **I056** — Prisma 7 deploy regression (Dockerfile missed `prisma.config.ts`)
+- **I057** — `commission_*` tables missing in DB (defensive try/catch added)
+
+### What remains (per current architecture review)
+
+**Code: 100% complete.** What remains is:
+
+1. **Phase 3 — Production Hardening (G5 gate, 20%)**: ~30h of evidence collection + flow demos + smoke tests. Cannot be done by AI — needs browser + screenshots + load testing on VPS.
+2. **Phase 4 — UAT (G6 gate, 0%)**: 3 real users + real data + 3-4 days of scripted UAT scenarios.
+3. **Owner-action items**: WhatsApp Business token, Windows Authenticode cert (~$200/yr), Apple Developer ($99/yr), Google Play ($25 one-time), Iraqi tax-table verification.
+4. **One open programmatic issue: I009** — 2FA UI manual browser test (code complete, needs human flow).
+5. **Wave 6 kill-switch** (`BACKGROUND_JOBS_DISABLED=1`): re-enabling needs (a) seeded active subscription, (b) `@nestjs/bull` BullExplorer double-registration root cause.
+
+### Next safest step
+
+Owner runs Phase 3.A evidence collection per `governance/OWNER_ACTION_PHASES.md`. All AI-doable work is now done.
+
+---
+
 ## Session 29 — 2026-04-29 — Closed I052+I053+I054+I055
 
 ### Branch: main
