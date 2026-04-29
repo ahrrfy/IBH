@@ -27,10 +27,21 @@ describe('AccountMappingService (e2e)', () => {
     prisma = app.get(PrismaService);
     service = app.get(AccountMappingService);
 
-    // Use the seeded RUA company.
     const company = await prisma.company.findFirst({ where: { code: 'RUA' } });
     expect(company).toBeTruthy();
     companyId = company!.id;
+
+    // Ensure the sale.cash mapping exists (may not be in bootstrap seed).
+    const cashAccount = await prisma.chartOfAccount.findFirst({
+      where: { companyId, code: '2411', isActive: true },
+    });
+    if (cashAccount) {
+      await prisma.accountMapping.upsert({
+        where: { companyId_eventType: { companyId, eventType: 'sale.cash' } },
+        update: { accountCode: '2411' },
+        create: { companyId, eventType: 'sale.cash', accountCode: '2411', description: 'e2e-seed' },
+      });
+    }
   });
 
   afterAll(async () => {

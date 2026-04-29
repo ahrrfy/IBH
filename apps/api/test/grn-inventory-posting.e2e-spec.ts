@@ -158,14 +158,16 @@ describe('Purchases — GRN inventory posting invariants (e2e)', () => {
   });
 
   it('balanceAfter is monotonic per (variant, warehouse) in createdAt order', async () => {
-    // Pick a (variant, warehouse) with at least 2 entries to validate.
-    const grouped = await (prisma.stockLedgerEntry as any).groupBy({
-      by: ['variantId', 'warehouseId', 'companyId'],
-      _count: { _all: true },
-      having: { _count: { _all: { gt: 1 } } },
-      orderBy: [{ variantId: 'asc' }],
-      take: 5,
-    });
+    const grouped = await prisma.$queryRaw<
+      { variantId: string; warehouseId: string; companyId: string }[]
+    >`
+      SELECT "variantId", "warehouseId", "companyId"
+      FROM "stock_ledger_entries"
+      GROUP BY "variantId", "warehouseId", "companyId"
+      HAVING COUNT(*) > 1
+      ORDER BY "variantId" ASC
+      LIMIT 5
+    `;
     if (grouped.length === 0) return;
 
     for (const g of grouped) {

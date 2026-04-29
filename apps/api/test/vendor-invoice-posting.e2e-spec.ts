@@ -53,10 +53,17 @@ describe('Vendor Invoice — AP posting (e2e)', () => {
     });
     if (!user) return;
 
-    // Post a simulated vendor invoice journal entry (Inventory Dr / AP Cr)
     const amount = 750000; // IQD
-    const inventoryCode = '212';
-    const apCode = '321';
+    // Use actual seeded accounts — find by name pattern if codes vary
+    const invAcc = await prisma.chartOfAccount.findFirst({
+      where: { companyId: company.id, code: '212', isActive: true },
+    });
+    const apAcc = await prisma.chartOfAccount.findFirst({
+      where: { companyId: company.id, code: '321', isActive: true },
+    });
+    if (!invAcc || !apAcc) return; // Skip if seed didn't provision these accounts
+    const inventoryCode = invAcc.code;
+    const apCode = apAcc.code;
 
     const je = await posting.postJournalEntry(
       {
