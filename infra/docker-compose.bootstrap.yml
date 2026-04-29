@@ -160,21 +160,24 @@ services:
       # No defaults — admin user only created if both vars are set in .env
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
-      # 5.D — Two independent kill-switches.
+      # 5.D — Granular kill-switches.
       #
-      # BACKGROUND_JOBS_DISABLED (default 0) — skip AdminLicensing +
-      #   ExpiryWatcher + Autopilot. Default OFF now that I047's
-      #   Optional()-injection guard in BillingSweepProcessor stops
-      #   ECONNREFUSED on Redis from crashing the API.
+      # LICENSE_GUARD_DISABLED (default 1) — skip the global APP_GUARD.
+      #   Stays ON until a Subscription is seeded; otherwise every authed
+      #   request returns 403 on a greenfield install. /licensing/me/features
+      #   stays reachable via LicensingMirrorModule regardless.
       #
-      # LICENSE_GUARD_DISABLED (default 1) — skip PlatformLicensingModule's
-      #   global LicenseGuard. Stays ON until plans + a Subscription row
-      #   are seeded; otherwise every authed request returns 403 on a
-      #   greenfield install. The read-only /licensing/me/features endpoint
-      #   is provided by LicensingMirrorModule unconditionally so the web
-      #   shell still boots.
-      BACKGROUND_JOBS_DISABLED: ${BACKGROUND_JOBS_DISABLED:-0}
-      LICENSE_GUARD_DISABLED:   ${LICENSE_GUARD_DISABLED:-1}
+      # ADMIN_LICENSING_DISABLED (default 0) — skip AdminLicensingModule.
+      #   Hosts the daily BillingSweepProcessor. Safe to enable with
+      #   I047's Optional()-injection guard.
+      #
+      # AUTOPILOT_DISABLED      (default 1) — skip AutopilotModule.
+      # EXPIRY_WATCHER_DISABLED (default 1) — skip ExpiryWatcherModule.
+      #   Heavy DI; staged enablement after billing cron is verified.
+      LICENSE_GUARD_DISABLED:    ${LICENSE_GUARD_DISABLED:-1}
+      ADMIN_LICENSING_DISABLED:  ${ADMIN_LICENSING_DISABLED:-0}
+      AUTOPILOT_DISABLED:        ${AUTOPILOT_DISABLED:-1}
+      EXPIRY_WATCHER_DISABLED:   ${EXPIRY_WATCHER_DISABLED:-1}
     networks:
       - erp-internal
     depends_on:

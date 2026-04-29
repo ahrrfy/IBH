@@ -70,22 +70,29 @@ import { OnlineOrdersModule } from './modules/sales/online-orders/online-orders.
 
 const isTest = process.env.NODE_ENV === 'test';
 
-// 5.D — Split kill-switch into two independent flags so we can re-enable
-// the billing cron + autopilot jobs (the actually-needed background work)
-// without re-enabling the global LicenseGuard (which 403s every endpoint
-// on greenfield installs that haven't seeded a Subscription yet).
+// 5.D — Granular kill-switches. Each background module gets its own flag
+// so we can enable the billing cron without dragging in Autopilot's 50-job
+// bootstrap or ExpiryWatcher.
 //
-// LICENSE_GUARD_DISABLED=1 (default 1)  → skip PlatformLicensingModule
-//   Guard is OFF by default until a Subscription row exists. The read-only
-//   /licensing/me/features endpoint is provided by LicensingMirrorModule
-//   in coreImports regardless, so the web shell still boots.
+// LICENSE_GUARD_DISABLED=1 (default 1) → skip the global APP_GUARD only.
+//   Guard stays OFF until a Subscription row exists. PlatformLicensingModule's
+//   read services (PlanChangeService etc.) load unconditionally so AdminLicensing
+//   can inject them.
 //
-// BACKGROUND_JOBS_DISABLED=1 (default 0) → skip AdminLicensing + Autopilot +
-//   ExpiryWatcher. These are the BullMQ-heavy modules. Default OFF (i.e.
-//   jobs RUN) now that I047's Optional()-injection fix in BillingSweepProcessor
-//   has stabilised dev/prod against ECONNREFUSED on Redis.
-const skipBackgroundJobs = isTest || process.env.BACKGROUND_JOBS_DISABLED === '1';
-const skipLicenseGuard   = isTest || process.env.LICENSE_GUARD_DISABLED   !== '0';
+// ADMIN_LICENSING_DISABLED=0 (default 0) → skip AdminLicensingModule.
+//   Hosts BillingSweepProcessor. Default ON (i.e. cron RUNS) now that
+//   I047's Optional()-injection guard makes Redis ECONNREFUSED non-fatal.
+//
+// AUTOPILOT_DISABLED=1 (default 1) → skip AutopilotModule.
+//   Hosts 50 cron jobs. Heavy DI graph; staying off until separately
+//   profiled in production.
+//
+// EXPIRY_WATCHER_DISABLED=1 (default 1) → skip ExpiryWatcherModule.
+//   Hosts trial + license-expiry processors. Same staged enablement.
+const skipLicenseGuard    = isTest || process.env.LICENSE_GUARD_DISABLED   !== '0';
+const skipAdminLicensing  = isTest || process.env.ADMIN_LICENSING_DISABLED === '1';
+const skipAutopilot       = isTest || process.env.AUTOPILOT_DISABLED      !== '0';
+const skipExpiryWatcher   = isTest || process.env.EXPIRY_WATCHER_DISABLED !== '0';
 
 const coreImports = [
   // ── Config ────────────────────────────────────────────────────────────
@@ -200,21 +207,18 @@ const coreImports = [
 //   - PlatformLicensingModule registers a global LicenseGuard that 403s
 //     every authed request when there's no active subscription (greenfield
 //     installs). Until subscriptions are seeded, this blocks the entire app.
-//     Gated separately by LICENSE_GUARD_DISABLED (default ON until seeded).
-//   - AdminLicensing/ExpiryWatcher/Autopilot inflate boot time with
-//     50+ BullMQ-bound providers — gated by BACKGROUND_JOBS_DISABLED.
-const licenseGuardImports = [LicenseGuardEnforcementModule];
-const backgroundJobImports = [
-  AdminLicensingModule,
-  ExpiryWatcherModule,
-  AutopilotModule,
-];
+//     Gated by LICENSE_GUARD_DISABLED.
+//   - AdminLicensing / ExpiryWatcher / Autopilot each get their own flag
+//     so we can enable BillingSweep without rolling the dice on the heavy
+//     50-job AutopilotModule.
 
 @Module({
   imports: [
     ...coreImports,
-    ...(skipLicenseGuard ? [] : licenseGuardImports),
-    ...(skipBackgroundJobs ? [] : backgroundJobImports),
+    ...(skipLicenseGuard   ? [] : [LicenseGuardEnforcementModule]),
+    ...(skipAdminLicensing ? [] : [AdminLicensingModule]),
+    ...(skipExpiryWatcher  ? [] : [ExpiryWatcherModule]),
+    ...(skipAutopilot      ? [] : [AutopilotModule]),
   ],
 })
 export class AppModule {}
