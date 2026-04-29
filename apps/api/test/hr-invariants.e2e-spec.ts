@@ -48,14 +48,17 @@ describe('HR — Recruitment / Contracts / Promotions invariants (e2e)', () => {
     }
   });
 
-  it('EmploymentContract: signed contracts have signedAt and signedBy set', async () => {
-    const signed = await prisma.employmentContract.findMany({
-      where: { status: 'signed' },
+  it('EmploymentContract: active/expired/terminated contracts have signedAt + signedBy set', async () => {
+    // The enum is: draft | active | expired | terminated. Anything past 'draft'
+    // implies the contract was signed (signedAt + signedBy populated when the
+    // service transitions out of draft).
+    const postDraft = await prisma.employmentContract.findMany({
+      where: { status: { in: ['active', 'expired', 'terminated'] } },
       select: { id: true, signedAt: true, signedBy: true },
       take: 50,
     });
 
-    for (const c of signed) {
+    for (const c of postDraft) {
       expect(c.signedAt).toBeTruthy();
       expect(c.signedBy).toBeTruthy();
     }
