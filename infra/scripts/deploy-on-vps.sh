@@ -52,8 +52,12 @@ MIGRATE_TIMEOUT_SECONDS="${MIGRATE_TIMEOUT_SECONDS:-300}"  # 5 min
 RECREATE_TIMEOUT_SECONDS="${RECREATE_TIMEOUT_SECONDS:-180}" # 3 min
 
 # Health probe budget for /health post-deploy.
-HEALTH_RETRIES="${HEALTH_RETRIES:-12}"
+HEALTH_RETRIES="${HEALTH_RETRIES:-30}"
 HEALTH_INTERVAL_SECONDS="${HEALTH_INTERVAL_SECONDS:-5}"
+# I047 — bumped from 12 to 30 (60s → 150s budget). Wave 6 modules
+# re-enabled in main means the api now instantiates significantly more
+# providers at boot; 60s was occasionally too tight and the deploy
+# reported "failure" while the api continued to boot successfully.
 
 log() { echo "[$(date -u +%H:%M:%SZ)] $*"; }
 fail() { log "❌ $*"; exit 1; }
