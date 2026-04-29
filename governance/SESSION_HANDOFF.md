@@ -2,6 +2,60 @@
 
 ---
 
+## Session 32 — 2026-04-29 — I058 + I059 closed, full E2E green on production
+
+### Branch: main
+### Latest commit: ed5b183
+### Pushed to origin: ✅
+
+### Completed this session
+
+Final pass on the auth-routing chain. SSH-deployed every fix and verified end-to-end against `https://ibherp.cloud`.
+
+| Step | Result |
+|------|--------|
+| Inventory all 55 DB enums vs Prisma schema | Only 2 case-mismatched: `subscription_status` + `billing_cycle` |
+| I058 schema fix already in repo (commits `5984ea6`+`93adae2`) | `@@map` on those 2 enums |
+| API rebuild --no-cache + force-recreate | `GET /api/v1/licensing/me/features` → 200 `{status:null,...}` (was 500) |
+| Web rebuild + recreate | Picked up I051+I054 client-side fixes |
+| **I059 discovered + fixed** (`ed5b183`) | Middleware was 307→/license-required on every route because `!snapshot.status` matched on greenfield. Switched to fail-open on null status — only EXPLICIT non-entitled statuses block now |
+| Web rebuild #2 + recreate (for I059) | Verified |
+
+### Final E2E verification (production HTTPS)
+
+```
+Login                          : OK
+/sales/invoices    (cookie nav): 200
+/inventory/stock   (cookie nav): 200
+/purchases/orders  (cookie nav): 200
+/finance/journal-entries       : 200
+/hr/employees                  : 200
+/sales (root redirect stub)    : 307 → /sales/invoices
+/inventory (root redirect stub): 307 → /inventory/stock
+/api/v1/licensing/me/features  : 200 {features:[],status:null,...}
+/api/v1/auth/refresh           : 200 (rotated)
+/socket.io/?EIO=4&transport=polling : reachable
+nginx zones                    : erp_global, erp_auth_login, erp_auth_refresh
+```
+
+### Original bug status
+
+**`Login → click module → bounce back to /login`** — the production bug that triggered Sessions 28-32: ✅ **closed**. Verified live.
+
+### Issues closed this session
+
+- I058 (`@@map` on `SubscriptionStatus` + `BillingCycle`) — commit `93adae2`
+- I059 (middleware fail-open on null status) — commit `ed5b183`
+
+### What remains
+
+| Item | Owner | Notes |
+|------|-------|-------|
+| Wave-1 cleanup: ENUMs → VARCHAR+CHECK per CLAUDE.md F2 | Backend | Larger migration; not blocking. Currently we have `@@map` workaround for 2 enums; the other 53 enums work because they were Prisma-generated with matching case. |
+| Seed at least one Subscription row | Owner | When ready to enable real plan-gating, seed a row → endpoint will return real `status`/`features` and middleware will gate properly. Until then, system is fully usable with empty features (no UI module is hidden). |
+
+---
+
 ## Session 31 — 2026-04-29 — VPS deploy verification + I058 discovered
 
 ### Branch: main
