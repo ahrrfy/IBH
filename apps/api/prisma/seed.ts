@@ -15,10 +15,15 @@
  * Run with: pnpm --filter api exec prisma db seed
  */
 import { PrismaClient, AccountCategory, AccountType, WarehouseType } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 import * as argon2 from 'argon2';
 import { seedPlans } from './seed/plans.seed';
 
-const prisma = new PrismaClient();
+// I040 — Prisma 7 driver-adapter pattern (matches PrismaService).
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 // Permission bitmasks
 const P = {
@@ -574,4 +579,4 @@ async function seedChartOfAccounts(companyId: string): Promise<Record<string, st
 
 main()
   .catch((e) => { console.error('❌ Seed failed:', e); process.exit(1); })
-  .finally(async () => { await prisma.$disconnect(); });
+  .finally(async () => { await prisma.$disconnect(); await pool.end(); });

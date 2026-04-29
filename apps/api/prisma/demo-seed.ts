@@ -13,8 +13,13 @@
  * Run with: docker compose exec -T api sh -c "cd /app/apps/api && npx tsx prisma/demo-seed.ts"
  */
 import { PrismaClient, ProductType } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 
-const prisma = new PrismaClient();
+// I040 — Prisma 7 driver-adapter pattern (matches PrismaService).
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log('🎭 Demo data seeder starting...');
@@ -171,4 +176,4 @@ async function main() {
 
 main()
   .catch((e) => { console.error('❌ Demo seed failed:', e); process.exit(1); })
-  .finally(async () => { await prisma.$disconnect(); });
+  .finally(async () => { await prisma.$disconnect(); await pool.end(); });

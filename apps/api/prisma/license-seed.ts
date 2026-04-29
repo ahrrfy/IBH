@@ -18,9 +18,15 @@
  * Or via the workflow_dispatch in `.github/workflows/license-seed.yml`.
  */
 import { PrismaClient, Prisma, $Enums } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 import { seedPlans, PLAN_CODES } from './seed/plans.seed';
 
-const prisma = new PrismaClient();
+// I040 — Prisma 7 driver-adapter pattern. Standalone scripts need to wire
+// the pg Pool + PrismaPg adapter just like PrismaService does in the app.
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log('🔐 License seeder starting...');
@@ -127,4 +133,5 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    await pool.end();
   });

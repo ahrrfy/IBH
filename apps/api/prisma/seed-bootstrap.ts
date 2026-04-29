@@ -9,9 +9,14 @@
  * but never deletes or recreates the owner.
  */
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 import * as argon2 from 'argon2';
 
-const prisma = new PrismaClient();
+// I040 — Prisma 7 driver-adapter pattern (matches PrismaService).
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
+const prisma = new PrismaClient({ adapter });
 
 // Owner credentials must come from environment — NEVER hardcoded.
 // Set these on the VPS in /opt/al-ruya-erp/infra/.env (chmod 600).
@@ -154,4 +159,4 @@ async function main() {
 
 main()
   .catch((e) => { console.error('❌ Seed failed:', e); process.exit(1); })
-  .finally(async () => { await prisma.$disconnect(); });
+  .finally(async () => { await prisma.$disconnect(); await pool.end(); });
