@@ -7,9 +7,7 @@ import { AdminLicensingAnalyticsController } from './analytics.controller';
 import { AdminLicensingAnalyticsService } from './analytics.service';
 import { BillingController } from './billing.controller';
 import { BillingService } from './billing.service';
-import { BILLING_SWEEP_QUEUE } from './billing-sweep.processor';
-// I047 — BillingSweepProcessor removed from providers (Bull explorer bug).
-// Manual sweep via POST /admin/billing/generate still works.
+import { BillingSweepProcessor, BILLING_SWEEP_QUEUE } from './billing-sweep.processor';
 
 @Module({
   imports: [
@@ -26,6 +24,7 @@ import { BILLING_SWEEP_QUEUE } from './billing-sweep.processor';
     AdminLicensingService,
     AdminLicensingAnalyticsService,
     BillingService,
+    BillingSweepProcessor,
   ],
   exports: [
     AdminLicensingService,
