@@ -120,7 +120,7 @@ async function main() {
         code: c.code,
         nameAr: c.nameAr,
         phone: c.phone,
-        customerType: c.creditLimit > 0 ? 'credit' : 'cash',
+        type: c.creditLimit > 0 ? 'wholesale' : 'regular',
         creditLimitIqd: c.creditLimit,
         balanceIqd: 0,
         isActive: true,
