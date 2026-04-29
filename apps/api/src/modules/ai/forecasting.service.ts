@@ -28,10 +28,11 @@ export class ForecastingService {
          FROM "sales_invoice_lines" sil
          JOIN "sales_invoices" si ON si.id = sil."invoiceId"
          WHERE si."companyId" = $1 AND si."invoiceDate" >= $2
-         ${params.variantId ? `AND sil."variantId" = '${params.variantId}'` : ''}
+         ${params.variantId ? `AND sil."variantId" = $3` : ''}
          GROUP BY DATE(si."invoiceDate") ORDER BY day ASC`,
-        companyId,
-        thirtyDaysAgo,
+        ...(params.variantId
+          ? [companyId, thirtyDaysAgo, params.variantId]
+          : [companyId, thirtyDaysAgo]),
       )) as any[];
     } catch {
       historical = [];

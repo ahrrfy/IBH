@@ -17,16 +17,17 @@ export class ReportsService {
     if (groupBy === 'month') dateExpr = `DATE_TRUNC('month', si."invoiceDate")`;
 
     if (groupBy === 'branch') {
+      const branchClause = params.branchId ? `AND si."branchId" = $4` : '';
       return this.prisma.$queryRawUnsafe(
         `SELECT si."branchId" AS bucket, COUNT(*)::int AS invoice_count,
                 SUM(si."totalIqd")::float AS total_revenue
          FROM "sales_invoices" si
          WHERE si."companyId" = $1 AND si."invoiceDate" BETWEEN $2 AND $3
-         ${params.branchId ? `AND si."branchId" = '${params.branchId}'` : ''}
+         ${branchClause}
          GROUP BY si."branchId" ORDER BY total_revenue DESC`,
-        companyId,
-        params.from,
-        params.to,
+        ...(params.branchId
+          ? [companyId, params.from, params.to, params.branchId]
+          : [companyId, params.from, params.to]),
       );
     }
 
@@ -368,9 +369,9 @@ export class ReportsService {
        JOIN "product_templates" p ON p.id = pv."templateId"
        JOIN "warehouses" w ON w.id = ib."warehouseId"
        WHERE ib."companyId" = $1
-       ${params.warehouseId ? `AND ib."warehouseId" = '${params.warehouseId}'` : ''}
+       ${params.warehouseId ? `AND ib."warehouseId" = $2` : ''}
        ORDER BY "valuation" DESC`,
-      companyId,
+      ...(params.warehouseId ? [companyId, params.warehouseId] : [companyId]),
     );
   }
 

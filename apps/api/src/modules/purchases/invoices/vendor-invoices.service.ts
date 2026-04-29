@@ -111,9 +111,9 @@ export class VendorInvoicesService {
       });
     }
 
-    // check duplicate vendorRef
+    // check duplicate vendorRef (scoped to current tenant — F1)
     const dup = await this.prisma.vendorInvoice.findFirst({
-      where: { supplierId: dto.supplierId, vendorRef: dto.vendorRef },
+      where: { companyId, supplierId: dto.supplierId, vendorRef: dto.vendorRef },
     });
     if (dup) {
       throw new ConflictException({
