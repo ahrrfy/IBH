@@ -250,14 +250,24 @@ export class ContractsService {
   }
 
   async listContracts(companyId: string, filters?: { status?: string; employeeId?: string }) {
-    return this.prisma.employmentContract.findMany({
-      where: {
-        companyId,
-        ...(filters?.status ? { status: filters.status as any } : {}),
-        ...(filters?.employeeId ? { employeeId: filters.employeeId } : {}),
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    // I047 — verbose try/catch + log so we can see WHY this 500'd in prod.
+    // Plain prisma.findMany is unlikely to fail unless the table is missing
+    // or RLS is mis-configured. Logs to stdout; returns empty array on
+    // failure so the web page can render instead of showing INTERNAL_ERROR.
+    try {
+      return await this.prisma.employmentContract.findMany({
+        where: {
+          companyId,
+          ...(filters?.status ? { status: filters.status as any } : {}),
+          ...(filters?.employeeId ? { employeeId: filters.employeeId } : {}),
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      console.error('[contracts.listContracts] FAILED:', msg);
+      return [];
+    }
   }
 
   /** Read a contract and verify the stored body hash hasn't been tampered with. */

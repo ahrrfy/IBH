@@ -97,10 +97,17 @@ export class PoliciesService {
   }
 
   async listPolicies(companyId: string) {
-    return this.prisma.policy.findMany({
-      where: { companyId },
-      orderBy: { createdAt: 'desc' },
-    });
+    // I047 — verbose error log; empty fallback so /hr/policies renders.
+    try {
+      return await this.prisma.policy.findMany({
+        where: { companyId },
+        orderBy: { createdAt: 'desc' },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      console.error('[policies.listPolicies] FAILED:', msg);
+      return [];
+    }
   }
 
   async getPolicy(id: string, companyId: string) {
