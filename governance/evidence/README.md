@@ -1,6 +1,6 @@
 # G5 Evidence — Al-Ruya ERP
 
-**Collected:** 2026-04-29T20:44:22
+**Collected:** 2026-04-29T20:46:37
 **Target:** https://ibherp.cloud/api/v1
 
 ## Structure
@@ -34,12 +34,12 @@ bash scripts/collect-evidence.sh
 
 | Wave | Status | Files |
 |------|--------|-------|
-| 1 Foundation     | 14 captures |
-| 2 Daily Ops      | 15 captures |
-| 3 Purchasing     | 5 captures |
-| 4 Finance        | 14 captures |
-| 5 HR             | 13 captures |
-| 6 CRM/Licensing  | 17 captures |
+| 1 Foundation     | 9 captures |
+| 2 Daily Ops      | 9 captures |
+| 3 Purchasing     | 4 captures |
+| 4 Finance        | 8 captures |
+| 5 HR             | 10 captures |
+| 6 CRM/Licensing  | 13 captures |
 
 **Screenshots:** Must be captured manually — open each module in the browser and save
 PNGs to `governance/evidence/wave{N}/screenshots/*.png`.
