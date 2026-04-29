@@ -18,7 +18,7 @@
 | T-tasks TODO | **0** ✅ |
 | Migrations | 13+ (T68 + T70 + T71 added in Wave 6) |
 | Prisma Models | ~95 (License + Autopilot domain added) |
-| TypeScript files | ~150+ |
+| TypeScript files | ~170+ |
 | Lines of code | ~25,000+ |
 | Acceptance tests (written) | **80+** (Licensing/Autopilot suites added) |
 | Production HTTP 200 | ✅ مؤكد 2026-04-27 |
@@ -123,7 +123,7 @@
 | M12 Plan Proration (Decimal) | ✅ DONE | T68 PR#162 | Half-up · prorated_charge events |
 | M12 License Expiry Notifications | ✅ DONE | T69 PR#152 | Daily cron · 30/14/7/3/1 reminders |
 | M12 Multi-tenant Billing Dashboard | ✅ DONE | T70 PR#163 | LicenseInvoice + LicensePayment · manual recording |
-| M71 Autonomous Operations Engine | ✅ DONE | T71 PR#161 | Framework + 3 jobs + 47 stubs · exception dashboard |
+| M71 Autonomous Operations Engine | ✅ DONE | T71 PR#161 + commits 85f6be5/36ed218/a2d7b52 | Framework + **24 jobs** + 26 stubs · exception dashboard |
 | M13 AI Tier 2 (Anomaly Detection) | 🟢 | core | 4 detection types |
 | M13 AI Tier 1 (NL Query stub) | 🟢 | core | Graceful degradation |
 | M13 AI Forecasting | 🟢 | core | Moving avg fallback |
@@ -186,4 +186,4 @@
 
 ---
 
-*آخر تحديث: 2026-04-27 — Wave 5 Closeout · T35-T53 كلها مدموجة (19 PRs) · HOTFIXes: PR#130 (posting), PR#139 (@types/react dedup) · الخطوة التالية: Wave 6 — E-commerce (T54-T57) + Licensing (T58-T71)*
+*آخر تحديث: 2026-04-29 — T71 expansion: 21 autopilot jobs أُضيفت (finance+HR+inventory+delivery+CRM+procurement+sales) · الإجمالي: 24 jobs + 26 stubs متبقية · TypeScript zero errors (npx tsc --noEmit) · I037 مغلق جزئياً*
