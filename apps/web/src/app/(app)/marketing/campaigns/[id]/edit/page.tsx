@@ -29,7 +29,7 @@ const CHANNEL_OPTIONS: ReadonlyArray<{ value: CampaignChannel; labelAr: string }
 const campaignUpdateSchema = z.object({
   name: z.string().trim().min(1, 'اسم الحملة مطلوب'),
   description: z.string().trim().optional(),
-  channel: z.enum(CAMPAIGN_CHANNELS, { errorMap: () => ({ message: 'القناة مطلوبة' }) }),
+  channel: z.enum(CAMPAIGN_CHANNELS, { error: 'القناة مطلوبة' }),
   messageTemplate: z.string().trim().min(1, 'نص الرسالة مطلوب'),
   scheduledAt: z.string().trim().optional(),
   budgetIqd: z.number().nonnegative('الميزانية لا يمكن أن تكون سالبة').optional(),
