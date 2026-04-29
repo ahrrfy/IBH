@@ -1,26 +1,30 @@
 name: Security Close Hook (governance sync on alert close)
 
-# Closes the security self-healing loop. When a code scanning or secret
-# alert is resolved (fixed, dismissed, or revoked), this workflow:
-#   1. Finds the matching `security:auto` issue → closes it with the SHA
-#   2. Opens a small auto-PR that flips the row in governance/OPEN_ISSUES.md
-#      from 🔴 to ✅ + appends close timestamp
+# Closes the security self-healing loop by polling for DISMISSED or FIXED
+# alerts and closing their corresponding `security:auto` issues + patching
+# governance/OPEN_ISSUES.md.
 #
-# Pairs with security-bridge.yml. Together they form: open-on-detect /
-# close-on-fix, mirroring how auto-diagnose.yml + manual close work for CI.
+# NOTE: code_scanning_alert / secret_scanning_alert webhook events require
+# GitHub Advanced Security. We poll the REST API instead — same result,
+# works on any repository plan.
+#
+# Trigger matrix:
+#   schedule        → daily at 07:00 UTC (sweep for recently resolved alerts)
+#   workflow_dispatch → manual testing
 
 on:
-  code_scanning_alert:
-    types: [closed_by_user, fixed]
-  secret_scanning_alert:
-    types: [resolved, revoked]
+  # Daily sweep at 07:00 UTC
+  schedule:
+    - cron: '0 7 * * *'
+
+  # Manual trigger (also useful for testing individual closes)
   workflow_dispatch:
     inputs:
       alert_type:
-        description: code-scanning | secret-scanning | dependabot
+        description: 'code-scanning | secret-scanning | dependabot'
         required: true
       alert_number:
-        description: Numeric alert ID
+        description: 'Numeric alert ID'
         required: true
 
 permissions:
@@ -32,83 +36,75 @@ jobs:
   close:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Resolve alert id
-        id: ids
-        env:
-          ALERT_JSON: ${{ toJson(github.event.alert) }}
-        run: |
-          if [ -n "${{ github.event.inputs.alert_type }}" ]; then
-            echo "type=${{ github.event.inputs.alert_type }}" >> "$GITHUB_OUTPUT"
-            echo "num=${{ github.event.inputs.alert_number }}" >> "$GITHUB_OUTPUT"
-          else
-            TYPE="code-scanning"
-            [ "${{ github.event_name }}" = "secret_scanning_alert" ] && TYPE="secret-scanning"
-            echo "type=$TYPE" >> "$GITHUB_OUTPUT"
-            echo "num=$(echo "$ALERT_JSON" | jq -r .number)" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Close matching issue
+      # ── Manual dispatch: close a specific alert ─────────────────────────
+      - name: Close specific alert (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
-          KEY: SEC-${{ steps.ids.outputs.type }}-${{ steps.ids.outputs.num }}
+          ALERT_TYPE: ${{ github.event.inputs.alert_type }}
+          ALERT_NUMBER: ${{ github.event.inputs.alert_number }}
           SHA: ${{ github.sha }}
         run: |
-          NUM=$(gh issue list \
-            --label security:auto \
-            --state open \
-            --search "$KEY in:title" \
-            --json number -q '.[0].number' --limit 1 || true)
+          KEY="SEC-${ALERT_TYPE}-${ALERT_NUMBER}"
+          bash scripts/close-security-issue.sh "$KEY" "$SHA"
 
-          if [ -z "$NUM" ]; then
-            echo "→ No open issue matches $KEY — already closed or never opened"
-            exit 0
-          fi
-
-          gh issue close "$NUM" \
-            --reason completed \
-            --comment "✅ Resolved at \`${SHA}\`. Auto-closed by security-close-hook.yml."
-
-      - name: Update OPEN_ISSUES.md (flip row to ✅)
+      # ── Scheduled sweep: close issues for dismissed/fixed code-scanning ──
+      - name: Close dismissed code-scanning issues
+        if: github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
-          KEY: SEC-${{ steps.ids.outputs.type }}-${{ steps.ids.outputs.num }}
           SHA: ${{ github.sha }}
         run: |
-          # Only act if the file mentions this key
-          if ! grep -q "$KEY" governance/OPEN_ISSUES.md; then
-            echo "→ $KEY not present in OPEN_ISSUES.md — nothing to flip"
-            exit 0
-          fi
+          gh api "repos/${{ github.repository }}/code-scanning/alerts?state=dismissed&per_page=20" \
+            > /tmp/dismissed-cs.json 2>/dev/null || echo "[]" > /tmp/dismissed-cs.json
 
-          BRANCH="bot/close-${KEY}"
-          git config user.name  "al-ruya-security-bot"
-          git config user.email "security-bot@ibherp.cloud"
-          git checkout -b "$BRANCH"
+          COUNT=$(jq 'length' /tmp/dismissed-cs.json)
+          echo "→ Found $COUNT dismissed code-scanning alerts"
 
-          # Replace the first 🔴/🟠/🟡 marker on lines mentioning this key
-          # with ✅ and append the close SHA. Keeps human-edited rows safe.
-          sed -i -E "/${KEY}/ s/(🔴|🟠|🟡|مفتوح)/✅ مغلق ${SHA:0:7}/g" governance/OPEN_ISSUES.md
+          jq -c '.[]' /tmp/dismissed-cs.json | while read -r alert; do
+            NUM=$(echo "$alert" | jq -r .number)
+            KEY="SEC-code-scanning-${NUM}"
+            bash scripts/close-security-issue.sh "$KEY" "$SHA" || echo "  (skip $KEY)"
+          done
 
-          if git diff --quiet; then
-            echo "→ no actual line changed — exiting"
-            exit 0
-          fi
+      # ── Scheduled sweep: close issues for resolved secret-scanning ───────
+      - name: Close resolved secret-scanning issues
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          gh api "repos/${{ github.repository }}/secret-scanning/alerts?state=resolved&per_page=20" \
+            > /tmp/resolved-ss.json 2>/dev/null || echo "[]" > /tmp/resolved-ss.json
 
-          git add governance/OPEN_ISSUES.md
-          git commit -m "chore(security): close ${KEY} in OPEN_ISSUES [skip ci]" \
-                     -m "Auto-closed by security-close-hook.yml after the underlying alert was resolved at ${SHA}."
-          git push origin "$BRANCH"
+          COUNT=$(jq 'length' /tmp/resolved-ss.json)
+          echo "→ Found $COUNT resolved secret-scanning alerts"
 
-          gh pr create \
-            --base main \
-            --head "$BRANCH" \
-            --title "chore(security): close ${KEY} in OPEN_ISSUES" \
-            --body "Auto-PR closing the governance entry for ${KEY}. Triggered by alert resolution at ${SHA}." \
-            --label "security:auto,governance" || true
+          jq -c '.[]' /tmp/resolved-ss.json | while read -r alert; do
+            NUM=$(echo "$alert" | jq -r .number)
+            KEY="SEC-secret-scanning-${NUM}"
+            bash scripts/close-security-issue.sh "$KEY" "$SHA" || echo "  (skip $KEY)"
+          done
 
-          PR=$(gh pr list --head "$BRANCH" --json number -q '.[0].number')
-          [ -n "$PR" ] && gh pr merge "$PR" --squash --auto || true
+      # ── Scheduled sweep: close issues for dismissed/fixed dependabot ─────
+      - name: Close dismissed Dependabot issues
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          gh api "repos/${{ github.repository }}/dependabot/alerts?state=dismissed&per_page=20" \
+            > /tmp/dismissed-dep.json 2>/dev/null || echo "[]" > /tmp/dismissed-dep.json
+
+          COUNT=$(jq 'length' /tmp/dismissed-dep.json)
+          echo "→ Found $COUNT dismissed Dependabot alerts"
+
+          jq -c '.[]' /tmp/dismissed-dep.json | while read -r alert; do
+            NUM=$(echo "$alert" | jq -r .number)
+            KEY="SEC-dependabot-${NUM}"
+            bash scripts/close-security-issue.sh "$KEY" "$SHA" || echo "  (skip $KEY)"
+          done
