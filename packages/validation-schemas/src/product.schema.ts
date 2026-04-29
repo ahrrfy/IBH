@@ -29,7 +29,7 @@ export const createProductVariantSchema = z.object({
     .min(2)
     .max(80)
     .regex(/^[A-Z0-9\-_]+$/, 'SKU must be uppercase alphanumeric'),
-  attributeValues: z.record(z.string()),
+  attributeValues: z.record(z.string(), z.string()),
   weight: z.number().positive().optional(),
   volume: z.number().positive().optional(),
 });

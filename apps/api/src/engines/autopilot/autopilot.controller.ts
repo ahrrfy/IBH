@@ -40,7 +40,7 @@ const listExceptionsSchema = z.object({
 });
 
 const resolveSchema = z.object({
-  resolution: z.record(z.unknown()).optional(),
+  resolution: z.record(z.string(), z.unknown()).optional(),
 });
 
 const dismissSchema = z.object({
