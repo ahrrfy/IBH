@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { LeadStatus } from '@prisma/client';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AutopilotEngineService } from '../autopilot.service';
 import {
@@ -8,21 +9,7 @@ import {
   AutopilotJobResult,
 } from '../autopilot.types';
 
-// ─── T71 Job: crm.followup-reminder ─────────────────────────────────────────
-// Cron: 08:00 UTC daily.
-// Goal: Raise an info-severity exception for every open lead that has gone
-// ≥ 7 days since its last activity, prompting the assigned sales rep to
-// follow up before the lead goes cold.
-//
-// "Overdue" definition: lead.updatedAt is used as a proxy for last interaction
-// since Lead does not carry a dedicated nextFollowUpAt column.  A lead is
-// considered overdue if updatedAt < NOW() - 7 days AND the lead is still open
-// (status NOT IN converted | lost | closed).
-//
-// Produces one info-exception per overdue lead, capped at 200 per run to avoid
-// flooding the exceptions inbox on neglected CRM data.
-
-const OPEN_LEAD_STATUSES_EXCLUDED = ['converted', 'lost', 'closed'];
+const TERMINAL_LEAD_STATUSES: LeadStatus[] = [LeadStatus.won, LeadStatus.lost];
 const OVERDUE_THRESHOLD_DAYS = 7;
 const MAX_EXCEPTIONS_PER_RUN = 200;
 
@@ -57,7 +44,7 @@ export class CrmFollowupReminderJob implements AutopilotJob {
     const overdueLeads = await this.prisma.lead.findMany({
       where: {
         companyId: ctx.companyId,
-        status: { notIn: OPEN_LEAD_STATUSES_EXCLUDED as any[] },
+        status: { notIn: TERMINAL_LEAD_STATUSES },
         updatedAt: { lt: overdueCutoff },
       },
       select: {

@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { LeadStatus } from '@prisma/client';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
 import { AutopilotEngineService } from '../autopilot.service';
 import {
@@ -8,23 +9,7 @@ import {
   AutopilotJobResult,
 } from '../autopilot.types';
 
-// ─── T71 Job: crm.lead-scoring-refresh ──────────────────────────────────────
-// Cron: 02:00 UTC daily.
-// Goal: Recompute a deterministic rule-based score for every open lead so
-// that sales reps can prioritise outreach without manual sorting.
-//
-// Scoring rules (Tier-3: no AI, no ML):
-//   +10  — lead has a phone number
-//   +10  — lead has an email address
-//   +20  — at least one activity in the last 7 days (hot lead)
-//   +10  — at least one activity in the last 30 days (warm lead)
-//   +15  — source = 'referral'
-//   +2   — per activity recorded (max +20 bonus cap)
-//
-// The score is written to Lead.score (INT 0-100 soft cap in DB, no hard constraint).
-// Leads with status 'converted', 'lost', or 'closed' are skipped.
-
-const OPEN_LEAD_STATUSES_EXCLUDED = ['converted', 'lost', 'closed'];
+const TERMINAL_LEAD_STATUSES: LeadStatus[] = [LeadStatus.won, LeadStatus.lost];
 const BATCH_SIZE = 200;
 const SCORE_ACTIVITY_CAP = 20;
 
@@ -62,7 +47,7 @@ export class CrmLeadScoringRefreshJob implements AutopilotJob {
       const leads = await this.prisma.lead.findMany({
         where: {
           companyId: ctx.companyId,
-          status: { notIn: OPEN_LEAD_STATUSES_EXCLUDED as any[] },
+          status: { notIn: TERMINAL_LEAD_STATUSES },
         },
         select: {
           id: true,
