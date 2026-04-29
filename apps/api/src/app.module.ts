@@ -58,102 +58,108 @@ import { StorefrontModule } from './modules/storefront/storefront.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { OnlineOrdersModule } from './modules/sales/online-orders/online-orders.module';
 
+const isTest = process.env.NODE_ENV === 'test';
+
+const coreImports = [
+  // ── Config ────────────────────────────────────────────────────────────
+  ConfigModule.forRoot({
+    isGlobal: true,
+    envFilePath: ['.env.local', '.env'],
+    cache: true,
+  }),
+
+  // ── Rate Limiting ──────────────────────────────────────────────────────
+  ThrottlerModule.forRoot([
+    { name: 'global', ttl: 60_000, limit: 100 },
+    { name: 'auth',   ttl: 60_000, limit: 10 },
+  ]),
+
+  // ── Event Bus ──────────────────────────────────────────────────────────
+  EventEmitterModule.forRoot({ wildcard: true, delimiter: '.' }),
+
+  // ── BullMQ / Redis ─────────────────────────────────────────────────────
+  BullModule.forRootAsync({
+    imports: [ConfigModule],
+    useFactory: (config: ConfigService) => ({
+      redis: {
+        host: config.get('REDIS_HOST', 'localhost'),
+        port: config.get<number>('REDIS_PORT', 6379),
+        password: config.get('REDIS_PASSWORD'),
+        db: 0,
+      },
+      prefix: 'erp:queue',
+    }),
+    inject: [ConfigService],
+  }),
+
+  // ── Infrastructure ─────────────────────────────────────────────────────
+  PrismaModule,
+  RedisModule,
+  HealthModule,
+  RealtimeModule,
+  NotificationsModule,
+  PlatformLicensingModule,
+
+  // ── Engines (M01) ──────────────────────────────────────────────────────
+  AuthModule,
+  AuditModule,
+  SequenceModule,
+  PolicyModule,
+  PostingModule,
+  WorkflowModule,
+
+  // ── Business Modules — Wave 1 ───────────────────────────────────────────
+  CoreModule,
+  ProductsModule,
+  InventoryModule,
+
+  // ── Business Modules — Wave 2 ───────────────────────────────────────────
+  SalesModule,
+  POSModule,
+  DeliveryModule,
+
+  // ── Business Modules — Wave 3 ───────────────────────────────────────────
+  PurchasesModule,
+
+  // ── T42 Smart Inventory + Auto-Reorder ─────────────────────────────────
+  InventoryIntelligenceModule,
+  ProcurementAutoReorderModule,
+
+  // ── Business Modules — Wave 4 ───────────────────────────────────────────
+  FinanceModule,
+  AssetsModule,
+
+  // ── Business Modules — Wave 5 ───────────────────────────────────────────
+  HrModule,
+  JobOrdersModule,
+  MarketingModule,
+
+  // ── Business Modules — Wave 6 ───────────────────────────────────────────
+  CrmModule,
+  LicensingModule,
+  AiModule,
+  ReportingModule,
+
+  // ── Public Storefront (T54) ─────────────────────────────────────────────
+  StorefrontModule,
+
+  // ── E-commerce ↔ ERP integration (T55) ─────────────────────────────────
+  PaymentsModule,
+  OnlineOrdersModule,
+];
+
+// Background-job modules with heavy BullMQ queue connections.
+// Skipped in test to keep AppModule bootstrap under 30s on CI.
+const backgroundJobImports = [
+  AdminLicensingModule,
+  ExpiryWatcherModule,
+  AutopilotModule,
+];
+
 @Module({
   imports: [
-    // ── Config ────────────────────────────────────────────────────────────
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: ['.env.local', '.env'],
-      cache: true,
-    }),
-
-    // ── Rate Limiting ──────────────────────────────────────────────────────
-    ThrottlerModule.forRoot([
-      { name: 'global', ttl: 60_000, limit: 100 },
-      { name: 'auth',   ttl: 60_000, limit: 10 },
-    ]),
-
-    // ── Event Bus ──────────────────────────────────────────────────────────
-    EventEmitterModule.forRoot({ wildcard: true, delimiter: '.' }),
-
-    // ── BullMQ / Redis ─────────────────────────────────────────────────────
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (config: ConfigService) => ({
-        redis: {
-          host: config.get('REDIS_HOST', 'localhost'),
-          port: config.get<number>('REDIS_PORT', 6379),
-          password: config.get('REDIS_PASSWORD'),
-          db: 0,
-        },
-        prefix: 'erp:queue',
-      }),
-      inject: [ConfigService],
-    }),
-
-    // ── Infrastructure ─────────────────────────────────────────────────────
-    PrismaModule,
-    RedisModule,
-    HealthModule,
-    RealtimeModule,
-    NotificationsModule,
-    PlatformLicensingModule,
-
-    // ── Engines (M01) ──────────────────────────────────────────────────────
-    AuthModule,
-    AuditModule,
-    SequenceModule,
-    PolicyModule,
-    PostingModule,
-    WorkflowModule,
-
-    // ── Business Modules — Wave 1 ───────────────────────────────────────────
-    CoreModule,
-    ProductsModule,
-    InventoryModule,
-
-    // ── Business Modules — Wave 2 ───────────────────────────────────────────
-    SalesModule,
-    POSModule,
-    DeliveryModule,
-
-    // ── Business Modules — Wave 3 ───────────────────────────────────────────
-    PurchasesModule,
-
-    // ── T42 Smart Inventory + Auto-Reorder ─────────────────────────────────
-    InventoryIntelligenceModule,
-    ProcurementAutoReorderModule,
-
-    // ── Business Modules — Wave 4 ───────────────────────────────────────────
-    FinanceModule,
-    AssetsModule,
-
-    // ── Business Modules — Wave 5 ───────────────────────────────────────────
-    HrModule,
-    JobOrdersModule,
-    MarketingModule,
-
-    // ── Business Modules — Wave 6 ───────────────────────────────────────────
-    CrmModule,
-    // I047 — re-enabled. Earlier silent hang likely was the @nestjs/bull
-    // BullExplorer double-registration cascade; with all stub @Process
-    // workers removed (cycles 1-4) the explorer has nothing to fail on,
-    // so re-introducing these modules should boot cleanly.
-    LicensingModule,
-    AdminLicensingModule,
-    ExpiryWatcherModule,
-    AiModule,
-    ReportingModule,
-
-    // ── Public Storefront (T54) ─────────────────────────────────────────────
-    StorefrontModule,
-
-    // ── E-commerce ↔ ERP integration (T55) ─────────────────────────────────
-    PaymentsModule,
-    OnlineOrdersModule,
-
-    // ── T71 Autonomous Operations Engine ───────────────────────────────────
-    AutopilotModule,
+    ...coreImports,
+    ...(isTest ? [] : backgroundJobImports),
   ],
 })
 export class AppModule {}
