@@ -246,9 +246,11 @@ export class CommissionsService {
       if (opts.from) where.createdAt.gte = opts.from;
       if (opts.to) where.createdAt.lte = opts.to;
     }
-    // I047 — defensive: log + empty fallback so /sales/commissions/entries
-    // renders empty state instead of 500ing if the underlying table is
-    // missing or the query fails for any other reason. Mirrors listPlans.
+    // I047/I057 — defensive: log + empty fallback so /sales/commissions/entries
+    // renders empty state instead of 500ing on transient query failures. Tables
+    // are now created by migration 20260429180000_i057_commission_tables; the
+    // try/catch stays as belt-and-suspenders against future schema drift or
+    // transient Prisma adapter glitches under the Prisma 7 driver-adapter.
     try {
       const [items, total] = await this.prisma.$transaction([
         this.prisma.commissionEntry.findMany({
