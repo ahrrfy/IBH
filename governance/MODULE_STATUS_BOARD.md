@@ -24,16 +24,17 @@
 | Production HTTP 200 | ✅ مؤكد 2026-04-27 |
 | Open T-tasks (Wave 1-6) | **0** ✅ Wave 6 complete 2026-04-27 |
 
-## 🔧 Dependency Health — 2026-04-27
+## 🔧 Dependency Health — 2026-04-29
 
 | الحزمة | الإصدار الحالي | الإصدار الجديد | الحالة |
 |---|---|---|---|
-| TypeScript | 5.9.3 | 6.0.3 | 🔴 مجمّد — Wave 6 (I032) |
-| Tailwind CSS | 3.4.19 | 4.2.4 | 🔴 مجمّد — Wave 6 (I032) |
-| Prisma | 6.19.3 | 7.8.0 | 🔴 مجمّد — Wave 6 (I032) |
-| react-router-dom | 6.30.3 | 7.14.2 | 🔴 مجمّد — Wave 6 (I032) |
-| @nestjs/swagger | 8.1.1 | 11.4.1 | 🔴 مجمّد — Wave 6 (I032) |
-| باقي 13 حزمة | — | — | 🔴 مجمّد — Wave 6 (I032) |
+| TypeScript | 6.0.3 | 6.0.3 | ✅ مُرقَّى (I032 batch 3) |
+| Tailwind CSS | 4.1.11 (web+storefront+pos) | — | ✅ مُرقَّى (I041) |
+| Prisma | 7.8.0 | — | ✅ مُرقَّى (I040) — driver-adapter pattern |
+| react-router-dom | 6.30.3 | 7.14.2 | 🔴 مجمّد — (I032) |
+| @nestjs/swagger | 8.1.1 | 11.4.1 | 🔴 مجمّد — (I032) |
+| باقي 13 حزمة | — | — | 🔴 مجمّد — (I032) |
+| Security (pnpm audit) | — | — | ✅ 20→2 vulns (I048) — uuid moderate risk-accepted |
 
 ---
 

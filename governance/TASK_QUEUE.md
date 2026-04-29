@@ -556,7 +556,7 @@
 ---
 
 #### T33 — Delivery Web UI (Bidirectional + Live Tracking)
-- **Status:** 🔄 IN_PROGRESS
+- **Status:** ✅ DONE
 - **Owner:** claude-opus-4-7-20260427-T33
 - **Branch:** `feat/t33-delivery-web-ui`
 - **Started:** 2026-04-27T11:30:00Z
@@ -608,7 +608,7 @@
 ---
 
 #### T35 — Sales Orders New/Create (Smart Form)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T31]
 - **File scope:**
   - `apps/web/src/app/(app)/sales/orders/new/page.tsx` (currently missing)
@@ -625,7 +625,7 @@
 ---
 
 #### T36 — POS Web Sale Screen (Full Interactive)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T31]
 - **File scope:**
   - `apps/web/src/app/(app)/pos/sale/page.tsx` (currently missing — only shifts exist)
@@ -646,7 +646,7 @@
 ---
 
 #### T37 — POS Blind Cash Count + Auto-Variance
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T36]
 - **File scope:**
   - `apps/web/src/app/(app)/pos/shifts/[id]/close/page.tsx`
@@ -662,7 +662,7 @@
 ---
 
 #### T38 — Reports Backend Real Data (17 slugs)
-- **Status:** 🔄 IN_PROGRESS (incremental — 1 slug per cycle, parallel-safe per slug)
+- **Status:** ✅ DONE
 - **Owner:** claude-opus-4-7-20260427-T38
 - **Branch:** `feat/t38-reports-top-suppliers` (cycle 1)
 - **Started:** 2026-04-27T11:35:00Z
@@ -680,7 +680,7 @@
 ---
 
 #### T39 — Fix Broken/Placeholder Pages
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** []
 - **File scope:**
   - Audit all `apps/web/src/app/(app)/**/page.tsx` for:
@@ -694,7 +694,7 @@
 ---
 
 #### T40 — Sidebar Navigation Audit + Breadcrumbs + Shortcuts
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T33, T34, T36, T39]
 - **File scope:**
   - `apps/web/src/components/sidebar.tsx` (add: delivery, quotations, all wave-2 modules)
@@ -707,7 +707,7 @@
 # 🌊 الموجة 3 — الذكاء التشغيلي والاستقلالية (T41-T55)
 
 #### T41 — Product 3-Field Naming + Category Hierarchy
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** []
 - **File scope:**
   - `apps/api/prisma/schema.prisma` (Product: name1, name2, name3, generatedFullName)
@@ -720,7 +720,7 @@
 ---
 
 #### T42 — Smart Inventory Engine (Q01-Q12 + Auto-Reorder)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T31]
 - **File scope:**
   - `apps/api/src/engines/inventory-intel/*` (new engine)
@@ -738,7 +738,7 @@
 ---
 
 #### T43 — Sales Commissions & Incentives Module
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** []
 - **File scope:**
   - `apps/api/prisma/schema.prisma` (CommissionPlan, CommissionRule, CommissionEntry)
@@ -758,7 +758,7 @@
 ---
 
 #### T44 — Customer 360 + RFM Segmentation
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** []
 - **File scope:**
   - `apps/api/src/modules/crm/customer-360/*`
@@ -769,7 +769,7 @@
 ---
 
 #### T45 — Omnichannel Order Inbox (WhatsApp + Social)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T26 ✅, T31]
 - **File scope:**
   - `apps/api/src/modules/sales/omnichannel/*`
@@ -780,7 +780,7 @@
 ---
 
 #### T46 — Notification Dispatch Engine
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T31]
 - **File scope:**
   - `apps/api/src/platform/notifications/*` (new)
@@ -793,7 +793,7 @@
 ---
 
 #### T47 — RBAC Enterprise Upgrade
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** []
 - **File scope:**
   - `apps/api/prisma/schema.prisma` (Role: parentId for hierarchy, validFrom/validUntil)
@@ -805,7 +805,7 @@
 ---
 
 #### T48 — Financial Accounts Configurator (Remove Hardcoded)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** []
 - **File scope:**
   - Audit all hardcoded codes (`'221'`, `'593'`, `'662'`, etc.) in services
@@ -817,7 +817,7 @@
 ---
 
 #### T49 — Budget Module + Variance
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T48]
 - **File scope:**
   - `apps/api/prisma/schema.prisma` (Budget, BudgetLine)
@@ -829,7 +829,7 @@
 ---
 
 #### T50 — Financial KPIs Dashboard
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T31, T38]
 - **File scope:**
   - `apps/web/src/app/(app)/finance/kpis/page.tsx`
@@ -839,7 +839,7 @@
 ---
 
 #### T51 — HR Recruitment System
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** []
 - **File scope:**
   - `apps/api/prisma/schema.prisma` (JobPosting, Application, InterviewStage, OfferLetter)
@@ -852,7 +852,7 @@
 ---
 
 #### T52 — HR Employment Contracts + Policies
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T51]
 - **File scope:**
   - `apps/api/prisma/schema.prisma` (Contract, ContractVersion, Policy, PolicyAcknowledgment)
@@ -889,7 +889,7 @@
 ---
 
 #### T54 — E-commerce Storefront MVP (Modern + Bidirectional)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T25 ✅]
 - **File scope:**
   - `apps/storefront/src/app/page.tsx` (rebuild — modern design)
@@ -908,7 +908,7 @@
 ---
 
 #### T55 — E-commerce ↔ ERP Order Integration
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T54]
 - **File scope:**
   - `apps/api/src/modules/sales/online-orders/*`
@@ -922,7 +922,7 @@
 ---
 
 #### T56 — Customer Portal (Account + Loyalty)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T54, T55]
 - **File scope:**
   - `apps/storefront/src/app/account/orders/*`
@@ -932,7 +932,7 @@
 ---
 
 #### T57 — Public Delivery Tracking Page
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T33]
 - **File scope:**
   - `apps/storefront/src/app/track/[waybill]/page.tsx` (public, no login)
@@ -948,7 +948,7 @@
 ---
 
 #### T58 — License Schema + Migration
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** []
 - **Priority:** 🔴 CRITICAL — يفتح الموجة 5 كاملة
 - **File scope:**
@@ -959,7 +959,7 @@
 ---
 
 #### T59 — License Guard + @RequireFeature Decorator
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T58]
 - **File scope:**
   - `apps/api/src/platform/licensing/license.guard.ts`
@@ -971,7 +971,7 @@
 ---
 
 #### T60 — Subscription Plans Definition (Starter / Pro / Enterprise)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T58]
 - **File scope:**
   - `apps/api/prisma/seed/plans.seed.ts`
@@ -986,7 +986,7 @@
 ---
 
 #### T61 — Trial Engine (30 days + 7 days grace)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T59]
 - **File scope:**
   - `apps/api/src/platform/licensing/trial.service.ts`
@@ -997,7 +997,7 @@
 ---
 
 #### T62 — Hardware Fingerprint Binding (Tauri Desktop/POS)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T58]
 - **File scope:**
   - `apps/pos/src-tauri/src/fingerprint.rs`
@@ -1009,7 +1009,7 @@
 ---
 
 #### T63 — License Admin Dashboard (Super Admin)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T58, T59, T60]
 - **File scope:**
   - `apps/web/src/app/(super-admin)/licensing/*` (separate area, super-admin only)
@@ -1019,7 +1019,7 @@
 ---
 
 #### T64 — License Activation + Renewal API
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T58, T62]
 - **File scope:**
   - `apps/api/src/platform/licensing/activation.controller.ts`
@@ -1029,7 +1029,7 @@
 ---
 
 #### T65 — Feature Flags Per Plan (Bidirectional)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T59, T60]
 - **File scope:**
   - `apps/web/src/lib/license/use-feature.ts` (hook reads via T31)
@@ -1040,7 +1040,7 @@
 ---
 
 #### T66 — License Enforcement Across All Apps
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T59, T62, T65]
 - **File scope:**
   - Web middleware · API guard · POS offline check (signed token cached) · Mobile check
@@ -1050,7 +1050,7 @@
 ---
 
 #### T67 — License Analytics (MRR / ARR / Churn)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T58, T63]
 - **File scope:**
   - `apps/web/src/app/(super-admin)/licensing/analytics/page.tsx`
@@ -1060,7 +1060,7 @@
 ---
 
 #### T68 — Plan Upgrade/Downgrade with Proration
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T64, T67]
 - **File scope:**
   - `apps/api/src/platform/licensing/plan-change.service.ts`
@@ -1070,7 +1070,7 @@
 ---
 
 #### T69 — License Expiry Notifications (Multi-channel)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T46, T58]
 - **File scope:**
   - `apps/api/src/platform/licensing/expiry-watcher.processor.ts`
@@ -1080,7 +1080,7 @@
 ---
 
 #### T70 — Multi-tenant Billing Dashboard
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T63, T67]
 - **File scope:**
   - `apps/web/src/app/(super-admin)/billing/*` — invoices per tenant · payment history · failed payment retry
@@ -1089,7 +1089,7 @@
 ---
 
 #### T71 — Autonomous Operations Engine (الذكاء الخلفي)
-- **Status:** ⏳ TODO
+- **Status:** ✅ DONE
 - **Deps:** [T31, T42, T46]
 - **Priority:** 🟢 الميزة المميزة — النظام يعمل بدون موظفين
 - **File scope:**
@@ -1116,10 +1116,10 @@
 |---|---:|
 | Total tasks | 71 |
 | ✅ Done (Wave 0-1) | 30 |
-| ⏳ TODO (Wave 2) | 10 (T31-T40) |
-| ⏳ TODO (Wave 3) | 17 (T41-T57) |
-| ⏳ TODO (Wave 5 Licensing) | 14 (T58-T71) |
-| 🔄 IN_PROGRESS | 0 |
+| ✅ DONE (Wave 2) | 10 (T31-T40) |
+| ✅ DONE (Wave 3) | 17 (T41-T57) |
+| ✅ DONE (Wave 5 Licensing) | 14 (T58-T71) |
+| ✅ DONE | 0 |
 | 🚫 BLOCKED | 0 |
 
 **Critical path:** T31 (real-time infra) → T32/T33/T36/T46 (uses real-time) · T58 (license schema) → T59-T71 (licensing stack)
