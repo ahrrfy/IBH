@@ -869,47 +869,46 @@ export class InventoryService {
   }
 
   async getLowStockAlerts(companyId: string) {
-    // Items where qtyOnHand <= reorderPoint
     const results = await this.prisma.$queryRaw<Array<{
-      variant_id: string;
-      warehouse_id: string;
+      variantId: string;
+      warehouseId: string;
       sku: string;
-      name_ar: string;
-      qty_on_hand: number;
-      qty_reserved: number;
-      reorder_point: number;
-      safety_stock: number;
+      nameAr: string;
+      qtyOnHand: number;
+      qtyReserved: number;
+      reorderQty: number;
+      safetyStock: number;
     }>>`
       SELECT
-        ib.variant_id,
-        ib.warehouse_id,
-        pv.sku,
-        pt.name_ar,
-        ib.qty_on_hand::float,
-        ib.qty_reserved::float,
-        rp.reorder_point::float,
-        rp.safety_stock::float
-      FROM inventory_balances ib
-      JOIN product_variants  pv ON pv.id = ib.variant_id
-      JOIN product_templates pt ON pt.id = pv.template_id
-      JOIN reorder_points     rp ON rp.variant_id   = ib.variant_id
-                                AND rp.warehouse_id  = ib.warehouse_id
-      WHERE ib.company_id = ${companyId}
-        AND ib.qty_on_hand <= rp.reorder_point
-        AND pv.deleted_at IS NULL
-      ORDER BY (ib.qty_on_hand - rp.reorder_point) ASC
+        ib."variantId",
+        ib."warehouseId",
+        pv."sku",
+        pt."nameAr",
+        ib."qtyOnHand"::float   AS "qtyOnHand",
+        ib."qtyReserved"::float AS "qtyReserved",
+        rp."reorderQty"::float  AS "reorderQty",
+        rp."safetyStock"::float AS "safetyStock"
+      FROM "inventory_balances" ib
+      JOIN "product_variants"   pv ON pv."id" = ib."variantId"
+      JOIN "product_templates"  pt ON pt."id" = pv."templateId"
+      JOIN "reorder_points"     rp ON rp."variantId"   = ib."variantId"
+                                  AND rp."warehouseId"  = ib."warehouseId"
+      WHERE ib."companyId" = ${companyId}
+        AND ib."qtyOnHand" <= rp."reorderQty"
+        AND pv."deletedAt" IS NULL
+      ORDER BY (ib."qtyOnHand" - rp."reorderQty") ASC
     `;
 
     return results.map(r => ({
-      variantId:    r.variant_id,
-      warehouseId:  r.warehouse_id,
+      variantId:    r.variantId,
+      warehouseId:  r.warehouseId,
       sku:          r.sku,
-      nameAr:       r.name_ar,
-      qtyOnHand:    r.qty_on_hand,
-      qtyAvailable: r.qty_on_hand - r.qty_reserved,
-      reorderPoint: r.reorder_point,
-      safetyStock:  r.safety_stock,
-      deficit:      r.reorder_point - r.qty_on_hand,
+      nameAr:       r.nameAr,
+      qtyOnHand:    r.qtyOnHand,
+      qtyAvailable: r.qtyOnHand - r.qtyReserved,
+      reorderPoint: r.reorderQty,
+      safetyStock:  r.safetyStock,
+      deficit:      r.reorderQty - r.qtyOnHand,
     }));
   }
 }

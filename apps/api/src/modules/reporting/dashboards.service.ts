@@ -284,10 +284,10 @@ export class DashboardsService {
       pendingLeaveRequests = Number(pending?.[0]?.count ?? 0);
 
       upcomingBirthdays = (await this.prisma.$queryRawUnsafe(
-        `SELECT id, "nameAr", "birthDate" FROM "employees"
+        `SELECT id, "nameAr", "dateOfBirth" FROM "employees"
          WHERE "companyId" = $1
-           AND EXTRACT(MONTH FROM "birthDate") = EXTRACT(MONTH FROM NOW())
-         ORDER BY EXTRACT(DAY FROM "birthDate") ASC LIMIT 10`,
+           AND EXTRACT(MONTH FROM "dateOfBirth") = EXTRACT(MONTH FROM NOW())
+         ORDER BY EXTRACT(DAY FROM "dateOfBirth") ASC LIMIT 10`,
         companyId,
       )) as any[];
 
