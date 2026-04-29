@@ -347,7 +347,7 @@ jobs:
 
           echo ""
           echo "=== Test Login ==="
-          ADMIN_EMAIL=$(grep SEED_ADMIN_EMAIL /opt/al-ruya-erp/infra/.env 2>/dev/null | cut -d= -f2 || echo "admin@al-ruya.iq")
+          ADMIN_EMAIL=$(grep SEED_ADMIN_EMAIL /opt/al-ruya-erp/infra/.env 2>/dev/null | cut -d= -f2 || echo "admin@ibherp.cloud")
           echo "Admin email: $ADMIN_EMAIL"
           echo "(Password saved in /root/.erp-credentials)"
 
