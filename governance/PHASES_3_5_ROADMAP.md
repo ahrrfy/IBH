@@ -6,7 +6,7 @@
 |-------|-------|-------|----------|-------|
 | **Phase 1** | Stabilization | 18-20h | 5 days | 🟢 92% (S1.9 ✅; S1.10 DNS; S1.11 Meta token; S1.12 browser — owner action) |
 | **Phase 2** | Testing & Quality (G4) | 37-42h | 10 days | 🟢 ~80% (S2.12 deferred — e2e 1m53s, no parallelization needed yet) |
-| **Phase 3** | Production Hardening (G5) | 41-48h | 12 days | 🟡 20% — 3.C ✅ uat-seed, 3.A/3.B scripts ✅, 3.D scripts ✅, VPS execution blocked |
+| **Phase 3** | Production Hardening (G5) | 41-48h | 12 days | 🟢 70% — 3.A ✅ executed (47/53), 3.D ✅ executed (28✅/4❌), 3.C ✅ uat-seed, 3.B flow demos pending, screenshots pending |
 | **Phase 4** | UAT & Launch (G6) | 53-60h | 21 days | 🔴 0% — needs real users + VPS access |
 | **Phase 5** | Post-Launch | 106-120h | 30-45 days | 🟢 85% — 5.A ✅ 50/50 jobs · 5.B ✅ I032 18/18 done · 5.D ✅ cron re-wired · 5.C blocked (signing certs) |
 
