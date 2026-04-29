@@ -8,7 +8,24 @@ Phase 1.B consists of VPS operational tasks that must be completed after testing
 
 ---
 
-## S1.9 — VPS Disk Setup Prevention
+## S1.9 — VPS Disk Setup Prevention ✅ COMPLETE (2026-04-29 Session 27)
+
+**Status:** Implemented directly on VPS via SSH. No Ansible playbook needed.
+
+**What was deployed:**
+- `/etc/docker/daemon.json` — log-driver=json-file, max-size=10m, max-file=3
+- `/etc/cron.weekly/docker-prune` — weekly `docker system prune -af --filter until=168h`
+- Reclaimed 8.8GB of build cache + restarted Docker (all 8 services healthy)
+- Disk usage: 15% (29GB / 193GB) — healthy headroom
+
+**Verification:**
+```bash
+ssh ibherp "cat /etc/docker/daemon.json && ls -la /etc/cron.weekly/docker-prune && df -h /"
+```
+
+---
+
+### Original Plan (kept for reference)
 
 **Objective:** Prevent Docker from consuming all VPS disk space
 
