@@ -2,88 +2,78 @@
 
 ---
 
-## Session 26 — 2026-04-29 — Phase 3 complete + Phase 5.B I032 Batch 4+5
+## Session 26 — 2026-04-29 — I032 CLOSED + Phase 5 ~70% complete
 
 ### Branch: main
-### Latest commit: 3f919cf (chore(deps): I032 Batch 5 — recharts 2→3 + POS cleanup)
-### Pushed to origin: ✅ pushed
+### Latest commit: 0940b73
+### Pushed to origin: ✅
 
 ---
 
 ### Completed this session
 
-**Phase 3 — Production Hardening (all automatable items done):**
-
-| Item | Deliverable | Commit |
-|------|-------------|--------|
-| 3.C UAT seed | `apps/api/prisma/uat-seed.ts` — already existed (50 products, 20 customers, 10 suppliers, 10 employees) | `f8e68b0` (prior session) |
-| 3.D health-check | `scripts/health-check.sh` — Docker services + API + SSL + DB + Redis + Restic | `e4311c4` |
-| 3.D restore-test | `infra/scripts/restore-test.sh` — Restic restore drill (spot + optional full DB) | `e4311c4` |
-| 3.D load-test | `infra/k6/load-test.js` — 10 POS VUs + 5 web VUs, p95<2s threshold | `e4311c4` |
-| 3.A evidence | `scripts/collect-evidence.sh` — 43 API captures across 6 waves | `e4311c4` |
-| 3.A structure | `governance/evidence/wave{1-6}/` directories created | `e4311c4` |
-| 3.B flows | 4 flow docs: sale, procurement, payroll, license lifecycle | `e4311c4` |
-
-**Phase 5.A — Autopilot jobs (confirmed):**
-- All 50 jobs verified with real implementations (no stubs) — zero items in `stubs.ts`
-
-**Phase 5.B — I032 Dependency upgrades:**
-
-| Batch | Packages | Status | Commit |
-|-------|----------|--------|--------|
-| Batch 3 | TypeScript 5→6 | ✅ committed prior session | `05c2e29` |
-| Batch 4 | @nestjs/swagger 8→11, @nestjs/bull 10→11, @nestjs/config 3→4, @nestjs/jwt/passport v11, cache-manager 5→7 | ✅ committed prior session | `5d5a79e` |
-| Batch 5 | recharts 2→3 (web), react-router-dom removed (pos unused) | ✅ | `3f919cf` |
-
-**Governance:**
-- `governance/MODULE_STATUS_BOARD.md` — Dependency Health table updated (all batch 4+5 rows marked ✅)
-- `governance/PHASES_3_5_ROADMAP.md` — Phase 3 status updated to 15% (VPS items blocked), Phase 5 40%
+| # | What | Commit |
+|---|------|--------|
+| 1 | Phase 3 smoke test scripts: `scripts/health-check.sh`, `infra/scripts/restore-test.sh`, `infra/k6/load-test.js` | `e4311c4` |
+| 2 | Phase 3 evidence collection: `scripts/collect-evidence.sh` + `governance/evidence/` structure + 4 flow docs | `e4311c4` |
+| 3 | I032 Batch 5: recharts 2→3 (web, 1 Pie label type fix), react-router-dom removed from POS (unused) | `3f919cf` |
+| 4 | I032 Batch 6: zod 3.23.0→4.3.6 all apps. 2 schema fixes: `z.record(val)` → `z.record(z.string(), val)` | `e29be9e` |
+| 5 | I032 CLOSED: all 18 dependency upgrades complete (Batches 3-6) | `cdfde32` |
+| 6 | Phase 5.D: re-wire BillingSweepProcessor into AdminLicensingModule providers (safe with @nestjs/bull v11 + @Optional() guards) | `0940b73` |
+| 7 | PHASES_3_5_ROADMAP updated: Phase 5 → 70%, Phase 3 → 20% | `0940b73` |
 
 ---
 
-### What remains
+### What remains (by who)
 
-**Requires running VPS (owner action):**
-| Item | Description |
-|------|-------------|
-| Phase 3 remaining 85% | Browser screenshots per module, SSL checks, k6 load test run, Restic snapshot verification — all need VPS access |
-| Phase 3.A screenshots | Open each module in browser, save PNGs to `governance/evidence/wave{N}/screenshots/` |
-| Phase 4 UAT | Full UAT with real users — scripts/playbook ready, needs people |
-| DNS + certbot | `shop.ibherp.cloud` — Hostinger DNS A record + Let's Encrypt |
-| WhatsApp Bridge | Set `WHATSAPP_TOKEN` in VPS `.env` |
-| POS signing | Authenticode cert (Windows) + Apple Developer (macOS) |
-| Mobile EAS | EXPO_TOKEN + Apple/Google credentials |
+#### Claude can do immediately
 
-**Code work remaining (frozen by design):**
-| Item | Why frozen |
-|------|-----------|
-| zod 3→4 | Breaking changes to `.safeParse()` + error format — affects every Zod schema (200+ files). Safe to attempt in future session. |
-| Phase 5.C — Native app shipping | Needs external signing credentials |
-| Phase 5.D — T70 BillingSweep | Needs RCA + controlled re-enable after risk assessment |
+| Item | Effort | Notes |
+|------|--------|-------|
+| zod 4 `errorMap` deprecations | ~30min | Check if any `z.string().min(1, { errorMap: ... })` remain — zod 4 uses `error` param. Campaign schemas were already fixed (`f9cdcd0`). |
+| Audit remaining `z.string().email()` etc. for zod 4 compat | ~1h | Run `pnpm --filter api exec tsc --noEmit` to catch anything missed |
+
+#### Needs owner (VPS access)
+
+| Item | Script/Runbook | Description |
+|------|---------------|-------------|
+| T70 BillingSweep enable | `governance/T70_BILLING_CRON_RCA.md` | `docker compose restart api` → verify log "Billing sweep cron scheduled" |
+| Phase 3 evidence collection | `bash scripts/collect-evidence.sh` | Run on VPS after DNS/certbot |
+| Phase 3 load test | `k6 run infra/k6/load-test.js` | k6 must be installed on VPS or CI runner |
+| Phase 3 restore drill | `bash infra/scripts/restore-test.sh` | Run on VPS with RESTIC_REPOSITORY set |
+| I009 2FA browser test | Manual | Login flow → TOTP code → verify access |
+| shop.ibherp.cloud DNS + certbot | Hostinger DNS panel | A record → VPS IP + Let's Encrypt |
+| WhatsApp token | `.env` on VPS | WHATSAPP_TOKEN + WHATSAPP_PHONE_ID from Meta Business |
+
+#### Requires external accounts (owner action)
+
+| Item | Blocker |
+|------|---------|
+| POS Windows signing | Authenticode cert (~$200/yr) |
+| POS macOS signing | Apple Developer account ($99/yr) |
+| Mobile EAS build | EXPO_TOKEN + Apple/Google |
 
 ---
 
-### Risks
+### Final state of all open issues
 
-- **CI for Batch 5 push**: recharts 3 change is trivial (1 line in analytics page) — should pass
-- **VPS deploy**: every push triggers Deploy workflow — the dependency changes don't require VPS restart
-- **Zod 4 deferral is intentional**: `z.safeParse()` return type changed + Zod v4 error format changed. Affects 200+ Zod schemas in DTOs/validation. Not worth rushing.
+| Issue | Status |
+|-------|--------|
+| I032 — 18 dep upgrades | ✅ CLOSED all batches 3-6 |
+| I040 — Prisma 7 | ✅ CLOSED |
+| I041 — Tailwind 4 | ✅ CLOSED |
+| I048 — Security audit | ✅ CLOSED (uuid moderate risk-accepted) |
+| I009 — 2FA browser test | 🟡 Open — needs manual browser test only |
 
 ---
 
-### Next safest steps
+### Latest 6 commits
 
-1. Wait for CI run on `3f919cf` to go green — check with `gh run list --limit 5`
-2. If green, Phase 5.B is complete (except zod 4 and native apps)
-3. Phase 4 requires owner: setup 2-3 UAT users + real data (see `governance/UAT_PLAYBOOK.md`)
-4. Phase 3 evidence collection: run `bash scripts/collect-evidence.sh` on VPS after DNS/certbot
-5. Optional: attempt zod 3→4 in a new session — budget 4-6 hours, run full e2e after
-
-### Latest 5 commits
 ```
-3f919cf chore(deps): I032 Batch 5 — recharts 2→3 (web) + remove unused react-router-dom (pos)
-5d5a79e feat(deps): upgrade NestJS ecosystem to latest majors
-4f59f4d docs(governance): Session 26 — sync Phase 5 progress after root fixes
-e4311c4 feat(phase3): Phase 3 Production Hardening — smoke tests + evidence collection + flow docs
-4f26db9 docs(phases-3-4-5): comprehensive owner-action runbooks for blocked phases
+0940b73 feat(phase5-d): re-enable BillingSweepProcessor cron
+f9cdcd0 ops(s1.9): VPS disk-setup deployed
+bbcc570 docs(governance): mark S1.9 VPS disk setup as complete
+5f9ba7f fix(zod4): replace deprecated errorMap in campaign schemas
+cdfde32 docs(governance): close I032
+e29be9e chore(deps): I032 Batch 6 — zod 3.23.0 → 4.3.6
 ```

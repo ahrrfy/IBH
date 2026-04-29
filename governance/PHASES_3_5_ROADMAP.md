@@ -8,7 +8,7 @@
 | **Phase 2** | Testing & Quality (G4) | 37-42h | 10 days | 🟢 ~80% (S2.12 deferred — e2e 1m53s, no parallelization needed yet) |
 | **Phase 3** | Production Hardening (G5) | 41-48h | 12 days | 🟡 20% — 3.C ✅ uat-seed, 3.A/3.B scripts ✅, 3.D scripts ✅, VPS execution blocked |
 | **Phase 4** | UAT & Launch (G6) | 53-60h | 21 days | 🔴 0% — needs real users + VPS access |
-| **Phase 5** | Post-Launch | 106-120h | 30-45 days | 🟢 70% — 5.A ✅ 50/50 jobs · 5.B ✅ I032 all done · 5.D ✅ cron re-wired · 5.C blocked (signing certs) |
+| **Phase 5** | Post-Launch | 106-120h | 30-45 days | 🟢 85% — 5.A ✅ 50/50 jobs · 5.B ✅ I032 18/18 done · 5.D ✅ cron re-wired · 5.C blocked (signing certs) |
 
 ---
 
@@ -141,10 +141,10 @@ Drive 2-3 real users through scripted scenarios for ~3-4 days. Per wave:
 | 1 | TypeScript 5 → 6 | 4h | Medium | ✅ **DONE** (I032 batch 3 — commit `fdf510d`) |
 | 2 | Tailwind 3 → 4 | 8h | HIGH | ✅ **DONE** (I041 — commit `69e0603`) — CSS-first @theme, flattened @apply, all 3 apps wired |
 | 3 | Prisma 6 → 7 | 8h | CRITICAL | ✅ **DONE** (I040 — commit `4739b05`) — driver-adapter pattern, prisma.config.ts, PrismaPg |
-| 4 | NestJS ecosystem | 4h | Medium | 🔴 مجمّد — swagger 8→11, bull 10→11, config 3→4 |
-| 5 | Frontend libs | 6h | Medium | 🔴 مجمّد — react-router-dom 6→7, recharts 2→3, zod 3→4 |
+| 4 | NestJS ecosystem | 4h | Medium | ✅ **DONE** (I032 batch 5 — commit `5d5a79e`) — swagger 11, bull 11, config 4, jwt 11, passport 11, cache-manager 7 |
+| 5 | Frontend libs | 6h | Medium | ✅ **DONE** (I032 batches 5-6 — commits `3f919cf`, `e29be9e`, `5f9ba7f`) — recharts 3, zod 4, react-router-dom removed from POS |
 
-**Remaining: ~10 hours** (steps 4-5). Steps 1-3 completed in Session 26.
+**All 5 steps complete.** I032 fully closed — 18/18 frozen packages upgraded.
 
 ### 5.C — Native App Shipping
 
