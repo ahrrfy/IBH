@@ -2,6 +2,74 @@
 
 ---
 
+## Session 35 — 2026-04-29 — Wave 6 fully unlocked (80/80 PASS) + F1 RLS gap logged
+
+### Branch: main
+### Latest commit: `7bff697` (after parallel-session interleaving)
+### Pushed to origin: ✅
+### VPS state: LicenseGuard ACTIVE, all Wave 6 modules loaded, Enterprise subscription seeded
+
+### Completed this session
+
+**6 commits, all deployed and verified live:**
+
+| Commit | What | Why |
+|--------|------|-----|
+| `2921a36` | I057 — migration `20260429180000_i057_commission_tables` (root cause) | Cycle 9's defensive try/catch was a band-aid. Tables now actually exist in DB with FKs + CHECK constraints + F2/F3 invariants (no updated_at on append-only entries; signed amount_iqd). |
+| `c6319fa` | feat — `apps/api/prisma/license-seed.ts` + `.github/workflows/license-seed.yml` | Idempotent seeder for an active Enterprise subscription. Companion to 5.D's split kill-switch (commit af3d3be). |
+| `c383a01` | I060 — `@Optional()` inject `PlanChangeService` in `AdminLicensingService` | Production was in crash loop after 5.D split: AdminLicensingModule loaded (BACKGROUND_JOBS_DISABLED=0) but PlatformLicensingModule skipped (LICENSE_GUARD_DISABLED=1) → PlanChangeService missing → UnknownDependenciesException every 3s. |
+| `91767e0` | Prisma 7 driver-adapter for ALL seed scripts | I040 regression — license-seed crashed on first run. Updated demo-seed.ts, seed-bootstrap.ts, seed.ts (uat-seed was already correct). Each now imports PrismaPg + Pool and closes the pool in finally. |
+| `7bff697` | I061 — move `JwtAuthGuard` to `APP_GUARD` so it runs before `LicenseGuard` | After seeding subscription + enabling LicenseGuard, every authed request returned 403 LICENSE_REQUIRED. Root cause: `useGlobalGuards()` runs AFTER `APP_GUARD` providers in NestJS 11. JwtAuthGuard couldn't populate `req.user` in time. |
+| (governance) | OPEN_ISSUES.md — log I057-fix, I060, I061, I062 | I062 documents the F1 RLS gap (50+ multi-tenant tables without RLS policies) for a future dedicated session. |
+
+**License-seed run** (workflow `25124224076`): created Enterprise subscription `01KQD517JYSD3TZV9JFQ97QB20` with 21 features, valid until 2027-04-29.
+
+**On the VPS** (`/opt/al-ruya-erp/infra/.env`): `LICENSE_GUARD_DISABLED=0` flipped, api container recreated. Wave 6 modules now loaded:
+- PlatformLicensingModule (global LicenseGuard, plan-change machinery)
+- AdminLicensingModule (super-admin dashboards, BillingSweep cron)
+- ExpiryWatcherModule (daily expiry cron)
+- AutopilotModule (50 jobs)
+- LicensingMirrorModule (read-only `/licensing/me/features`)
+
+**Final probe**: **80/80 endpoints PASS (100%)** with LicenseGuard active and Enterprise subscription enforced.
+
+### Smoke tests passed (Phase 3.D partial via SSH)
+
+| Test | Result |
+|------|--------|
+| All 17 Docker containers healthy | ✅ |
+| Disk usage 17% (33GB / 193GB) | ✅ green |
+| RAM 4.4Gi / 15.6Gi (28%) | ✅ green |
+| 121 Postgres tables, 30 migrations applied | ✅ |
+| Let's Encrypt certs: ibherp.cloud (valid → 2026-07-13), shop.ibherp.cloud, minio.ibherp.cloud, sirajalquran.org (untouched) | ✅ |
+| nginx sites enabled: erp, observability, shop.ibherp.cloud, siraj-alquran (no orphans) | ✅ |
+| CSP/HSTS/X-Frame-Options/X-Content-Type-Options all set | ✅ |
+| Rate limit zones: erp_global (100r/m), erp_auth_login (10r/m, burst=5), erp_auth_refresh (60r/m) | ✅ |
+| Auth rate limit kicks in at request 7 (503) | ✅ |
+| RLS policies present on 11/121 tables | 🟡 logged as I062 |
+
+### What remains
+
+| Item | Owner | Notes |
+|------|-------|-------|
+| I062 — RLS on remaining ~50 multi-tenant tables | Backend | Mechanical migration but high risk (transaction-local set_config) — needs RCA session before execution. |
+| I009 — 2FA UI manual browser test | QA | Code complete since Wave 1; needs human flow. |
+| Phase 3.A — Evidence collection (screenshots) | Owner | Needs browser session. ~20h. |
+| Phase 3.B — Flow demonstrations (4 lifecycles) | Owner | Needs UAT data + screenshots. ~10h. |
+| Phase 4 — UAT with 3 real users | Owner | ~21 days of scripted scenarios. |
+| Code-signing certs ($324/yr) | Owner | Authenticode + Apple Developer + Google Play. |
+
+### Next safest step
+
+System is fully production-ready except for:
+1. F1 hardening (I062 — RLS rollout to all tables)
+2. Real-user UAT (Phase 4)
+3. Owner-action items (signing certs, WhatsApp token)
+
+All AI-doable code work for the production launch is complete. The remaining items need human verification or external accounts.
+
+---
+
 ## Session 34 — 2026-04-29 — I058 complete (LicenseEventType @@map) + VPS deploy verified
 
 ### Branch: main
