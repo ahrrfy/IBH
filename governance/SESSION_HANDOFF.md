@@ -2,6 +2,61 @@
 
 ---
 
+## Session 26 — 2026-04-29 — Root fixes (I048+I041+I040+I037) + Phase 5 progress sync
+
+### Branch: main
+### Latest commit: pending — governance sync after root fixes
+### Pushed to origin: ⏳ pending
+
+### Completed this session
+
+**4 Root Fixes (all committed + pushed in prior context window):**
+
+| Issue | Fix | Commit |
+|-------|-----|--------|
+| I048 | 20→2 vulnerabilities via `pnpm.overrides` (7 packages: lodash, js-yaml, tar, @xmldom/xmldom, postcss, @babel/runtime, @hono/node-server). uuid@8 risk-accepted. | `b355c22` |
+| I041 | Tailwind CSS 3→4 across web+POS+storefront. globals.css rewritten (CSS-first @theme, 15 chained @apply flattened). tailwind.config.ts deleted. PostCSS/Vite plugins wired. | `69e0603` |
+| I040 | Prisma 6.19.3→7.8.0 with driver-adapter pattern. PrismaService rewritten (Pool→PrismaPg→PrismaClient). prisma.config.ts created. multiSchema removed from previewFeatures. | `4739b05` |
+| I037 | Confirmed complete — GRNLine.expiryDate is the correct data source for Q04 rule. | closed in `68a68e2` |
+
+**Phase 5 progress verified:**
+- 5.A: All 50 autopilot jobs verified fully implemented (zero stubs in stubs.ts)
+- 5.B: Steps 1-3 done (TypeScript 6 ✅, Tailwind 4 ✅, Prisma 7 ✅). Steps 4-5 (NestJS+frontend libs) still frozen.
+- 3.C: UAT seed already exists (45 products, 17 customers, 8 suppliers, 10 employees)
+
+**Governance updated:**
+- PHASES_3_5_ROADMAP.md — reflects completed items
+- MODULE_STATUS_BOARD.md — dependency health + overview date
+- OPEN_ISSUES.md — all 4 issues marked ✅ closed (done in prior context)
+
+### Remaining work
+
+**Phase 3 (needs VPS/browser):**
+- 3.A: Evidence collection (screenshots + API captures per wave)
+- 3.B: E2E flow demos (sale lifecycle, procurement, payroll, license)
+- 3.D: Smoke tests (health check, SSL, backup drill, load test, security audit)
+
+**Phase 4 (needs real users):**
+- Pre-UAT infrastructure + 3 UAT accounts + real data import
+
+**Phase 5 (remaining):**
+- 5.B steps 4-5: NestJS ecosystem (swagger 8→11, bull 10→11, config 3→4) + frontend libs (react-router-dom 6→7, recharts 2→3, zod 3→4)
+- 5.C: Native app signing (POS Windows+macOS, Mobile EAS)
+- 5.D: T70 billing cron RCA + re-enable
+
+### Next safest commands
+
+```bash
+# 1. NestJS ecosystem upgrade (5.B step 4):
+# Check current versions
+pnpm --filter @erp/api ls @nestjs/swagger @nestjs/bull @nestjs/config
+
+# 2. Frontend libs upgrade (5.B step 5):
+pnpm --filter @erp/web ls react-router-dom recharts zod
+```
+
+---
+
 ## Session 25 — 2026-04-29 — Phase 2 closeout: +5 e2e invariant suites · +34 tests · Phases 3-5 roadmap
 
 ### Branch: main
