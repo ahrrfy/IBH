@@ -1,14 +1,14 @@
 # Phases 3-5 — Remaining Work Roadmap
 
-## Status (2026-04-29 — Session 25 close)
+## Status (2026-04-29 — Session 26 update)
 
 | Phase | Title | Hours | Calendar | Done? |
 |-------|-------|-------|----------|-------|
 | **Phase 1** | Stabilization | 18-20h | 5 days | 🟢 90% (S1.9-S1.12 = VPS ops, deferred) |
 | **Phase 2** | Testing & Quality (G4) | 37-42h | 10 days | 🟢 ~80% (S2.12 deferred — CI is 1m53s, no need yet) |
-| **Phase 3** | Production Hardening (G5) | 41-48h | 12 days | 🔴 0% — **NEXT** |
-| **Phase 4** | UAT & Launch (G6) | 53-60h | 21 days | 🔴 0% |
-| **Phase 5** | Post-Launch | 106-120h | 30-45 days | 🔴 0% |
+| **Phase 3** | Production Hardening (G5) | 41-48h | 12 days | 🟡 15% — 3.C ✅ done (UAT seed), 3.A/3.B/3.D need VPS |
+| **Phase 4** | UAT & Launch (G6) | 53-60h | 21 days | 🔴 0% — needs real users |
+| **Phase 5** | Post-Launch | 106-120h | 30-45 days | 🟡 40% — 5.A ✅ 50/50 jobs, 5.B steps 1-3 ✅ done |
 
 ---
 
@@ -122,39 +122,29 @@ Drive 2-3 real users through scripted scenarios for ~3-4 days. Per wave:
 
 ## Phase 5 — Post-Launch
 
-### 5.A — Autopilot Job Implementation
+### 5.A — Autopilot Job Implementation — ✅ COMPLETE (50/50)
 
-**Status (per Sessions 22+):** 50/50 jobs in dedicated files, but ~20+ are still scaffolds.
+**Status (Session 26 verified):** All 50 jobs fully implemented — zero stubs remain.
+`stubs.ts` SCAFFOLDS array is empty. Each job has 40–230 lines of real business logic.
 
-**Tier A — High Business Value (implement first):**
-- ✅ `sales.commission-calc` (already implemented)
-- ✅ `finance.exchange-rate-sync` (already implemented)
-- ✅ `finance.unbalanced-je-detect` (already implemented)
-- ✅ `inventory.cost-recalculate` (already implemented)
-- ✅ `procurement.three-way-match` (already implemented)
-- ✅ `license.heartbeat-check` (already implemented)
-- ✅ `delivery.eta-deviation` (already implemented)
-
-**Tier B — Medium Value (~15h total):**
-- `sales.price-list-rollover`, `sales.target-vs-actual`, `inventory.warehouse-balance`,
-  `inventory.stocktake-reminder`, `finance.tax-liability-calc`, `finance.cashflow-forecast`,
-  `hr.birthday-greeting`, `hr.probation-end-flag`, `delivery.driver-load-balance`, `license.usage-report`
-
-**Tier C — Lower Priority (~26h total):** Remaining scaffolds
+**All Tiers Complete:**
+- ✅ Tier A (7 jobs): commission-calc, exchange-rate-sync, unbalanced-je-detect, cost-recalculate, three-way-match, heartbeat-check, eta-deviation
+- ✅ Tier B (10 jobs): price-list-rollover, target-vs-actual, warehouse-balance, stocktake-reminder, tax-liability-calc, cashflow-forecast, birthday-greeting, probation-end-flag, driver-load-balance, usage-report
+- ✅ Tier C (33 jobs): All remaining jobs fully implemented
 
 ### 5.B — Dependency Upgrades (I032 — 18 Frozen Packages)
 
 **Order matters** — must be done in this sequence:
 
-| Step | Upgrade | Effort | Risk | Notes |
-|------|---------|--------|------|-------|
-| 1 | TypeScript 5 → 6 | 4h | Medium | Verify ~258 `as any` sites |
-| 2 | Tailwind 3 → 4 | 8h | HIGH (I041) | Flatten chained `@apply`, migrate `theme()` to `@theme` |
-| 3 | Prisma 6 → 7 | 8h | CRITICAL (I040) | New `prisma.config.ts` + driver-adapter pattern. **In-progress local changes exist — see uncommitted diff in apps/api/package.json + schema.prisma** |
-| 4 | NestJS ecosystem | 4h | Medium | swagger 8→11, bull 10→11, config 3→4 |
-| 5 | Frontend libs | 6h | Medium | react-router-dom 6→7, recharts 2→3, zod 3→4 |
+| Step | Upgrade | Effort | Risk | Status |
+|------|---------|--------|------|--------|
+| 1 | TypeScript 5 → 6 | 4h | Medium | ✅ **DONE** (I032 batch 3 — commit `fdf510d`) |
+| 2 | Tailwind 3 → 4 | 8h | HIGH | ✅ **DONE** (I041 — commit `69e0603`) — CSS-first @theme, flattened @apply, all 3 apps wired |
+| 3 | Prisma 6 → 7 | 8h | CRITICAL | ✅ **DONE** (I040 — commit `4739b05`) — driver-adapter pattern, prisma.config.ts, PrismaPg |
+| 4 | NestJS ecosystem | 4h | Medium | 🔴 مجمّد — swagger 8→11, bull 10→11, config 3→4 |
+| 5 | Frontend libs | 6h | Medium | 🔴 مجمّد — react-router-dom 6→7, recharts 2→3, zod 3→4 |
 
-**Total: ~30 hours** but spread across multiple dedicated sessions due to risk.
+**Remaining: ~10 hours** (steps 4-5). Steps 1-3 completed in Session 26.
 
 ### 5.C — Native App Shipping
 
@@ -210,7 +200,7 @@ Each phase has a clear "done" criteria:
 
 - **Phase 3 Done:** `governance/evidence/` has screenshots + captures for every wave + 4 flow demos. G5 gate filled in MODULE_STATUS_BOARD.md.
 - **Phase 4 Done:** UAT_PLAYBOOK scenarios all marked Pass. G6 gate filled. Launch sign-off documented in DECISIONS_LOG.md.
-- **Phase 5 Done:** All 50 autopilot jobs production-ready (no scaffolds). All 18 dependencies upgraded. Native apps published to stores.
+- **Phase 5 Done:** ✅ All 50 autopilot jobs production-ready (no scaffolds). ✅ TS6+TW4+Prisma7 upgraded. Remaining: NestJS + frontend libs upgraded. Native apps published to stores.
 
 ---
 
