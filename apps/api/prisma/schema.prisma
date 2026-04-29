@@ -2902,12 +2902,22 @@ enum SubscriptionStatus {
   suspended
   expired
   cancelled
+
+  // I058 — DB type was originally created as `subscription_status` (snake_case)
+  // but Prisma 7 driver-adapter quotes the type name as PascalCase when
+  // generating SQL casts. Without this @@map, /licensing/me/features 500s
+  // with "type public.SubscriptionStatus does not exist". Map to the actual
+  // DB type name.
+  @@map("subscription_status")
 }
 
 enum BillingCycle {
   monthly
   annual
   bundle
+
+  // I058 — same reason as SubscriptionStatus above.
+  @@map("billing_cycle")
 }
 
 enum LicenseEventType {
