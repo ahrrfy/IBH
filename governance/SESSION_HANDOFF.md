@@ -2,10 +2,10 @@
 
 ---
 
-## Session 28 — 2026-04-29 — Production auth routing fix (I051)
+## Session 29 — 2026-04-29 — Closed I052+I053+I054+I055
 
 ### Branch: main
-### Latest commit: fbb4941
+### Latest commit: d7cdddc
 ### Pushed to origin: ✅
 
 ---
@@ -14,10 +14,10 @@
 
 | # | What | Commit |
 |---|------|--------|
-| 1 | I051 — Fix production auth bug: clicking modules redirects back to login. Six compounding root causes addressed: middleware double-/api URL, cookie max-age=900s race, missing root pages, missing PROTECTED_PREFIXES, missing API_INTERNAL_URL env, login page no auto-redirect. | `fbb4941` |
-| 2 | OPEN_ISSUES: closed I051; opened I052 (licensing/me/features 404 root cause), I053 (WebSocket fail), I054 (no refresh-token client flow), I055 (auth rate limit too tight). | (handoff) |
-
-> **Note:** commit `fbb4941`'s message says "fix(storefront): add public/" because of a hooks race that swapped messages — the actual content includes the auth fix. Verified via `git show --stat fbb4941`.
+| 1 | I053 — host vhost: dedicated `/socket.io/` location with 86400s timeouts so the catch-all 90s read_timeout no longer drops WS frames. I055 — split `erp_auth` into login (10r/m) + refresh (60r/m) zones; fixed latent bug where `/api/auth/` never matched (real path is `/api/v1/auth/...`), so login was effectively un-rate-limited in production. | `d9175c8` |
+| 2 | I054 — refresh-token rotation in `apps/web/src/lib/api.ts`. Persist `refreshToken` on login + 2FA verify; on 401 try `/auth/refresh` once before clearing session; coalesce concurrent 401s into one refresh round-trip. logout forwards refreshToken so the DB row gets revoked. + POS `globals.d.ts` (TS6 strict + `*.css` side-effect import). | `475ba34` |
+| 3 | I052 — extracted `LicensingMirrorModule` (read-only `MeFeaturesController` + `FeatureCacheService` only; no global guard). Loaded unconditionally in `coreImports` so the web shell can boot on greenfield installs even with `BACKGROUND_JOBS_DISABLED=1`. `PlatformLicensingModule` now imports the mirror instead of re-providing the cache. me-features.controller.spec 3/3 pass. | `d7cdddc` |
+| 4 | Earlier: PHASES_3_5_ROADMAP marked 5.B steps 4-5 ✅ DONE (NestJS 11 + Zod 4 + Recharts 3); login.tsx duplicate destructure (TS2451) fixed. | `ed615e8`, `611f35a` |
 
 ---
 
@@ -25,12 +25,9 @@
 
 #### Claude can do immediately
 
-| Item | Issue | Effort | Notes |
-|------|-------|--------|-------|
-| Diagnose `/licensing/me/features` 404 | I052 | M | After VPS deploys I051, check if route is actually mapped. May need module import order fix in `app.module.ts`. |
-| Add WebSocket upgrade headers in host vhost | I053 | S | Edit `infra/nginx/host-vhost-ibherp.conf` — add a dedicated `location /socket.io/` block with `proxy_http_version 1.1` + `Upgrade` + `Connection "upgrade"`. |
-| Implement refresh-token client flow | I054 | M | `api.ts` 401 handler should try `refreshToken` once before clearing session. |
-| Tune auth rate limit | I055 | S | `infra/nginx/conf.d/bootstrap.conf` — raise erp_auth to 30r/m, split refresh from login. |
+| Item | Notes |
+|------|-------|
+| — | All four newly-opened issues (I052-I055) closed. No code-only work pending. |
 
 #### Needs owner (VPS access)
 
