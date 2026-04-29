@@ -19,8 +19,10 @@ import { RedisModule }    from './platform/redis/redis.module';
 import { HealthModule }   from './platform/health/health.module';
 import { RealtimeModule } from './platform/realtime/realtime.module';
 import { NotificationsModule } from './platform/notifications/notifications.module';
+import { EncryptionModule } from './platform/encryption/encryption.module';
 import { PlatformLicensingModule } from './platform/licensing/licensing.module';
 import { ExpiryWatcherModule } from './platform/licensing/expiry-watcher.module';
+import { IntegrationsModule } from './modules/admin/integrations/integrations.module';
 
 // Business Modules (Wave 1)
 import { CoreModule }      from './modules/core/core.module';
@@ -113,6 +115,7 @@ const coreImports = [
   HealthModule,
   RealtimeModule,
   NotificationsModule,
+  EncryptionModule,
   // PlatformLicensingModule moved to backgroundJobImports — its global
   // LicenseGuard blocks every endpoint until a subscription is seeded.
 
@@ -166,6 +169,9 @@ const coreImports = [
   // ── E-commerce ↔ ERP integration (T55) ─────────────────────────────────
   PaymentsModule,
   OnlineOrdersModule,
+
+  // ── Admin: per-tenant integrations (WhatsApp, SMTP, SMS, ...) ──────────
+  IntegrationsModule,
 ];
 
 // Background-job modules with heavy BullMQ queue connections.

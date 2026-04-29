@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import {
   Users as UsersIcon, Building2, Shield, KeyRound, Bell, Database,
-  Palette, Globe, Receipt, Briefcase, ChevronLeft, ScrollText,
+  Palette, Globe, Receipt, Briefcase, ChevronLeft, ScrollText, MessageCircle,
 } from 'lucide-react';
 
 // Sections with `ready: false` are linked but show "قريباً" badge — they'll be
@@ -33,6 +33,12 @@ const SECTIONS = [
       { href: '/settings/security', icon: KeyRound,   label: 'الأمان والخصوصية', desc: '2FA، الجلسات، السجلات', ready: false },
       { href: '/settings/backup',   icon: Database,   label: 'النسخ الاحتياطي',  desc: 'استعادة + تصدير', ready: false },
       { href: '/settings/numbering',icon: Receipt,    label: 'ترقيم المستندات',  desc: 'صيغة أرقام الفواتير والقيود', ready: false },
+    ],
+  },
+  {
+    title: 'التكاملات الخارجية',
+    items: [
+      { href: '/settings/integrations/whatsapp', icon: MessageCircle, label: 'واتساب الأعمال', desc: 'تفعيل الإشعارات التلقائية عبر WhatsApp Business API' },
     ],
   },
 ];
