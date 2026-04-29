@@ -2,10 +2,10 @@
 
 ---
 
-## Session 27 — 2026-04-29 — Phase 5.B 100% + typecheck clean
+## Session 28 — 2026-04-29 — Production auth routing fix (I051)
 
 ### Branch: main
-### Latest commit: 611f35a
+### Latest commit: fbb4941
 ### Pushed to origin: ✅
 
 ---
@@ -14,8 +14,10 @@
 
 | # | What | Commit |
 |---|------|--------|
-| 1 | PHASES_3_5_ROADMAP: mark 5.B steps 4-5 as ✅ DONE (NestJS 11 + Zod 4 + Recharts 3). Phase 5 → 85% | `ed615e8` |
-| 2 | Fix duplicate `useAuth()` destructuring in login page (TS2451) | `611f35a` |
+| 1 | I051 — Fix production auth bug: clicking modules redirects back to login. Six compounding root causes addressed: middleware double-/api URL, cookie max-age=900s race, missing root pages, missing PROTECTED_PREFIXES, missing API_INTERNAL_URL env, login page no auto-redirect. | `fbb4941` |
+| 2 | OPEN_ISSUES: closed I051; opened I052 (licensing/me/features 404 root cause), I053 (WebSocket fail), I054 (no refresh-token client flow), I055 (auth rate limit too tight). | (handoff) |
+
+> **Note:** commit `fbb4941`'s message says "fix(storefront): add public/" because of a hooks race that swapped messages — the actual content includes the auth fix. Verified via `git show --stat fbb4941`.
 
 ---
 
@@ -23,9 +25,12 @@
 
 #### Claude can do immediately
 
-| Item | Effort | Notes |
-|------|--------|-------|
-| Nothing actionable | — | All code tasks complete. Typechecks clean (api + web). |
+| Item | Issue | Effort | Notes |
+|------|-------|--------|-------|
+| Diagnose `/licensing/me/features` 404 | I052 | M | After VPS deploys I051, check if route is actually mapped. May need module import order fix in `app.module.ts`. |
+| Add WebSocket upgrade headers in host vhost | I053 | S | Edit `infra/nginx/host-vhost-ibherp.conf` — add a dedicated `location /socket.io/` block with `proxy_http_version 1.1` + `Upgrade` + `Connection "upgrade"`. |
+| Implement refresh-token client flow | I054 | M | `api.ts` 401 handler should try `refreshToken` once before clearing session. |
+| Tune auth rate limit | I055 | S | `infra/nginx/conf.d/bootstrap.conf` — raise erp_auth to 30r/m, split refresh from login. |
 
 #### Needs owner (VPS access)
 
