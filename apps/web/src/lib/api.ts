@@ -18,10 +18,25 @@ export class ApiError extends Error {
 }
 
 const TOKEN_KEY = 'al-ruya.token';
+const REFRESH_TOKEN_KEY = 'al-ruya.refreshToken';
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return window.localStorage.getItem(TOKEN_KEY);
+}
+
+export function getRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function setRefreshToken(token: string | null): void {
+  if (typeof window === 'undefined') return;
+  if (token) {
+    window.localStorage.setItem(REFRESH_TOKEN_KEY, token);
+  } else {
+    window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+  }
 }
 
 /**
@@ -64,6 +79,38 @@ export interface ApiRequestInit extends Omit<RequestInit, 'body'> {
   body?: unknown;
   query?: Record<string, string | number | boolean | null | undefined>;
   skipAuth?: boolean;
+  /** Internal: prevents recursive refresh-then-retry on the refresh endpoint itself. */
+  _retried?: boolean;
+}
+
+// I054 — Coalesce concurrent 401s into a single refresh round-trip so that
+// N parallel requests don't N-multiply rate-limit pressure on /auth/refresh.
+let pendingRefresh: Promise<string | null> | null = null;
+
+async function tryRefreshToken(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+  if (pendingRefresh) return pendingRefresh;
+  pendingRefresh = (async () => {
+    try {
+      const res = await fetch(buildUrl('/auth/refresh'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) return null;
+      const data = (await res.json().catch(() => null)) as { accessToken?: string } | null;
+      const newToken = data?.accessToken ?? null;
+      if (newToken) setToken(newToken);
+      return newToken;
+    } catch {
+      return null;
+    } finally {
+      // Clear after the microtask queue drains so all in-flight callers see the same result.
+      setTimeout(() => { pendingRefresh = null; }, 0);
+    }
+  })();
+  return pendingRefresh;
 }
 
 function buildUrl(path: string, query?: ApiRequestInit['query']): string {
@@ -97,7 +144,7 @@ function buildUrl(path: string, query?: ApiRequestInit['query']): string {
 }
 
 export async function api<T = unknown>(path: string, opts: ApiRequestInit = {}): Promise<T> {
-  const { body, query, skipAuth, headers, ...rest } = opts;
+  const { body, query, skipAuth, headers, _retried, ...rest } = opts;
   const url = buildUrl(path, query);
 
   const finalHeaders: Record<string, string> = {
@@ -136,7 +183,17 @@ export async function api<T = unknown>(path: string, opts: ApiRequestInit = {}):
   }
 
   if (response.status === 401 && !skipAuth) {
+    // I054 — Try refresh-token rotation once before clearing the session.
+    // Without this, JWT clock skew or the 15-min access-token expiry kicks
+    // active users back to /login on every quarter-hour boundary.
+    if (!_retried) {
+      const newToken = await tryRefreshToken();
+      if (newToken) {
+        return api<T>(path, { ...opts, _retried: true });
+      }
+    }
     setToken(null);
+    setRefreshToken(null);
     if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
       window.location.href = '/login';
     }
@@ -269,6 +326,9 @@ export async function login(emailOrUsername: string, password: string): Promise<
   });
   if ('accessToken' in res && res.accessToken) setToken(res.accessToken);
   else if ('token' in res && (res as any).token) setToken((res as any).token);
+  if ('refreshToken' in res && (res as LoginSuccessResponse).refreshToken) {
+    setRefreshToken((res as LoginSuccessResponse).refreshToken!);
+  }
   return res;
 }
 
@@ -283,6 +343,7 @@ export async function verifyMfaLogin(mfaToken: string, code: string): Promise<Lo
     skipAuth: true,
   });
   if (res.accessToken) setToken(res.accessToken);
+  if (res.refreshToken) setRefreshToken(res.refreshToken);
   return res;
 }
 
@@ -304,9 +365,14 @@ export async function me(): Promise<AuthUser> {
 }
 
 export async function logout(): Promise<void> {
+  const refreshToken = getRefreshToken();
   try {
-    await api('/auth/logout', { method: 'POST' });
+    await api('/auth/logout', {
+      method: 'POST',
+      body: refreshToken ? { refreshToken } : undefined,
+    });
   } finally {
     setToken(null);
+    setRefreshToken(null);
   }
 }
