@@ -155,15 +155,15 @@
 | G1 تعريف مكتوب | ██████████ | ██████████ | ██████████ | ██████████ | ██████████ | ██████████ |
 | G2 مسار العمل | ██████████ | ██████████ | ██████████ | ██████████ | ██████████ | ██████████ |
 | G3 DB واضحة | ██████████ | ██████████ | ██████████ | ██████████ | ██████████ | ██████████ |
-| G4 Tests (مكتوبة) | ██████████ 5/5 ✅ | ██████████ 3/3 | ██████████ 3/3 ✅ (PR #125) | ██████████ 3/3 ✅ (PR #125) | ████░░░░░░ 1.5/2 | ██████████ 2/2 ✅ |
-| G4 Tests (مُشغَّلة) | ⏳ RUNNING 30/30 | ░░░░░░░░░░ | ░░░░░░░░░░ | ░░░░░░░░░░ | ░░░░░░░░░░ | ░░░░░░░░░░ |
+| G4 Tests (مكتوبة) | ██████████ 9/9 ✅ | ██████████ 3/3 ✅ | ██████████ 4/4 ✅ | ██████████ 7/7 ✅ | ██████████ 4/4 ✅ | ██████████ 3/3 ✅ |
+| G4 Tests (مُشغَّلة) | ██████████ 9/9 ✅ | ██████████ 3/3 ✅ | ██████████ 4/4 ✅ | ██████████ 7/7 ✅ | ██████████ 4/4 ✅ | ██████████ 3/3 ✅ |
 | G5 دليل إثبات | ░░░░░░░░░░ | ░░░░░░░░░░ | ░░░░░░░░░░ | ░░░░░░░░░░ | ░░░░░░░░░░ | ░░░░░░░░░░ |
 | G6 تشغيل واقعي | ████░░░░░░ API 200 مؤكد / UAT pending | ░░░░░░░░░░ | ░░░░░░░░░░ | ░░░░░░░░░░ | ░░░░░░░░░░ | ░░░░░░░░░░ |
 
-**الخلاصة:** الكود مكتمل، لكن البوابات G4-G6 تتطلب:
-- Acceptance tests (pnpm --filter api test:e2e)
-- Deployment + data migration
-- UAT مع مستخدمين حقيقيين
+**الخلاصة:** ✅ G4 مغلق بالكامل (30/30 e2e tests passing — CI run 25118171594) · البوابات G5-G6 تتطلب:
+- ~~Acceptance tests (pnpm --filter api test:e2e)~~ ✅ DONE 2026-04-29 — جميع 30 suites خضراء (71 PASS + 1 skipped)
+- G5: Evidence collection (screenshots + API captures) per wave
+- G6: Production deployment + UAT مع مستخدمين حقيقيين
 
 ---
 
@@ -186,4 +186,4 @@
 
 ---
 
-*آخر تحديث: 2026-04-29 — PHASE 1.A CRITICAL FIX: TypeScript compilation blocker (invalid LeadStatus enum in CRM jobs) FIXED + PUSHED · Commit 0fdfa73 · CI running 30/30 e2e tests · G4 Tests (Running) now in progress*
+*آخر تحديث: 2026-04-29 — ✅ G4 GATE CLOSED: 30/30 e2e tests passing (CI run 25118171594) · Sessions 21+22 fixed all blockers · Phase 2 (S2.4-S2.12 test coverage expansion) ready to begin · Phase 1.B (S1.9-S1.12 VPS ops) deferred to operational session*

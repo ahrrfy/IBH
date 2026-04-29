@@ -173,6 +173,22 @@ jobs:
         run: pnpm --filter api exec prisma db seed
       - name: Build workspace packages
         run: pnpm --filter '@erp/shared-types' --filter '@erp/validation-schemas' --filter '@erp/domain-events' build
+      - name: Verify all e2e test files are discovered by Jest
+        # S2.11 — guard against test files being accidentally excluded by jest config
+        # (e.g. typos in testRegex, files outside rootDir, or missing extensions).
+        # Counts .e2e-spec.ts files on disk vs what Jest --listTests reports.
+        working-directory: apps/api
+        run: |
+          DISK_COUNT=$(find test -name "*.e2e-spec.ts" -type f | wc -l)
+          JEST_COUNT=$(npx jest --config ./test/jest-e2e.json --listTests 2>/dev/null | wc -l)
+          echo "On disk: $DISK_COUNT e2e-spec.ts files"
+          echo "Jest discovers: $JEST_COUNT test files"
+          if [ "$DISK_COUNT" != "$JEST_COUNT" ]; then
+            echo "::error::Mismatch! $DISK_COUNT files on disk but Jest only found $JEST_COUNT."
+            echo "Some tests will not run. Check test/jest-e2e.json testRegex + rootDir."
+            exit 1
+          fi
+          echo "✅ All $DISK_COUNT e2e test files will be executed."
       - name: Run e2e suite
         run: pnpm --filter api test:e2e
 
