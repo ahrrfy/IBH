@@ -58,6 +58,9 @@ import { HrModule }        from './modules/hr/hr.module';
 import { JobOrdersModule } from './modules/job-orders/job-orders.module';
 import { MarketingModule } from './modules/marketing/marketing.module';
 
+// Data Migration Center
+import { DataMigrationModule } from './modules/data-migration/data-migration.module';
+
 // Business Modules (Wave 6)
 import { CrmModule }       from './modules/crm/crm.module';
 import { LicensingModule } from './modules/licensing/licensing.module';
@@ -189,6 +192,9 @@ const coreImports = [
   // ── E-commerce ↔ ERP integration (T55) ─────────────────────────────────
   PaymentsModule,
   OnlineOrdersModule,
+
+  // ── Data Migration Center ────────────────────────────────────────────────
+  DataMigrationModule,
 
   // ── Admin: per-tenant integrations (WhatsApp, SMTP, SMS, ...) ──────────
   IntegrationsModule,
