@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Inbox, ArrowUpDown, Columns3, Rows3, Printer
 import { ExportDropdown, type ExportFormat } from './export-dropdown';
 import type { CompanyHeader } from '@/lib/export/types';
 
-function useLocalStorage<T>(key: string, initial: T): [T, (v: T) => void] {
+function useLocalStorage<T>(key: string, initial: T): [T, React.Dispatch<React.SetStateAction<T>>] {
   const [val, setVal] = useState<T>(() => {
     if (typeof window === 'undefined') return initial;
     try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : initial; } catch { return initial; }
@@ -182,8 +182,8 @@ export function DataTable<T>({
             rows={sorted}
             filename={exportFilename}
             title={exportTitle}
-            companyHeader={companyHeader}
-            formats={exportFormats}
+            company={companyHeader}
+            formats={exportFormats ?? ['csv']}
           />
         </div>
       </div>

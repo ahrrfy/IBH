@@ -304,3 +304,12 @@
 
   .skeleton { @apply animate-pulse-soft bg-surface-muted rounded-md; }
 }
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; }
+  main { overflow: visible !important; }
+  nav, aside, header { display: none !important; }
+  table { page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+}

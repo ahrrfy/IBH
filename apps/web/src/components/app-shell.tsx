@@ -5,6 +5,7 @@ import { Topbar } from './topbar';
 import { ActivityBar } from './activity-bar';
 import { SubSidebar } from './sub-sidebar';
 import { QueryProvider } from '@/lib/react-query';
+import { ToastContainer } from './toast';
 
 /**
  * AppShell — main authenticated layout.
@@ -32,6 +33,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </main>
         </div>
       </div>
+      <ToastContainer />
     </QueryProvider>
   );
 }
