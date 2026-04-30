@@ -79,6 +79,11 @@ export default function UsersListPage() {
         onRetry={() => refetch()}
         emptyMessage="لا يوجد مستخدمون"
         exportFilename="users"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="users"
+        columnToggle
+        densityToggle
+        printable
         getRowKey={(r: any) => r.id}
       />
     </div>

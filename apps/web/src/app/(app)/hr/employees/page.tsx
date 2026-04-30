@@ -28,6 +28,11 @@ export default function EmployeesPage() {
         onRetry={() => refetch()}
         getRowKey={(r: any) => r.id}
         exportFilename="employees"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="employees"
+        columnToggle
+        densityToggle
+        printable
       />
     </div>
   );

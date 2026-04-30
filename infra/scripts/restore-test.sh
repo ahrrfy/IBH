@@ -65,7 +65,11 @@ echo ""
 # ── 2. Latest snapshot metadata ───────────────────────────────────────────────
 echo "📋 Latest snapshot metadata..."
 
-LATEST_JSON=$(restic snapshots --latest 1 --json 2>/dev/null)
+# `restic snapshots --latest 1` returns 1 result PER tag-group; backup-cron
+# stamps each run with a unique `ts-YYYYMMDD_HHMMSS` tag, so different runs
+# end up in different groups. We instead pull all snapshots and sort by
+# time on the client to get the genuine most-recent.
+LATEST_JSON=$(restic snapshots --json 2>/dev/null | jq 'sort_by(.time) | [last]')
 LATEST_ID=$(echo "$LATEST_JSON" | jq -r '.[0].short_id' 2>/dev/null || echo "")
 LATEST_TIME=$(echo "$LATEST_JSON" | jq -r '.[0].time' 2>/dev/null || echo "")
 LATEST_HOSTNAME=$(echo "$LATEST_JSON" | jq -r '.[0].hostname' 2>/dev/null || echo "")

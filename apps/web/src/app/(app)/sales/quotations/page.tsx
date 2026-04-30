@@ -87,6 +87,11 @@ export default function QuotationsPage() {
         onRetry={() => refetch()}
         getRowKey={(r: any) => r.id}
         exportFilename="quotations"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="quotations"
+        columnToggle
+        densityToggle
+        printable
       />
     </div>
   );

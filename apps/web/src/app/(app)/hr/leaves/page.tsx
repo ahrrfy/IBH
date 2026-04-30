@@ -46,6 +46,11 @@ export default function LeavesPage() {
         onRetry={() => refetch()}
         emptyMessage="لا توجد طلبات"
         exportFilename="leaves"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="leaves"
+        columnToggle
+        densityToggle
+        printable
         getRowKey={(r: any) => r.id}
       />
     </div>

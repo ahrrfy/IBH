@@ -24,12 +24,16 @@ import { seedPlans, PLAN_CODES } from './seed/plans.seed';
 
 // I040 — Prisma 7 driver-adapter pattern. Standalone scripts need to wire
 // the pg Pool + PrismaPg adapter just like PrismaService does in the app.
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// I062 — Pool max=1 + RLS bypass (see seed-bootstrap.ts).
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
   console.log('🔐 License seeder starting...');
+
+  // I062 — bypass RLS for the seed.
+  await prisma.$executeRaw`SELECT set_config('app.bypass_rls', '1', false)`;
 
   // Step 1: Ensure plans exist (idempotent).
   await seedPlans(prisma);

@@ -250,6 +250,7 @@ export default function InventoryIntelligencePage() {
               accessor: (r: InventoryFlag) => (
                 <span className="font-mono text-xs">{r.ruleCode}</span>
               ),
+              sortable: true, sortValue: (r: InventoryFlag) => r.ruleCode, exportValue: (r: InventoryFlag) => r.ruleCode,
             },
             {
               key: 'severity',
@@ -260,14 +261,16 @@ export default function InventoryIntelligencePage() {
                 </span>
               ),
               align: 'center',
+              exportValue: (r: InventoryFlag) => r.severity === 'critical' ? 'حرج' : r.severity === 'warning' ? 'تحذير' : 'معلوماتي',
             },
-            { key: 'msg', header: 'الرسالة', accessor: (r: InventoryFlag) => r.messageAr },
+            { key: 'msg', header: 'الرسالة', accessor: (r: InventoryFlag) => r.messageAr, exportValue: (r: InventoryFlag) => r.messageAr },
             {
               key: 'metric',
               header: 'القياس',
               accessor: (r: InventoryFlag) =>
                 r.metric != null ? Number(r.metric).toLocaleString('ar-IQ', { maximumFractionDigits: 1 }) : '—',
               align: 'end',
+              sortable: true, sortValue: (r: InventoryFlag) => Number(r.metric ?? 0), exportValue: (r: InventoryFlag) => Number(r.metric ?? 0),
             },
             {
               key: 'threshold',
@@ -275,15 +278,17 @@ export default function InventoryIntelligencePage() {
               accessor: (r: InventoryFlag) =>
                 r.threshold != null ? Number(r.threshold).toLocaleString('ar-IQ', { maximumFractionDigits: 1 }) : '—',
               align: 'end',
+              exportValue: (r: InventoryFlag) => Number(r.threshold ?? 0),
             },
             {
               key: 'detected',
               header: 'وقت الاكتشاف',
               accessor: (r: InventoryFlag) => new Date(r.detectedAt).toLocaleString('ar-IQ'),
+              sortable: true, sortValue: (r: InventoryFlag) => r.detectedAt, exportValue: (r: InventoryFlag) => r.detectedAt,
             },
             {
               key: 'actions',
-              header: '',
+              header: '', hideable: false,
               accessor: (r: InventoryFlag) => (
                 <button
                   type="button"
@@ -303,6 +308,11 @@ export default function InventoryIntelligencePage() {
           onRetry={() => flagsQuery.refetch()}
           getRowKey={(r: InventoryFlag) => r.id}
           exportFilename="inventory-flags"
+          exportFormats={['csv', 'excel']}
+          exportTitle="استثناءات المخزون الذكي"
+          columnToggle
+          densityToggle
+          printable
         />
       </section>
     </div>

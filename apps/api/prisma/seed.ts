@@ -21,7 +21,9 @@ import * as argon2 from 'argon2';
 import { seedPlans } from './seed/plans.seed';
 
 // I040 — Prisma 7 driver-adapter pattern (matches PrismaService).
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// I062 — `max: 1` pins every query to a single pg connection so the
+// session-scoped RLS bypass below applies across all seed queries.
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
@@ -34,6 +36,11 @@ const P = {
 
 async function main() {
   console.log('🌱 Seeding database...');
+
+  // I062 — bypass RLS for the duration of the full seed. See
+  // seed-bootstrap.ts for rationale. is_local=false + Pool max=1 →
+  // setting persists across every subsequent query in this script.
+  await prisma.$executeRaw`SELECT set_config('app.bypass_rls', '1', false)`;
 
   // ─── 1. Company ──────────────────────────────────────────────────────────
   const company = await prisma.company.upsert({

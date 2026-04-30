@@ -32,15 +32,11 @@ describe('AssetDepreciation — period idempotency (e2e)', () => {
     await app?.close();
   });
 
-  // asset_depreciation.assetId is an FK to fixed_assets.id. The test targets
-  // the @@unique index, not the FK chain. Disable FK triggers so synthetic
-  // assetId values can be inserted without seeding a full fixed_asset row.
-  beforeAll(async () => {
-    await prisma.$executeRawUnsafe(`SET session_replication_role = 'replica'`);
-  });
-  afterAll(async () => {
-    await prisma.$executeRawUnsafe(`SET session_replication_role = 'origin'`);
-  });
+  // Each test runs inside a single Prisma transaction so `SET LOCAL
+  // session_replication_role = 'replica'` and the subsequent INSERT
+  // share a pinned pg connection (Prisma 7's adapter otherwise hands
+  // out a fresh pool connection per query → FK still enforced on the
+  // INSERT). The transaction also rolls back synthetic rows.
 
   it('DB unique index rejects a second depreciation row for the same asset+year+month', async () => {
     const assetId = 'TESTASSETDEPRECIATION0000A';
@@ -48,16 +44,19 @@ describe('AssetDepreciation — period idempotency (e2e)', () => {
     const month = 12;
 
     await expect(
-      prisma.$executeRawUnsafe(`
-        INSERT INTO asset_depreciation
-          ("id", "assetId", "periodYear", "periodMonth",
-           "depreciationIqd", "accumulatedIqd", "bookValueIqd", "createdAt")
-        VALUES
-          (gen_ulid(), '${assetId}', ${year}, ${month},
-           1000, 1000, 9000, NOW()),
-          (gen_ulid(), '${assetId}', ${year}, ${month},
-           1000, 2000, 8000, NOW())
-      `),
+      prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(`SET LOCAL session_replication_role = 'replica'`);
+        await tx.$executeRawUnsafe(`
+          INSERT INTO asset_depreciation
+            ("id", "assetId", "periodYear", "periodMonth",
+             "depreciationIqd", "accumulatedIqd", "bookValueIqd", "createdAt")
+          VALUES
+            (gen_ulid(), '${assetId}', ${year}, ${month},
+             1000, 1000, 9000, NOW()),
+            (gen_ulid(), '${assetId}', ${year}, ${month},
+             1000, 2000, 8000, NOW())
+        `);
+      }),
     ).rejects.toThrow();
   });
 
@@ -65,19 +64,26 @@ describe('AssetDepreciation — period idempotency (e2e)', () => {
     const assetId = 'TESTASSETDEPRECIATION0000B';
     const year = 2099;
 
-    const result = await prisma.$executeRawUnsafe(`
-      INSERT INTO asset_depreciation
-        ("id", "assetId", "periodYear", "periodMonth",
-         "depreciationIqd", "accumulatedIqd", "bookValueIqd", "createdAt")
-      VALUES
-        (gen_ulid(), '${assetId}', ${year}, 1,
-         1000, 1000, 9000, NOW()),
-        (gen_ulid(), '${assetId}', ${year}, 2,
-         1000, 2000, 8000, NOW()),
-        (gen_ulid(), '${assetId}', ${year}, 3,
-         1000, 3000, 7000, NOW())
-    `);
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SET LOCAL session_replication_role = 'replica'`);
+      const result = await tx.$executeRawUnsafe(`
+        INSERT INTO asset_depreciation
+          ("id", "assetId", "periodYear", "periodMonth",
+           "depreciationIqd", "accumulatedIqd", "bookValueIqd", "createdAt")
+        VALUES
+          (gen_ulid(), '${assetId}', ${year}, 1,
+           1000, 1000, 9000, NOW()),
+          (gen_ulid(), '${assetId}', ${year}, 2,
+           1000, 2000, 8000, NOW()),
+          (gen_ulid(), '${assetId}', ${year}, 3,
+           1000, 3000, 7000, NOW())
+      `);
+      expect(result).toBeGreaterThanOrEqual(3);
 
-    expect(result).toBeGreaterThanOrEqual(3);
+      // Force rollback to leave no residue between test runs.
+      throw new Error('__TEST_ROLLBACK__');
+    }).catch((e) => {
+      if ((e as Error).message !== '__TEST_ROLLBACK__') throw e;
+    });
   });
 });

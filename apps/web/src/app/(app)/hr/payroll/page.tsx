@@ -45,6 +45,11 @@ export default function PayrollPage() {
         emptyMessage="لا توجد مسيرات رواتب"
         getRowKey={(r: any) => r.id}
         exportFilename="payroll-runs"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="payroll-runs"
+        columnToggle
+        densityToggle
+        printable
       />
     </div>
   );

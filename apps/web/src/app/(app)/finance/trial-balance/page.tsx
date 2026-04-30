@@ -1,4 +1,5 @@
 'use client';
+
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
@@ -37,11 +38,11 @@ export default function TrialBalancePage() {
 
       <DataTable
         columns={[
-          { key: 'code', header: 'رمز الحساب', accessor: (r: any) => r.accountCode },
-          { key: 'name', header: 'الاسم', accessor: (r: any) => r.nameAr },
-          { key: 'debit', header: 'مدين', accessor: (r: any) => formatIqd(r.debit ?? 0), align: 'end' },
-          { key: 'credit', header: 'دائن', accessor: (r: any) => formatIqd(r.credit ?? 0), align: 'end' },
-          { key: 'balance', header: 'الرصيد', accessor: (r: any) => formatIqd(r.balance ?? 0), align: 'end' },
+          { key: 'code', header: 'رمز الحساب', accessor: (r: any) => r.accountCode, sortable: true, sortValue: (r: any) => r.accountCode ?? '', exportValue: (r: any) => r.accountCode },
+          { key: 'name', header: 'الاسم', accessor: (r: any) => r.nameAr, exportValue: (r: any) => r.nameAr },
+          { key: 'debit', header: 'مدين', accessor: (r: any) => formatIqd(r.debit ?? 0), align: 'end', sortable: true, sortValue: (r: any) => Number(r.debit ?? 0), exportValue: (r: any) => Number(r.debit ?? 0) },
+          { key: 'credit', header: 'دائن', accessor: (r: any) => formatIqd(r.credit ?? 0), align: 'end', sortable: true, sortValue: (r: any) => Number(r.credit ?? 0), exportValue: (r: any) => Number(r.credit ?? 0) },
+          { key: 'balance', header: 'الرصيد', accessor: (r: any) => formatIqd(r.balance ?? 0), align: 'end', sortable: true, sortValue: (r: any) => Number(r.balance ?? 0), exportValue: (r: any) => Number(r.balance ?? 0) },
         ]}
         rows={lines}
         loading={isLoading}
@@ -49,6 +50,11 @@ export default function TrialBalancePage() {
         onRetry={() => refetch()}
         getRowKey={(r: any, i: number) => r.accountCode ?? String(i)}
         exportFilename={`trial-balance-${asOf}`}
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle={`ميزان المراجعة — ${asOf}`}
+        columnToggle
+        densityToggle
+        printable
       />
 
       <div className="rounded-lg bg-slate-100 p-4">
