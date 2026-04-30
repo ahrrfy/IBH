@@ -127,10 +127,16 @@ export class ExpiryWatcherProcessor implements OnModuleInit {
 
   @Process(LICENSE_EXPIRY_JOB)
   async run(): Promise<{ scanned: number; notified: number }> {
+    return this.prisma.withBypassedRls(() => this.runInternal());
+  }
+
+  private async runInternal(): Promise<{ scanned: number; notified: number }> {
     const now = this.clock.now();
     // Look 31 days into the future and any expired-in-grace subscriptions.
     const horizon = new Date(now.getTime() + 31 * MS_PER_DAY);
 
+    // I062 — cross-tenant scan; runInternal is invoked under bypass so
+    // every tenant's subscription is visible.
     const subs = await this.prisma.subscription.findMany({
       where: {
         status: { in: NOTIFIABLE_STATUSES },

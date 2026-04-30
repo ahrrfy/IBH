@@ -123,6 +123,8 @@ function makePrisma(
   const prisma: any = {
     ...tx,
     $transaction: async (fn: any) => fn(tx),
+    // I062 — withBypassedRls is a no-op in unit tests (no real RLS).
+    withBypassedRls: async <T>(fn: () => Promise<T>) => fn(),
   };
   return { prisma, events };
 }

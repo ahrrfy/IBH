@@ -124,6 +124,19 @@ export class TrialExpiryProcessor implements OnModuleInit {
     transitionedToExpired: number;
     remindersSent: number;
   }> {
+    return this.prisma.withBypassedRls(() => this.runInternal());
+  }
+
+  /**
+   * I062 — wrapped in RLS bypass: cron iterates every tenant's
+   * subscription, transitioning trial→grace and grace→expired without a
+   * request-scoped RLS context.
+   */
+  private async runInternal(): Promise<{
+    transitionedToGrace: number;
+    transitionedToExpired: number;
+    remindersSent: number;
+  }> {
     const now = this.clock.now();
 
     let transitionedToGrace = 0;

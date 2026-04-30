@@ -21,10 +21,20 @@ export class PeriodCloseController {
   @RequirePermission('Period', 'close')
   status(
     @CurrentUser() session: UserSession,
-    @Query('year') year: string,
-    @Query('month') month: string,
+    @Query('year') year?: string,
+    @Query('month') month?: string,
   ) {
-    return this.svc.status(session.companyId, Number(year), Number(month));
+    // I064 — default to current UTC month when params missing. Previously
+    // Number(undefined) → NaN → invalid Date filter → Prisma 500.
+    const now = new Date();
+    const y = year ? Number(year) : now.getUTCFullYear();
+    const m = month ? Number(month) : now.getUTCMonth() + 1;
+    if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
+      const fallbackY = now.getUTCFullYear();
+      const fallbackM = now.getUTCMonth() + 1;
+      return this.svc.status(session.companyId, fallbackY, fallbackM);
+    }
+    return this.svc.status(session.companyId, y, m);
   }
 
   @Post('close/start')

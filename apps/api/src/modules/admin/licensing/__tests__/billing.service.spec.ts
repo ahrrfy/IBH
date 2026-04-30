@@ -198,6 +198,8 @@ function makePrisma(initial: {
   const tx = { licenseInvoice, licensePayment, subscription, company };
   return Object.assign({}, tx, {
     $transaction: async (fn: any) => fn(tx),
+    // I062 — withBypassedRls is a no-op in unit tests (no real RLS).
+    withBypassedRls: async <T>(fn: () => Promise<T>) => fn(),
     _state: { invoices, payments, subs },
   });
 }

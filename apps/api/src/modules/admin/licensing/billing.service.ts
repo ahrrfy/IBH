@@ -54,6 +54,10 @@ export class BillingService {
    * Supports filters: companyId, status, dateFrom/dateTo (against periodEnd).
    */
   async listInvoices(params: ListInvoicesParams) {
+    return this.prisma.withBypassedRls(() => this.listInvoicesInternal(params));
+  }
+
+  private async listInvoicesInternal(params: ListInvoicesParams) {
     const limit = Math.min(Math.max(params.limit ?? 50, 1), 200);
     const page = Math.max(params.page ?? 1, 1);
     const skip = (page - 1) * limit;
@@ -116,6 +120,7 @@ export class BillingService {
 
   /** Single invoice with company + plan + payment history. */
   async getInvoice(id: string) {
+    return this.prisma.withBypassedRls(async () => {
     const inv = await this.prisma.licenseInvoice.findUnique({
       where: { id },
       include: {
@@ -136,6 +141,7 @@ export class BillingService {
       select: { id: true, code: true, nameAr: true, nameEn: true, email: true, phone: true },
     });
     return { ...inv, company };
+    });
   }
 
   /**
@@ -144,6 +150,7 @@ export class BillingService {
    * returns the existing payment without creating another one.
    */
   async markPaid(invoiceId: string, input: MarkPaidInput, actorUserId: string) {
+    return this.prisma.withBypassedRls(async () => {
     const inv = await this.prisma.licenseInvoice.findUnique({
       where: { id: invoiceId },
     });
@@ -217,10 +224,12 @@ export class BillingService {
     });
 
     return updated;
+    });
   }
 
   /** Mark an open or unpaid invoice as failed (e.g. wire bounced). */
   async markFailed(invoiceId: string, opts: { notes?: string }, actorUserId: string) {
+    return this.prisma.withBypassedRls(async () => {
     const inv = await this.prisma.licenseInvoice.findUnique({
       where: { id: invoiceId },
     });
@@ -252,6 +261,7 @@ export class BillingService {
     });
 
     return updated;
+    });
   }
 
   /**
@@ -259,6 +269,7 @@ export class BillingService {
    * gateway). Only allowed on status='failed'.
    */
   async retryFailedInvoice(invoiceId: string, actorUserId: string) {
+    return this.prisma.withBypassedRls(async () => {
     const inv = await this.prisma.licenseInvoice.findUnique({
       where: { id: invoiceId },
     });
@@ -287,10 +298,12 @@ export class BillingService {
       metadata: {},
     });
     return updated;
+    });
   }
 
   /** Soft-void an invoice (only open or failed). */
   async voidInvoice(invoiceId: string, opts: { notes?: string }, actorUserId: string) {
+    return this.prisma.withBypassedRls(async () => {
     const inv = await this.prisma.licenseInvoice.findUnique({
       where: { id: invoiceId },
     });
@@ -319,6 +332,7 @@ export class BillingService {
       metadata: { notes: opts.notes ?? null },
     });
     return updated;
+    });
   }
 
   /**
@@ -329,6 +343,18 @@ export class BillingService {
    * Returns counts: { scanned, created, skipped }.
    */
   async generatePeriodInvoices(asOf?: Date): Promise<{
+    scanned: number;
+    created: number;
+    skipped: number;
+  }> {
+    // I062 — billing sweep iterates every tenant's subscription. The cron
+    // processor runs without a request-scoped RLS context, so a regular
+    // findMany would return zero rows once RLS is forced. Bypass for the
+    // duration of the sweep.
+    return this.prisma.withBypassedRls(() => this.generatePeriodInvoicesInternal(asOf));
+  }
+
+  private async generatePeriodInvoicesInternal(asOf?: Date): Promise<{
     scanned: number;
     created: number;
     skipped: number;

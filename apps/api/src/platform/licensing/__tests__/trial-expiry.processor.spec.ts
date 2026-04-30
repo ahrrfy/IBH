@@ -88,6 +88,11 @@ class FakePrisma {
       },
     ),
   };
+
+  // I062 — withBypassedRls is a no-op in unit tests (no real RLS).
+  async withBypassedRls<T>(fn: () => Promise<T>): Promise<T> {
+    return fn();
+  }
 }
 
 function makeProcessor(prisma: FakePrisma, now: Date) {

@@ -86,6 +86,21 @@ export class AutopilotEngineService {
     companyId: string,
     opts: { trigger?: 'cron' | 'event' | 'manual'; rethrow?: boolean } = {},
   ): Promise<AutopilotJobResult> {
+    return this.prisma.withBypassedRls(() =>
+      this.runJobInternal(jobId, companyId, opts),
+    );
+  }
+
+  /**
+   * I062 — autopilot jobs run outside any HTTP request, so there is no
+   * RLS context. Each job filters by `ctx.companyId` explicitly, so
+   * bypass is safe and necessary for cron-triggered execution.
+   */
+  private async runJobInternal(
+    jobId: string,
+    companyId: string,
+    opts: { trigger?: 'cron' | 'event' | 'manual'; rethrow?: boolean } = {},
+  ): Promise<AutopilotJobResult> {
     const job = this.registry.get(jobId);
     if (!job) {
       throw new NotFoundException(`AutopilotJob '${jobId}' not found`);
@@ -138,10 +153,16 @@ export class AutopilotEngineService {
     completed: number;
     failed: number;
   }> {
-    const companies = await this.prisma.company.findMany({
-      where: { isActive: true, deletedAt: null },
-      select: { id: true },
-    });
+    // I062 — `companies` itself has no companyId column so it isn't
+    // RLS-scoped, but we still go through bypass to keep this method's
+    // semantics aligned with `runJob` (everything below operates on
+    // tenant-scoped data and would otherwise return zero rows).
+    const companies = await this.prisma.withBypassedRls(() =>
+      this.prisma.company.findMany({
+        where: { isActive: true, deletedAt: null },
+        select: { id: true },
+      }),
+    );
 
     let completed = 0;
     let failed = 0;
