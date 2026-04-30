@@ -140,7 +140,9 @@ jobs:
       - name: Generate Prisma client
         run: pnpm --filter api exec prisma generate
       - name: Sync schema (creates tables + enums from schema.prisma)
-        run: pnpm --filter api exec prisma db push --skip-generate --accept-data-loss
+        # Prisma 7 dropped --skip-generate; the previous step already ran
+        # `prisma generate`, so dropping the flag is the correct fix.
+        run: pnpm --filter api exec prisma db push --accept-data-loss
       - name: Apply SQL-only invariants (triggers + RLS + partial unique indexes)
         # Migrations contain ~75 constructs that schema.prisma can't express:
         # - append-only triggers on audit_logs, je_lines, stock_ledger
