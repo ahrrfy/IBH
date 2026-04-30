@@ -42,10 +42,19 @@ export class AttendanceController {
   @RequirePermission('Attendance', 'read')
   monthly(
     @CurrentUser() user: UserSession,
-    @Query('year') year: string,
-    @Query('month') month: string,
+    @Query('year') year?: string,
+    @Query('month') month?: string,
     @Query('employeeId') employeeId?: string,
   ) {
-    return this.svc.monthlyReport(user.companyId, { employeeId, year: Number(year), month: Number(month) });
+    // I065 — default to current month when params missing. Previously
+    // Number(undefined) → NaN → invalid Date in service → Prisma 500.
+    const now = new Date();
+    let y = year ? Number(year) : now.getUTCFullYear();
+    let m = month ? Number(month) : now.getUTCMonth() + 1;
+    if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
+      y = now.getUTCFullYear();
+      m = now.getUTCMonth() + 1;
+    }
+    return this.svc.monthlyReport(user.companyId, { employeeId, year: y, month: m });
   }
 }

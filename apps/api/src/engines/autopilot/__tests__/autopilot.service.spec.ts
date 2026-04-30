@@ -145,6 +145,8 @@ function makePrisma() {
         users.filter((u) => u.companyId === where.companyId),
       ),
     },
+    // I062 — withBypassedRls is a no-op in unit tests (no real RLS).
+    withBypassedRls: async <T>(fn: () => Promise<T>) => fn(),
   };
 }
 
