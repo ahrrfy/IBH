@@ -155,3 +155,70 @@ al-ruya-erp/
 ├── governance/              This folder
 └── docs/                    User guides (Arabic) + API docs
 ```
+
+---
+
+## 8. Hybrid Trial & Marketing Funnel (Wave 7 — قائم للتنفيذ)
+
+> **القرار المعماري:** صفحة الهبوط ≠ brochure، بل acquisition funnel كامل يدمج التسويق بالتجربة الفعلية.
+
+### النموذج المرجعي
+- **HubSpot trial funnel** — manual approval + drip nurturing
+- **Stripe "Test = Real" mode** — البيئة التجريبية مطابقة 100% للحقيقية
+- **Notion upgrade triggers** — feature gating يولّد upgrade pressure طبيعي
+
+### تكييف السوق العراقي
+| البُعد | المعيار العالمي | تكييف العراق |
+|--------|-----------------|---------------|
+| القناة الأساسية | Email | **WhatsApp** (الأعلى استخداماً + أعلى open-rate ×5) |
+| Signup | Auto-instant | **Manual approval** (يبني ثقة، يطابق ثقافة B2B) |
+| اللغة | Bilingual | **عربي أولاً** (Cairo font, RTL، أرقام عربية في الواجهة) |
+| العملة | USD/EUR | **IQD أولاً** (1 USD ≈ 1,500 د.ع) ثم USD ثانوياً |
+| الدفع | Card-first | **Bank transfer + Cash + USDT** + Card |
+| المدة | 14-30 يوم | **7 trial + 7 grace = 14 إجمالي** ثم archive |
+| WhatsApp Method | Meta Business API | **Free wa.me URLs** الآن · Meta API لاحقاً (مع عزل tenant-per-tenant) |
+| CAPTCHA | reCAPTCHA | **Cloudflare Turnstile** (لا يتطلب حساب Google، أسرع للسوق) |
+
+### دورة حياة العميل (Lifecycle)
+
+```
+زائر → /signup → TrialRequest (pending)
+   ↓
+admin يراجع → approve → Company + User + Subscription(trial, +7d)
+   ↓
+WhatsApp (yدوي) ← admin يفتح wa.me link مع البيانات
+   ↓
+المستخدم يدخل → النظام الحقيقي بكل الميزات
+   ↓ ─── Day 1-6: in-app engagement (banner, tour, tips)
+   ↓ ─── Day -1: WhatsApp "تنتهي غداً + خصم 30%"
+   ↓
+Day 7: trial_expired → grace period
+   ↓ ─── WhatsApp "ارفع لباقة بـ 40%"
+   ↓ ─── Day +3: "آخر فرصة 50% + تدريب مجاني"
+   ↓
+Day +7 (إجمالي 14): TrialArchive
+   ↓ ─── حذف: credentials + business data
+   ↓ ─── حفظ: contact + usageMetrics + tags (للتسويق المستقبلي)
+```
+
+### مكونات النظام
+- **`TrialRequest`** — public signup queue (pending → approved/rejected)
+- **`TrialEngagement`** — eventType log per company (login, module:X, invoice_created, ...)
+- **`TrialArchive`** — denormalized post-archive data (no FKs to deleted Company)
+- **`DiscountCode`** — TRIAL30 / UPGRADE40 / LASTCHANCE50 / EXTEND7 / ANNUAL40
+- **Cloudflare Turnstile** — anti-spam على نموذج الـ signup
+- **WhatsApp queue** (Phase 2) — admin يضغط "افتح + ارسل" للطريقة المجانية الحالية، أو auto-send عند تفعيل Meta API
+
+### Pricing Strategy
+| Plan | Monthly (IQD/USD) | Yearly (-20%) | 3-Year (-33%) |
+|------|-------------------|---------------|----------------|
+| Starter (3 users, 1 branch) | 35,000 / $25 | 336,000 / $240 | 840,000 / $600 |
+| Business (15 users, 3 branches) | 100,000 / $75 | 960,000 / $720 | 2,400,000 / $1,800 |
+| Enterprise (unlimited) | custom | custom | custom |
+
+> **Note:** كل الأسعار تُعرض IQD كأساسية و USD ثانوية (`F2 — currency display order`).
+
+### Tasks المرتبطة
+**TASK_QUEUE.md** → T72-T75 (4 PRs منفصلة، deployable كل واحدة على حدة)
+
+---

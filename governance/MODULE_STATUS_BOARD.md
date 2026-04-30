@@ -136,6 +136,21 @@
 
 ---
 
+## ⏳ Wave 7 — Hybrid Trial Funnel (نمط HubSpot/Stripe مكيّف للعراق) — **قائمة للالتقاط**
+
+> **الهدف:** تحويل صفحة الهبوط من brochure إلى acquisition funnel كامل · WhatsApp-first · Manual approval · 7+7 lifecycle.
+
+| الوحدة | الحالة | Task | ملاحظات |
+|---|---|---|---|
+| M14 Trial Request + Manual Approval | ⏳ TODO | T72 | Public signup → admin queue → wa.me approval link |
+| M14 Trial Lifecycle Cron + WhatsApp Drip | ⏳ TODO | T73 | Day -1/0/+3 reminders · queue للإرسال اليدوي |
+| M14 In-App Engagement + Discounts + Plans | ⏳ TODO | T74 | Banner · Tour · Discount codes · Yearly/3yr plans |
+| M14 Trial Archive + Marketing Intelligence | ⏳ TODO | T75 | Day +14 archive · abandonment classifier · CSV export |
+
+**Critical path:** T72 → T73 → T74 → T75 (PRs منفصلة لكل واحد · صادر deployable من PR1)
+
+---
+
 ## ✅ مكتملة البنية (scaffold + deploy pipeline جاهز)
 
 | الوحدة | الحالة | Task | ملاحظات |

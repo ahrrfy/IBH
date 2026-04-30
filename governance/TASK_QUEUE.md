@@ -1110,20 +1110,120 @@
 
 ---
 
+### Wave 7 — Hybrid Trial & Marketing Funnel (نمط HubSpot/Stripe مكيّف للعراق)
+
+> **الهدف:** تحويل صفحة الهبوط من brochure إلى قمع تحويل كامل (acquisition → trial → conversion → retention).
+> **النموذج المرجعي:** HubSpot trial funnel + Stripe "Test = Real" mode + Notion upgrade triggers.
+> **التكييف العراقي:** WhatsApp كقناة أساسية (بدل email) · موافقة يدوية للثقة · IQD أولاً · Bank/Cash/USDT.
+> **الانضباط:** 7 أيام تجربة + 7 grace = 14 يوم total قبل archive · بيانات الـ archive للتسويق المستقبلي.
+
+#### T72 — Trial Request + Manual Approval (Phase 1)
+- **Status:** ⏳ TODO
+- **Deps:** [T58, T63] (Licensing schema + Subscription model — كلاهما DONE)
+- **Priority:** 🟢 يفتح القناة الأولى للعملاء الحقيقيين
+- **File scope:**
+  - `apps/api/prisma/schema.prisma` — `TrialRequest` model + `TrialRequestStatus` enum + indexes (status+createdAt, email, phone)
+  - `apps/api/prisma/migrations/<timestamp>_trial_request/` — DDL
+  - `apps/api/src/modules/trial/trial.module.ts` (new module)
+  - `apps/api/src/modules/trial/trial-public.controller.ts` — `POST /trial-requests` (public, Turnstile-validated)
+  - `apps/api/src/modules/trial/trial-admin.controller.ts` — list/approve/reject/whatsapp-sent
+  - `apps/api/src/modules/trial/trial.service.ts` — approval ينشئ Company+User+Subscription(trial,7d)
+  - `apps/api/src/modules/trial/turnstile.service.ts` — Cloudflare verify
+  - `apps/api/src/modules/trial/whatsapp-link.service.ts` — `wa.me` URL generator
+  - `apps/web/src/app/signup/page.tsx` — نموذج عربي مع Turnstile widget
+  - `apps/web/src/app/signup/success/page.tsx` — "سنتواصل معك خلال 24س"
+  - `apps/web/src/app/(super-admin)/trial-requests/page.tsx` — قائمة pending + UI الموافقة
+  - `apps/web/src/app/page.tsx` — تحديث CTAs ("اطلب تجربة" بدل "ابدأ الآن")
+- **Behavior:**
+  - النموذج: fullName, email, phone(+964 validation), companyName, password, industry, employeeCount, position, city
+  - Turnstile token مطلوب (يُتحقق منه backend-side عبر `cf-turnstile-response`)
+  - rate limit: 5/IP/hour على endpoint عام
+  - Admin UI: copy-to-clipboard للرسالة + زر "فتح WhatsApp" يفتح `wa.me/<phone>?text=<urlencoded>`
+  - Approval atomic transaction: TrialRequest.status=approved + Company + User(passwordHash) + Subscription(trial, +7d) + UserRole(company_admin)
+- **Env required:** `CLOUDFLARE_TURNSTILE_SECRET_KEY`, `CLOUDFLARE_TURNSTILE_SITE_KEY` (web)
+- **Acceptance:**
+  - زائر مجهول يقدّم طلب → يصل DB بـ status=pending
+  - super_admin يفتح UI → يضغط Approve → Company + User تُنشأ + رابط wa.me يُولَّد + يُفتح في tab جديد
+  - المستخدم يدخل بـ email + password اللذين أدخلهما → يصل dashboard
+  - Trial subscription نشطة لـ 7 أيام
+- **Estimate:** 240min
+
+---
+
+#### T73 — Trial Lifecycle Cron + WhatsApp Drip (Phase 2)
+- **Status:** ⏳ TODO
+- **Deps:** [T72]
+- **File scope:**
+  - `apps/api/src/modules/trial/trial-lifecycle.processor.ts` — daily cron (9am بغداد)
+  - `apps/api/src/modules/trial/notifications/templates.ts` — رسائل WhatsApp مُرقّمة
+  - `apps/web/src/app/(super-admin)/trial-requests/notifications/page.tsx` — قائمة الإشعارات pending للإرسال اليدوي
+- **Cron jobs:**
+  - Day -1 (قبل النهاية بيوم): "تنتهي تجربتك غداً + خصم 30% (TRIAL30)"
+  - Day 0 (نهاية الـ 7): subscription.status → expired · "ارفع لباقة بـ 40% (UPGRADE40)"
+  - Day +3 (grace): "آخر فرصة: 50% + تدريب مجاني (LASTCHANCE50)"
+  - Day +7: trigger T75 (Archive)
+- **Approach:** كل cron run يُنشئ صف في `OutboundWhatsAppQueue` (status=pending)، Admin UI يعرض القائمة مع "افتح + ارسل + علّم كمرسل" workflow (الطريقة المجانية)
+- **Future-ready:** عند تفعيل Meta Business API، يُغيّر processor لإرسال تلقائي بدل الـ queue
+- **Estimate:** 180min
+
+---
+
+#### T74 — In-App Trial Engagement + Discounts + Plans (Phase 3)
+- **Status:** ⏳ TODO
+- **Deps:** [T72]
+- **File scope:**
+  - `apps/api/prisma/schema.prisma` — `DiscountCode` model + `TrialEngagement` model
+  - `apps/api/src/modules/billing/discounts.controller.ts` — validate/apply
+  - `apps/api/src/modules/billing/plans.service.ts` — تحديث الخطط لتشمل yearly/3yr مع نسب خصم
+  - `apps/web/src/components/trial-banner.tsx` — banner أعلى كل صفحة محمية ("متبقي N أيام · ترقية الآن")
+  - `apps/web/src/components/trial-tour-wizard.tsx` — 5-step onboarding (يظهر مرة واحدة)
+  - `apps/web/src/app/(app)/upgrade/page.tsx` — جدول مقارنة الخطط + apply-discount
+- **Plans (سعر شهر بـ IQD/USD):**
+  - Starter:    35,000 د.ع / $25  · 3 users · 1 branch · sales+pos+inventory+reports
+  - Business:   100,000 د.ع / $75 · 15 users · 3 branches · + finance+hr+crm+purchases
+  - Enterprise: custom · unlimited · all features + manufacturing+ecommerce+AI+omnichannel
+  - خصومات: yearly -20% · 3yr -33% · trial conversion -30%/-40%/-50%
+- **Engagement tracking:** `TrialEngagement` يُسجّل eventType (login, module:X, invoice_created, ...) — يُغذّي T75 archive metrics
+- **Estimate:** 300min
+
+---
+
+#### T75 — Trial Archive + Marketing Intelligence (Phase 4)
+- **Status:** ⏳ TODO
+- **Deps:** [T73, T74]
+- **File scope:**
+  - `apps/api/prisma/schema.prisma` — `TrialArchive` model (denormalized, no FKs to Company)
+  - `apps/api/src/modules/trial/trial-archive.processor.ts` — cron يومي
+  - `apps/api/src/modules/trial/abandonment-classifier.ts` — يُحدد abandonmentReason من engagement metrics
+  - `apps/web/src/app/(super-admin)/marketing/leads/page.tsx` — قائمة archived مع فلاتر (industry/city/intent)
+  - `apps/web/src/app/(super-admin)/marketing/insights/page.tsx` — dashboard تحليلي (conversion rate, avg trial usage, top abandonment reasons)
+- **Archive logic (Day +7 from trial expiry):**
+  - **Move:** TrialEngagement aggregate → TrialArchive.usageMetrics
+  - **Compute:** abandonmentReason ∈ {never_logged_in, day_1_dropoff, engaged_then_dropped, completed_trial, converted}
+  - **Compute:** marketingTags ∈ ["high-intent" if logins>10 · "industry:X" · "city:Y" · "abandoned-fast"]
+  - **Delete:** User credentials, RefreshTokens, business data (Invoices, Customers, Products) — كل شيء حساس
+  - **Keep:** الاسم، email، phone، companyName، industry، city، usageMetrics، tags
+- **GDPR-like:** endpoint `DELETE /trial-archive/:id` بطلب صاحب البيانات (right to erasure)
+- **Marketing use:** قائمة الـ archive قابلة للتصدير CSV للحملات اليدوية، أو إرسال WhatsApp جماعي (template approval حسب صناعة/مدينة)
+- **Estimate:** 240min
+
+---
+
 ## 📊 Snapshot الحالة (يُحدَّث آلياً عند كل claim/complete)
 
 | Metric | Value |
 |---|---:|
-| Total tasks | 71 |
+| Total tasks | 75 |
 | ✅ Done (Wave 0-1) | 30 |
 | ✅ DONE (Wave 2) | 10 (T31-T40) |
 | ✅ DONE (Wave 3) | 17 (T41-T57) |
 | ✅ DONE (Wave 5 Licensing) | 14 (T58-T71) |
-| ✅ DONE | 0 |
+| ⏳ TODO (Wave 7 — Hybrid Trial Funnel) | 4 (T72-T75) |
 | 🚫 BLOCKED | 0 |
 
-**Critical path:** T31 (real-time infra) → T32/T33/T36/T46 (uses real-time) · T58 (license schema) → T59-T71 (licensing stack)
+**Critical path:** T31 (real-time infra) → T32/T33/T36/T46 (uses real-time) · T58 (license schema) → T59-T71 (licensing stack) · **T72 → T73 → T74 → T75 (Wave 7 funnel)**
 
 **Total estimate Wave 2-5:** ~13,200 minutes (~220 hours of focused work)
+**Total estimate Wave 7:** 960 minutes (~16 hours · 4 PRs)
 
-**آخر تحديث:** 2026-04-27 · Wave 0-1 مدموجة · Wave 2-5 مفتوحة للالتقاط
+**آخر تحديث:** 2026-04-30 · Wave 0-5 مدموجة · Wave 7 (Hybrid Trial Funnel) أُضيفت للقائمة
