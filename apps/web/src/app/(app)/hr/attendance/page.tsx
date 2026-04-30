@@ -110,13 +110,13 @@ export default function AttendancePage() {
 
       <DataTable
         columns={[
-          { key: 'date',     header: 'التاريخ',  accessor: (r: any) => <span className="num-latin font-mono text-xs">{formatDate(r.date)}</span> },
-          { key: 'employee', header: 'الموظف',   accessor: (r: any) => r.employee?.nameAr ?? r.employee?.fullNameAr ?? r.employeeId },
-          { key: 'in',       header: 'دخول',     accessor: (r: any) => <span className="num-latin font-mono">{formatHHmm(r.checkInAt)}</span> },
-          { key: 'out',      header: 'خروج',     accessor: (r: any) => <span className="num-latin font-mono">{formatHHmm(r.checkOutAt)}</span> },
-          { key: 'hours',    header: 'ساعات',    accessor: (r: any) => <span className="num-latin">{r.hoursWorked != null ? Number(r.hoursWorked).toFixed(2) : '—'}</span>, align: 'end' },
-          { key: 'late',     header: 'تأخير',    accessor: (r: any) => <span className="num-latin">{r.lateMinutes ? `${r.lateMinutes} د` : '—'}</span>, align: 'end' },
-          { key: 'source',   header: 'المصدر',   accessor: (r: any) => SOURCE_LABELS_AR[r.checkInSource] ?? r.checkInSource ?? '—' },
+          { key: 'date',     header: 'التاريخ',  accessor: (r: any) => <span className="num-latin font-mono text-xs">{formatDate(r.date)}</span>, sortable: true, sortValue: (r: any) => r.date ?? '', exportValue: (r: any) => r.date },
+          { key: 'employee', header: 'الموظف',   accessor: (r: any) => r.employee?.nameAr ?? r.employee?.fullNameAr ?? r.employeeId, exportValue: (r: any) => r.employee?.nameAr ?? r.employee?.fullNameAr ?? '' },
+          { key: 'in',       header: 'دخول',     accessor: (r: any) => <span className="num-latin font-mono">{formatHHmm(r.checkInAt)}</span>, exportValue: (r: any) => r.checkInAt ?? '' },
+          { key: 'out',      header: 'خروج',     accessor: (r: any) => <span className="num-latin font-mono">{formatHHmm(r.checkOutAt)}</span>, exportValue: (r: any) => r.checkOutAt ?? '' },
+          { key: 'hours',    header: 'ساعات',    accessor: (r: any) => <span className="num-latin">{r.hoursWorked != null ? Number(r.hoursWorked).toFixed(2) : '—'}</span>, align: 'end', sortable: true, sortValue: (r: any) => Number(r.hoursWorked ?? 0), exportValue: (r: any) => Number(r.hoursWorked ?? 0) },
+          { key: 'late',     header: 'تأخير',    accessor: (r: any) => <span className="num-latin">{r.lateMinutes ? `${r.lateMinutes} د` : '—'}</span>, align: 'end', sortable: true, sortValue: (r: any) => Number(r.lateMinutes ?? 0), exportValue: (r: any) => Number(r.lateMinutes ?? 0) },
+          { key: 'source',   header: 'المصدر',   accessor: (r: any) => SOURCE_LABELS_AR[r.checkInSource] ?? r.checkInSource ?? '—', exportValue: (r: any) => SOURCE_LABELS_AR[r.checkInSource] ?? r.checkInSource ?? '' },
           {
             key: 'state', header: 'الحالة',
             accessor: (r: any) => {
@@ -126,6 +126,7 @@ export default function AttendancePage() {
               if (r.checkInAt && r.checkOutAt)  return <span className="text-slate-600 text-xs flex items-center gap-1"><ArrowLeftRight className="h-3 w-3" />انصرف</span>;
               return '—';
             },
+            exportValue: (r: any) => r.isAbsent ? 'غائب' : r.isLeave ? 'إجازة' : r.checkInAt && !r.checkOutAt ? 'موجود' : r.checkInAt && r.checkOutAt ? 'انصرف' : '',
           },
         ]}
         rows={records}
@@ -134,7 +135,12 @@ export default function AttendancePage() {
         onRetry={() => refetch()}
         emptyMessage="لا توجد سجلات حضور لهذه الفترة"
         exportFilename={`attendance-${year}-${String(month).padStart(2, '0')}`}
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle={`الحضور والانصراف — ${year}/${String(month).padStart(2, '0')}`}
         getRowKey={(r: any) => r.id}
+        columnToggle
+        densityToggle
+        printable
       />
     </div>
   );

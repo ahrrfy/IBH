@@ -61,6 +61,11 @@ export default function BranchesListPage() {
         onRetry={() => refetch()}
         emptyMessage="لا توجد فروع"
         exportFilename="branches"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="branches"
+        columnToggle
+        densityToggle
+        printable
         getRowKey={(r: any) => r.id}
       />
     </div>

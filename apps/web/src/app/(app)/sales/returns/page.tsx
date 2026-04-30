@@ -87,6 +87,11 @@ export default function SalesReturnsListPage() {
         onRetry={() => refetch()}
         emptyMessage="لا توجد مرتجعات"
         exportFilename="sales-returns"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="sales-returns"
+        columnToggle
+        densityToggle
+        printable
         getRowKey={(r: any) => r.id}
       />
     </div>

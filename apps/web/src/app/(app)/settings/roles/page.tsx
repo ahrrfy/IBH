@@ -58,6 +58,11 @@ export default function RolesListPage() {
         onRetry={() => refetch()}
         emptyMessage="لا توجد أدوار"
         exportFilename="roles"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="roles"
+        columnToggle
+        densityToggle
+        printable
         getRowKey={(r: any) => r.id}
       />
     </div>

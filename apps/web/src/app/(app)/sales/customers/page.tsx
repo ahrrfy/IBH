@@ -27,6 +27,11 @@ export default function CustomersPage() {
         onRetry={() => refetch()}
         getRowKey={(r: any) => r.id}
         exportFilename="customers"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="customers"
+        columnToggle
+        densityToggle
+        printable
       />
     </div>
   );

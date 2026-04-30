@@ -35,6 +35,11 @@ export default function CampaignsPage() {
         onRetry={() => refetch()}
         emptyMessage="لا توجد حملات"
         exportFilename="campaigns"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="campaigns"
+        columnToggle
+        densityToggle
+        printable
         getRowKey={(r: any) => r.id}
       />
     </div>

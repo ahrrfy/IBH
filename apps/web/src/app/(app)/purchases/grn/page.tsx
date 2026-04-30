@@ -85,6 +85,11 @@ export default function GrnListPage() {
         onRetry={() => refetch()}
         emptyMessage="لا توجد إيصالات استلام"
         exportFilename="goods-receipts"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="goods-receipts"
+        columnToggle
+        densityToggle
+        printable
         getRowKey={(r: any) => r.id}
       />
     </div>

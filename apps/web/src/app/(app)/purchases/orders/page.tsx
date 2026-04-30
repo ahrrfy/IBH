@@ -28,6 +28,11 @@ export default function PurchaseOrdersPage() {
         onRetry={() => refetch()}
         getRowKey={(r: any) => r.id}
         exportFilename="purchase-orders"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="purchase-orders"
+        columnToggle
+        densityToggle
+        printable
       />
     </div>
   );

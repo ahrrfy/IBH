@@ -29,71 +29,83 @@ describe('Shift open/close — one open shift per device (e2e)', () => {
     await app?.close();
   });
 
-  // Tests target the partial unique index, NOT the FK chain. Disable FK
-  // checks for the duration of these inserts so we don't have to seed
-  // company → branch → cashier → posDevice rows that aren't relevant.
-  beforeAll(async () => {
-    await prisma.$executeRawUnsafe(`SET session_replication_role = 'replica'`);
-  });
-  afterAll(async () => {
-    await prisma.$executeRawUnsafe(`SET session_replication_role = 'origin'`);
-  });
+  // Tests target the partial unique index, NOT the FK chain. Each test
+  // runs inside a single Prisma transaction so `SET LOCAL
+  // session_replication_role = 'replica'` (which disables FK triggers
+  // for the connection) and the subsequent INSERT happen on the same
+  // pinned pg connection. Without this, Prisma 7's pg adapter checks
+  // out a fresh pool connection per query → the `SET` is set on
+  // connection X, the INSERT runs on connection Y with FK still
+  // enforced → 23503 violation. The transaction also rolls back any
+  // synthetic rows so the test leaves no residue.
 
   it('DB partial unique index rejects a second open shift on the same device', async () => {
     const deviceId = 'TESTSHIFTDEVICE0000000000A';
 
     await expect(
-      prisma.$executeRawUnsafe(`
-        INSERT INTO shifts
-          ("id", "companyId", "branchId", "posDeviceId", "cashierId",
-           "shiftNumber", "openingCashIqd", "status", "openedAt")
-        VALUES
-          (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26),
-           '${deviceId}', gen_ulid()::char(26),
-           'TEST-SHIFT-A', 100000, 'open', NOW()),
-          (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26),
-           '${deviceId}', gen_ulid()::char(26),
-           'TEST-SHIFT-B', 100000, 'open', NOW())
-      `),
+      prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(`SET LOCAL session_replication_role = 'replica'`);
+        await tx.$executeRawUnsafe(`
+          INSERT INTO shifts
+            ("id", "companyId", "branchId", "posDeviceId", "cashierId",
+             "shiftNumber", "openingCashIqd", "status", "openedAt")
+          VALUES
+            (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26),
+             '${deviceId}', gen_ulid()::char(26),
+             'TEST-SHIFT-A', 100000, 'open', NOW()),
+            (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26),
+             '${deviceId}', gen_ulid()::char(26),
+             'TEST-SHIFT-B', 100000, 'open', NOW())
+        `);
+      }),
     ).rejects.toThrow();
   });
 
   it('DB allows a new open shift after the previous one is closed', async () => {
     const deviceId = 'TESTSHIFTDEVICE0000000000B';
 
-    // Cannot do this in a single CTE — PostgreSQL CTEs see the snapshot
-    // from before the statement, so an UPDATE in one CTE can't see rows
-    // that an INSERT in another CTE just wrote. Split into 3 statements.
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRawUnsafe(`SET LOCAL session_replication_role = 'replica'`);
 
-    // 1. Insert first open shift
-    await prisma.$executeRawUnsafe(`
-      INSERT INTO shifts
-        ("id", "companyId", "branchId", "posDeviceId", "cashierId",
-         "shiftNumber", "openingCashIqd", "status", "openedAt")
-      VALUES
-        (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26),
-         '${deviceId}', gen_ulid()::char(26),
-         'TEST-SHIFT-C', 100000, 'open', NOW())
-    `);
+      // Cannot do this in a single CTE — PostgreSQL CTEs see the snapshot
+      // from before the statement, so an UPDATE in one CTE can't see rows
+      // that an INSERT in another CTE just wrote. Split into 3 statements.
 
-    // 2. Close it
-    await prisma.$executeRawUnsafe(`
-      UPDATE shifts SET "status" = 'closed', "closedAt" = NOW()
-      WHERE "posDeviceId" = '${deviceId}' AND "status" = 'open'
-    `);
+      // 1. Insert first open shift
+      await tx.$executeRawUnsafe(`
+        INSERT INTO shifts
+          ("id", "companyId", "branchId", "posDeviceId", "cashierId",
+           "shiftNumber", "openingCashIqd", "status", "openedAt")
+        VALUES
+          (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26),
+           '${deviceId}', gen_ulid()::char(26),
+           'TEST-SHIFT-C', 100000, 'open', NOW())
+      `);
 
-    // 3. Insert another open shift on the SAME device — must succeed
-    //    because the partial unique only counts WHERE status='open'.
-    const inserted = await prisma.$executeRawUnsafe(`
-      INSERT INTO shifts
-        ("id", "companyId", "branchId", "posDeviceId", "cashierId",
-         "shiftNumber", "openingCashIqd", "status", "openedAt")
-      VALUES
-        (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26),
-         '${deviceId}', gen_ulid()::char(26),
-         'TEST-SHIFT-D', 100000, 'open', NOW())
-    `);
+      // 2. Close it
+      await tx.$executeRawUnsafe(`
+        UPDATE shifts SET "status" = 'closed', "closedAt" = NOW()
+        WHERE "posDeviceId" = '${deviceId}' AND "status" = 'open'
+      `);
 
-    expect(inserted).toBeGreaterThanOrEqual(1);
+      // 3. Insert another open shift on the SAME device — must succeed
+      //    because the partial unique only counts WHERE status='open'.
+      const inserted = await tx.$executeRawUnsafe(`
+        INSERT INTO shifts
+          ("id", "companyId", "branchId", "posDeviceId", "cashierId",
+           "shiftNumber", "openingCashIqd", "status", "openedAt")
+        VALUES
+          (gen_ulid(), gen_ulid()::char(26), gen_ulid()::char(26),
+           '${deviceId}', gen_ulid()::char(26),
+           'TEST-SHIFT-D', 100000, 'open', NOW())
+      `);
+
+      expect(inserted).toBeGreaterThanOrEqual(1);
+
+      // Force rollback so synthetic rows don't leak between test runs.
+      throw new Error('__TEST_ROLLBACK__');
+    }).catch((e) => {
+      if ((e as Error).message !== '__TEST_ROLLBACK__') throw e;
+    });
   });
 });
