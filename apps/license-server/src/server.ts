@@ -43,21 +43,16 @@ await fastify.register(rateLimit, {
   allowList: (req) => req.url === '/health',
 });
 
-// Per-route limiters built from the registered plugin. Using preHandler
-// makes the rate-limit application explicit at the route definition
-// (visible to static analysis) instead of buried in `config.rateLimit`.
-const heartbeatLimit = fastify.createRateLimit({ max: 20, timeWindow: '1 minute' });
-const adminLimit     = fastify.createRateLimit({ max: 10, timeWindow: '1 minute' });
-
 fastify.get('/health', async () => ({ status: 'ok', service: 'license-server' }));
 
 const HeartbeatSchema = z.object({ licenseKey: z.string().min(1) });
 
 // Tighter per-route limit on /heartbeat: authoritative auth endpoint that
-// should be hit at most every few minutes per legitimate client. The
-// preHandler form makes the rate limit explicit at the route definition.
+// should be hit at most every few minutes per legitimate client. Uses the
+// canonical `config.rateLimit` form recognized by CodeQL's
+// js/missing-rate-limiting query and documented by @fastify/rate-limit.
 fastify.post('/heartbeat', {
-  preHandler: async (req) => { await heartbeatLimit(req); },
+  config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
 }, async (req, reply) => {
   const parsed = HeartbeatSchema.safeParse(req.body);
   if (!parsed.success) return reply.code(400).send({ error: 'invalid_payload' });
@@ -94,7 +89,7 @@ const IssueSchema = z.object({
 
 // Strict rate limit on admin endpoints to defeat token-guessing attacks.
 fastify.post('/issue', {
-  preHandler: async (req) => { await adminLimit(req); },
+  config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
 }, async (req, reply) => {
   const auth = req.headers.authorization ?? '';
   if (auth !== `Bearer ${ADMIN_TOKEN}` || !ADMIN_TOKEN) {
@@ -119,7 +114,7 @@ fastify.post('/issue', {
 });
 
 fastify.post('/revoke', {
-  preHandler: async (req) => { await adminLimit(req); },
+  config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
 }, async (req, reply) => {
   const auth = req.headers.authorization ?? '';
   if (auth !== `Bearer ${ADMIN_TOKEN}` || !ADMIN_TOKEN) {
