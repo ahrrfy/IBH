@@ -10,18 +10,17 @@ name: Security Bridge (alerts → governance)
 #
 # Trigger matrix:
 #   workflow_run → fires after every CodeQL scan (primary, near-real-time)
-#   schedule     → daily at 06:00 UTC (backup sweep — catches anything missed)
 #   workflow_dispatch → manual testing / ad-hoc re-sync
+#
+# No cron: CodeQL itself runs on every push to main, every PR, and weekly
+# on schedule (see codeql.yml). Piggybacking on its completion catches
+# every state change without redundant daily polling.
 
 on:
   # Primary: piggyback on CodeQL completion
   workflow_run:
     workflows: ['CodeQL']
     types: [completed]
-
-  # Daily backup sweep at 06:00 UTC
-  schedule:
-    - cron: '0 6 * * *'
 
   # Manual trigger for testing
   workflow_dispatch:

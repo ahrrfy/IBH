@@ -10,22 +10,25 @@ name: Security Sweep (continuous polling loop)
 # posts a "all clear" comment on the digest issue and idles cheaply.
 
 on:
-  # Event-driven first — every signal that COULD have changed security state
-  # fires the sweep immediately. The cron is just a 15-min safety net for
-  # alerts that arrive without a corresponding webhook (rare, but happens
-  # with delayed Dependabot rescans).
+  # Pure event-driven — the sweep only runs when something could have
+  # actually changed security state. CodeQL is the upstream producer of
+  # alerts, so its completion is the dominant trigger; everything else is
+  # a state-change signal (PR merge, manual deploy, issue close).
+  #
+  # No cron: the previous */15 schedule generated ~96 no-op runs/day
+  # because most ticks had nothing to reconcile. Without GitHub Advanced
+  # Security webhooks (code_scanning_alert), workflow_run on CodeQL is
+  # the closest equivalent and fires within seconds of an alert change.
+  workflow_run:
+    workflows: ['CodeQL']
+    types: [completed]
   push:
     branches: [main]
   pull_request:
     types: [closed]
     branches: [main]
-  workflow_run:
-    workflows: ['CodeQL', 'CI', 'Deploy to VPS']
-    types: [completed]
   issues:
-    types: [closed, reopened]   # so closing one alert refreshes the digest
-  schedule:
-    - cron: '*/15 * * * *'      # safety net — ~15 min max staleness
+    types: [closed, reopened]   # closing an alert refreshes the digest
   workflow_dispatch:
 
 permissions:

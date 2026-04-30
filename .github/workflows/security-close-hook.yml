@@ -9,13 +9,21 @@ name: Security Close Hook (governance sync on alert close)
 # works on any repository plan.
 #
 # Trigger matrix:
-#   schedule        → daily at 07:00 UTC (sweep for recently resolved alerts)
-#   workflow_dispatch → manual testing
+#   workflow_run → after every CodeQL run (state of code-scanning alerts
+#                   may have just changed: fixed, dismissed, or reopened)
+#   push to main → a merge that closed an alert re-runs the reconciler
+#   workflow_dispatch → manual close of a specific alert
+#
+# No cron: alert state can only change as a result of a CodeQL run or a
+# merge to main, both of which fire here directly.
 
 on:
-  # Daily sweep at 07:00 UTC
-  schedule:
-    - cron: '0 7 * * *'
+  workflow_run:
+    workflows: ['CodeQL']
+    types: [completed]
+
+  push:
+    branches: [main]
 
   # Manual trigger (also useful for testing individual closes)
   workflow_dispatch:
@@ -54,7 +62,7 @@ jobs:
 
       # ── Scheduled sweep: close issues for dismissed/fixed code-scanning ──
       - name: Close dismissed code-scanning issues
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'workflow_run' || github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
@@ -73,7 +81,7 @@ jobs:
 
       # ── Scheduled sweep: close issues for resolved secret-scanning ───────
       - name: Close resolved secret-scanning issues
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'workflow_run' || github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
@@ -92,7 +100,7 @@ jobs:
 
       # ── Scheduled sweep: close issues for dismissed/fixed dependabot ─────
       - name: Close dismissed Dependabot issues
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'workflow_run' || github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
