@@ -142,12 +142,16 @@ if [ -n "$EXISTING" ]; then
   ISSUE_NUM="$EXISTING"
 else
   echo "→ Opening new issue for SEC-${ALERT_TYPE}-${ALERT_NUMBER}"
-  ISSUE_NUM=$(gh issue create \
+  # `gh issue create` does not support --json output; capture the URL it
+  # prints and extract the trailing issue number. (The earlier --json form
+  # silently failed and the sweep mistakenly logged "sync failed" for every
+  # alert, leaving 2 open CodeQL alerts untracked — see PR #232 fallout.)
+  ISSUE_URL=$(gh issue create \
     --title "$TITLE" \
     --body "$BODY" \
-    --label "$LABEL_BASE,$LABEL_SEV,$LABEL_TYPE" \
-    --json number -q .number)
-  echo "→ Created issue #$ISSUE_NUM"
+    --label "$LABEL_BASE,$LABEL_SEV,$LABEL_TYPE")
+  ISSUE_NUM="${ISSUE_URL##*/}"
+  echo "→ Created issue #$ISSUE_NUM ($ISSUE_URL)"
 fi
 
 # ── For critical findings: also append to governance/OPEN_ISSUES.md ──
