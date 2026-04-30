@@ -18,4 +18,12 @@ const databaseUrl =
 export default defineConfig({
   schema: path.join(__dirname, 'prisma', 'schema.prisma'),
   datasource: { url: databaseUrl },
+  // Prisma 7 dropped the package.json `prisma.seed` configuration in
+  // favour of the config file (`migrations.seed`). Without this, every
+  // `prisma db seed` invocation logs "⚠️ No seed command configured"
+  // and exits 0 — the DB stays empty and downstream e2e tests fail
+  // with `prisma.company.findFirst({ where: { code: 'RUA' } })` → null.
+  migrations: {
+    seed: 'tsx prisma/seed-bootstrap.ts',
+  },
 });

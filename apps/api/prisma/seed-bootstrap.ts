@@ -18,7 +18,12 @@ import { Pool } from 'pg';
 import * as argon2 from 'argon2';
 
 // I040 — Prisma 7 driver-adapter pattern (matches PrismaService).
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// I062 — `max: 1` pins every query to a single pg connection so the
+// session-scoped `set_config('app.bypass_rls', '1', false)` below
+// applies to every subsequent query. Without `max: 1`, the pool would
+// hand out fresh connections that don't have the bypass set and the
+// new RLS policies would block every INSERT during seeding.
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
@@ -45,6 +50,14 @@ if (!OWNER_USERNAME || !OWNER_PASSWORD) {
 
 async function main() {
   console.log('🌱 Bootstrap seed (idempotent)');
+
+  // I062 — bypass RLS for the duration of the seed. The `app.bypass_rls`
+  // session var is honored by `tenant_isolation` policies on every
+  // multi-tenant table. is_local=false → setting persists for the whole
+  // pg session (combined with Pool max=1 above, that means every query
+  // here). Failing this would block the very first INSERT into branches,
+  // roles, users, … because no `app.current_company` is set.
+  await prisma.$executeRaw`SELECT set_config('app.bypass_rls', '1', false)`;
 
   // ─── Company ──────────────────────────────────────────────────────────
   const company = await prisma.company.upsert({
