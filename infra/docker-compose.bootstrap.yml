@@ -178,6 +178,21 @@ services:
       ADMIN_LICENSING_DISABLED:  ${ADMIN_LICENSING_DISABLED:-0}
       AUTOPILOT_DISABLED:        ${AUTOPILOT_DISABLED:-1}
       EXPIRY_WATCHER_DISABLED:   ${EXPIRY_WATCHER_DISABLED:-1}
+      # License signer key material (RSA-2048, base64-encoded PEMs).
+      # Without these, LicenseSignerService generates an EPHEMERAL
+      # keypair on each boot — every issued license token is invalidated
+      # on restart. Generate once with:
+      #   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out lic_priv.pem
+      #   openssl pkey -in lic_priv.pem -pubout -out lic_pub.pem
+      #   LICENSE_PRIVATE_KEY_PEM=$(base64 -w0 < lic_priv.pem)
+      #   LICENSE_PUBLIC_KEY_PEM=$(base64 -w0 < lic_pub.pem)
+      LICENSE_PRIVATE_KEY_PEM:   ${LICENSE_PRIVATE_KEY_PEM:-}
+      LICENSE_PUBLIC_KEY_PEM:    ${LICENSE_PUBLIC_KEY_PEM:-}
+      # Per-tenant integration credentials (WhatsApp/SMTP/SMS) AES-256-GCM
+      # key. 32-byte hex (64 chars). Without it the EncryptionService
+      # falls back to a dev-only key and any stored tokens become
+      # unreadable across container rebuilds.
+      INTEGRATION_ENCRYPTION_KEY: ${INTEGRATION_ENCRYPTION_KEY:-}
     networks:
       - erp-internal
     depends_on:
