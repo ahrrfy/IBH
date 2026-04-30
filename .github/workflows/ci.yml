@@ -169,6 +169,19 @@ jobs:
               | grep -q 1 || { echo "❌ trigger $trg missing"; exit 1; }
           done
           echo "✅ partial indexes + triggers + RLS applied"
+      - name: Configure RLS bypass for the test role (I062)
+        # The I062 RLS rollout enables FORCE ROW LEVEL SECURITY on every
+        # multi-tenant table, which restricts even the table owner. The
+        # `erp` role used by CI tests is the table owner — without an
+        # explicit bypass, every test that calls `prisma.foo.create(...)`
+        # outside an http request (no RlsInterceptor → no
+        # `app.current_company` set) violates the WITH CHECK clause.
+        # `ALTER ROLE … SET …` applies to every new connection, which is
+        # exactly what we need given pg.Pool checks out a fresh
+        # connection per query in the test process.
+        env: { PGPASSWORD: testpass }
+        run: |
+          psql -h localhost -U erp -d alruya_erp_test -c "ALTER ROLE erp SET app.bypass_rls TO '1'"
       - name: Seed bootstrap data (companies, roles, admin user, Iraqi CoA)
         # Many tests reference companies/users from seed via prisma.company.findFirst().
         # Without this they fail with PrismaClientKnownRequestError on null records.

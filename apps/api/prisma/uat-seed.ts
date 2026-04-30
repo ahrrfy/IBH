@@ -30,7 +30,8 @@ import { Pool } from 'pg';
 // Prisma 7 (I040) requires the driver-adapter pattern instead of a plain
 // `new PrismaClient()`. Construct the same way PrismaService does in
 // apps/api/src/platform/prisma/prisma.service.ts.
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// I062 — Pool max=1 + RLS bypass (see seed-bootstrap.ts).
+const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 1 });
 const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
@@ -144,6 +145,9 @@ const EMPLOYEES = [
 
 async function main() {
   console.log('🌱 UAT seed starting...');
+
+  // I062 — bypass RLS for the seed (see seed-bootstrap.ts).
+  await prisma.$executeRaw`SELECT set_config('app.bypass_rls', '1', false)`;
 
   const company = await prisma.company.findFirst({ where: { code: 'RUA' } });
   if (!company) throw new Error('Company RUA not found — run seed-bootstrap.ts first');
