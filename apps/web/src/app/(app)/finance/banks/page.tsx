@@ -16,7 +16,7 @@ export default function BankAccountsPage() {
   const rows: any[] = Array.isArray(data) ? data : data?.items ?? [];
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="space-y-6">
       <header>
         <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
           <Landmark className="h-6 w-6 text-sky-700" />
@@ -37,8 +37,9 @@ export default function BankAccountsPage() {
                 </div>
               </div>
             ),
+            exportValue: (r: any) => r.nameAr ?? r.name,
           },
-          { key: 'currency', header: 'العملة', accessor: (r: any) => r.currency ?? 'IQD' },
+          { key: 'currency', header: 'العملة', accessor: (r: any) => r.currency ?? 'IQD', exportValue: (r: any) => r.currency ?? 'IQD' },
           {
             key: 'balance', header: 'الرصيد', align: 'end',
             accessor: (r: any) => (
@@ -46,6 +47,7 @@ export default function BankAccountsPage() {
                 {Number(r.currentBalance ?? 0).toLocaleString()}
               </span>
             ),
+            sortable: true, sortValue: (r: any) => Number(r.currentBalance ?? 0), exportValue: (r: any) => Number(r.currentBalance ?? 0),
           },
           {
             key: 'lastReconciled', header: 'آخر مطابقة',
@@ -55,10 +57,11 @@ export default function BankAccountsPage() {
               ) : (
                 <span className="text-rose-500 text-xs">لم تتم</span>
               ),
+            exportValue: (r: any) => r.lastReconciledAt ?? '',
           },
-          { key: 'status', header: 'الحالة', accessor: (r: any) => <StatusBadge status={r.isActive ? 'active' : 'inactive'} /> },
+          { key: 'status', header: 'الحالة', accessor: (r: any) => <StatusBadge status={r.isActive ? 'active' : 'inactive'} />, exportValue: (r: any) => r.isActive ? 'نشط' : 'غير نشط' },
           {
-            key: 'actions', header: '',
+            key: 'actions', header: '', hideable: false,
             accessor: (r: any) => (
               <Link href={`/finance/banks/${r.id}/reconcile`} className="btn-ghost btn-sm">
                 <ScanLine className="h-3.5 w-3.5" />
@@ -72,8 +75,13 @@ export default function BankAccountsPage() {
         error={error ? 'تعذَّر تحميل الحسابات' : null}
         onRetry={() => refetch()}
         emptyMessage="لا توجد حسابات بنكية"
-        exportFilename="bank-accounts"
         getRowKey={(r: any) => r.id}
+        exportFilename="bank-accounts"
+        exportFormats={['csv', 'excel']}
+        exportTitle="الحسابات البنكية"
+        columnToggle
+        densityToggle
+        printable
       />
     </div>
   );

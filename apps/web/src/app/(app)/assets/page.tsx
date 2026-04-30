@@ -44,6 +44,11 @@ export default function FixedAssetsPage() {
         onRetry={() => refetch()}
         emptyMessage="لا توجد أصول"
         exportFilename="fixed-assets"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="fixed-assets"
+        columnToggle
+        densityToggle
+        printable
         getRowKey={(r: any) => r.id}
       />
     </div>

@@ -35,6 +35,11 @@ export default function PromotionsPage() {
         onRetry={() => refetch()}
         emptyMessage="لا توجد عروض"
         exportFilename="promotions"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="promotions"
+        columnToggle
+        densityToggle
+        printable
         getRowKey={(r: any) => r.id}
       />
     </div>

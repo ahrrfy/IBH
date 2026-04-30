@@ -36,6 +36,11 @@ export default function SuppliersPage() {
         onRetry={() => refetch()}
         emptyMessage="لا يوجد موردون"
         exportFilename="suppliers"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="suppliers"
+        columnToggle
+        densityToggle
+        printable
         getRowKey={(r: any) => r.id}
       />
     </div>

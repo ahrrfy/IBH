@@ -77,6 +77,11 @@ export default function DeliverySettlementsPage() {
         onRetry={() => refetch()}
         getRowKey={(r: Settlement) => r.id}
         exportFilename="delivery-settlements"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="delivery-settlements"
+        columnToggle
+        densityToggle
+        printable
       />
 
       {showProposeModal && (

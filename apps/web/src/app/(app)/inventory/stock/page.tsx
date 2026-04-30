@@ -36,6 +36,11 @@ export default function StockPage() {
         onRetry={() => refetch()}
         getRowKey={(r: any) => r.id}
         exportFilename="stock-summary"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="stock-summary"
+        columnToggle
+        densityToggle
+        printable
       />
     </div>
   );

@@ -98,6 +98,11 @@ export default function DeliveryCompaniesPage() {
         onRetry={() => refetch()}
         getRowKey={(r: DeliveryCompany) => r.id}
         exportFilename="delivery-companies"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="delivery-companies"
+        columnToggle
+        densityToggle
+        printable
       />
     </div>
   );

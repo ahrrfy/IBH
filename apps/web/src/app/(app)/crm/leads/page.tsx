@@ -43,6 +43,11 @@ export default function LeadsPage() {
         onRetry={() => refetch()}
         getRowKey={(r: any) => r.id}
         exportFilename="leads"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="leads"
+        columnToggle
+        densityToggle
+        printable
       />
     </div>
   );

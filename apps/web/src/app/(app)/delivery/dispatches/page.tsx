@@ -91,6 +91,11 @@ export default function DeliveryDispatchesPage() {
         onRetry={() => refetch()}
         emptyMessage="لا توجد طلبات توصيل"
         exportFilename="delivery-dispatches"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="delivery-dispatches"
+        columnToggle
+        densityToggle
+        printable
         getRowKey={(r: any) => r.id}
       />
     </div>

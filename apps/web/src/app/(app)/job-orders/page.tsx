@@ -49,6 +49,11 @@ export default function JobOrdersPage() {
         onRetry={() => refetch()}
         emptyMessage="لا توجد طلبات تصنيع"
         exportFilename="job-orders"
+        exportFormats={['csv', 'excel', 'pdf']}
+        exportTitle="job-orders"
+        columnToggle
+        densityToggle
+        printable
         getRowKey={(r: any) => r.id}
       />
     </div>
