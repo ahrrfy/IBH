@@ -161,6 +161,14 @@ export async function api<T = unknown>(path: string, opts: ApiRequestInit = {}):
     if (token) finalHeaders['Authorization'] = `Bearer ${token}`;
   }
 
+  // Defense-in-depth: enforce same-origin invariant at the fetch call site
+  // (buildUrl already rejects absolute / protocol-relative paths, but this
+  // explicit guard makes the safety constraint visible to static analysis
+  // and prevents future refactors from silently widening the URL surface).
+  if (!url.startsWith('/api/v')) {
+    throw new Error(`api(): URL must be a same-origin /api/v* path (got: ${url.slice(0, 50)})`);
+  }
+
   let response: Response;
   try {
     response = await fetch(url, {

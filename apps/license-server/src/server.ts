@@ -37,6 +37,7 @@ const fastify = Fastify({ logger: true });
 // Rate-limit: protects /heartbeat and /issue from abuse (per-IP).
 // /health is excluded so liveness probes always succeed.
 await fastify.register(rateLimit, {
+  global: true,
   max: 60,
   timeWindow: '1 minute',
   allowList: (req) => req.url === '/health',
@@ -46,7 +47,13 @@ fastify.get('/health', async () => ({ status: 'ok', service: 'license-server' })
 
 const HeartbeatSchema = z.object({ licenseKey: z.string().min(1) });
 
-fastify.post('/heartbeat', async (req, reply) => {
+// Tighter per-route limit on /heartbeat: authoritative auth endpoint that
+// should be hit at most every few minutes per legitimate client. Uses the
+// canonical `config.rateLimit` form recognized by CodeQL's
+// js/missing-rate-limiting query and documented by @fastify/rate-limit.
+fastify.post('/heartbeat', {
+  config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+}, async (req, reply) => {
   const parsed = HeartbeatSchema.safeParse(req.body);
   if (!parsed.success) return reply.code(400).send({ error: 'invalid_payload' });
 
@@ -80,7 +87,10 @@ const IssueSchema = z.object({
   gracePeriodDays: z.number().int().min(0).max(90).default(30),
 });
 
-fastify.post('/issue', async (req, reply) => {
+// Strict rate limit on admin endpoints to defeat token-guessing attacks.
+fastify.post('/issue', {
+  config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+}, async (req, reply) => {
   const auth = req.headers.authorization ?? '';
   if (auth !== `Bearer ${ADMIN_TOKEN}` || !ADMIN_TOKEN) {
     return reply.code(401).send({ error: 'unauthorized' });
@@ -103,7 +113,9 @@ fastify.post('/issue', async (req, reply) => {
   return { licenseKey, payload };
 });
 
-fastify.post('/revoke', async (req, reply) => {
+fastify.post('/revoke', {
+  config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+}, async (req, reply) => {
   const auth = req.headers.authorization ?? '';
   if (auth !== `Bearer ${ADMIN_TOKEN}` || !ADMIN_TOKEN) {
     return reply.code(401).send({ error: 'unauthorized' });
