@@ -6,7 +6,7 @@
 [![Modules](https://img.shields.io/badge/modules-18%2F18-brightgreen)](./governance/MODULE_STATUS_BOARD.md)
 [![Waves](https://img.shields.io/badge/waves-6%2F6-blue)](./governance/MODULE_STATUS_BOARD.md)
 [![Models](https://img.shields.io/badge/prisma_models-128-purple)](./apps/api/prisma/schema.prisma)
-[![LoC](https://img.shields.io/badge/lines_of_code-102932-informational)]()
+[![LoC](https://img.shields.io/badge/lines_of_code-103027-informational)]()
 [![License](https://img.shields.io/badge/license-proprietary-red)]()
 
 ---
@@ -84,7 +84,7 @@
 | Prisma Models | **128** |
 | Migrations | **31** |
 | TypeScript Files | **693** |
-| Lines of Code | **~102932** |
+| Lines of Code | **~103027** |
 | E2E Test Suites | **35** |
 | Waves Complete | **6 / 6** |
 | Modules Complete | **18 / 18** |
