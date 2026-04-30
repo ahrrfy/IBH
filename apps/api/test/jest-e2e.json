@@ -7,7 +7,7 @@
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "transformIgnorePatterns": [
-    "node_modules/(?!(@nestjs/bull|@nestjs/bull-shared|bullmq|bull|uuid)/)"
+    "node_modules/(?!.*(@nestjs/bull|@nestjs/bull-shared|bullmq|bull|uuid)/)"
   ],
   "moduleNameMapper": {
     "^@erp/shared-types$":       "<rootDir>/../../../packages/shared-types/src",
