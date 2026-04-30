@@ -9,26 +9,26 @@
     "pnpm": ">=9.0.0"
   },
   "scripts": {
-    "dev:api":       "pnpm --filter @erp/api dev",
-    "dev:web":       "pnpm --filter @erp/web dev",
-    "dev:storefront":"pnpm --filter @erp/storefront dev",
-    "build":         "pnpm -r build",
-    "test":          "pnpm -r test",
-    "test:e2e":      "pnpm -r test:e2e",
-    "lint":          "pnpm -r lint",
-    "typecheck":     "pnpm -r typecheck",
-    "db:generate":   "pnpm --filter @erp/api prisma generate",
-    "db:migrate":    "pnpm --filter @erp/api prisma migrate deploy",
-    "db:studio":     "pnpm --filter @erp/api prisma studio",
-    "db:seed":       "pnpm --filter @erp/api prisma db seed",
-    "clean":         "pnpm -r clean && rm -rf node_modules"
+    "dev:api": "pnpm --filter @erp/api dev",
+    "dev:web": "pnpm --filter @erp/web dev",
+    "dev:storefront": "pnpm --filter @erp/storefront dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "test:e2e": "pnpm -r test:e2e",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @erp/api prisma generate",
+    "db:migrate": "pnpm --filter @erp/api prisma migrate deploy",
+    "db:studio": "pnpm --filter @erp/api prisma studio",
+    "db:seed": "pnpm --filter @erp/api prisma db seed",
+    "clean": "pnpm -r clean && rm -rf node_modules"
   },
   "devDependencies": {
-    "typescript":       "^6.0.3",
-    "@types/node":      "^22.0.0",
-    "prettier":         "^3.8.3",
-    "eslint":           "^10.0.0",
-    "turbo":            "^2.0.0"
+    "typescript": "^6.0.3",
+    "@types/node": "^22.0.0",
+    "prettier": "^3.8.3",
+    "eslint": "^10.0.0",
+    "turbo": "^2.0.0"
   },
   "pnpm": {
     "overrides": {
@@ -42,7 +42,7 @@
       "postcss": ">=8.5.12",
       "@babel/runtime": ">=7.26.10",
       "@hono/node-server": ">=1.19.13",
-      "uuid": ">=11.0.0 <12.0.0"
+      "uuid": ">=14.0.0"
     }
   }
 }
