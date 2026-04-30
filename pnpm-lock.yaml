@@ -15,6 +15,7 @@ overrides:
   postcss: '>=8.5.12'
   '@babel/runtime': '>=7.26.10'
   '@hono/node-server': '>=1.19.13'
+  uuid: '>=14.0.0'
 
 importers:
 
@@ -293,9 +294,6 @@ importers:
       '@tauri-apps/api':
         specifier: ^2.0.0
         version: 2.10.1
-      '@tauri-apps/plugin-sql':
-        specifier: ^2.0.0
-        version: 2.4.0
       '@tauri-apps/plugin-store':
         specifier: ^2.0.0
         version: 2.4.2
@@ -1656,7 +1654,7 @@ packages:
 
   '@expo/bunyan@4.0.1':
     resolution: {integrity: sha512-+Lla7nYSiHZirgK+U/uYzsLv/X+HaJienbD5AKX1UQZHYfWaP+9uuQluRB4GrEVWF0GZ7vEVp/jzaOT9k/SQlg==}
-    engines: {node: '>=0.10.0'}
+    engines: {'0': node >=0.10.0}
 
   '@expo/cli@0.22.28':
     resolution: {integrity: sha512-lvt72KNitGuixYD2l3SZmRKVu2G4zJpmg5V7WfUBNpmUU5oODBw/6qmiJ6kSLAlfDozscUk+BBGknBBzxUrwrA==}
@@ -3144,9 +3142,6 @@ packages:
     resolution: {integrity: sha512-jQNGF/5quwORdZSSLtTluyKQ+o6SMa/AUICfhf4egCGFdMHqWssApVgYSbg+jmrZoc8e1DscNvjTnXtlHLS11g==}
     engines: {node: '>= 10'}
     hasBin: true
-
-  '@tauri-apps/plugin-sql@2.4.0':
-    resolution: {integrity: sha512-SIICc5JlnK6OrBZzOw7MmhXHPlmASpt5zLWIu10WW4kLr5cDYOXHdV2MoCgYQkgZLQfyBYgF3SQa5XCisUiQkw==}
 
   '@tauri-apps/plugin-store@2.4.2':
     resolution: {integrity: sha512-0ClHS50Oq9HEvLPhNzTNFxbWVOqoAp3dRvtewQBeqfIQ0z5m3JRnOISIn2ZVPCrQC0MyGyhTS9DWhHjpigQE7A==}
@@ -7486,12 +7481,8 @@ packages:
     resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
     engines: {node: '>= 0.4.0'}
 
-  uuid@7.0.3:
-    resolution: {integrity: sha512-DPSke0pXhTZgoF/d+WSt2QaKMCFSfx7QegxEWT+JOuHF5aWrKEn0G+ztjuJg/gG8/ItK+rbPCD/yNv8yyih6Cg==}
-    hasBin: true
-
-  uuid@8.3.2:
-    resolution: {integrity: sha512-+NYs2QeMWy+GWFOEm9xnn6HCDp0l7QBD7ml8zLUmJ+93Q5NF0NocErnwkTkXVFNiX3/fpC6afS8Dhb/gz7R7eg==}
+  uuid@14.0.0:
+    resolution: {integrity: sha512-Qo+uWgilfSmAhXCMav1uYFynlQO7fMFiMVZsQqZRMIXp0O7rR7qjkj+cPvBHLgBqi960QCoo/PH2/6ZtVqKvrg==}
     hasBin: true
 
   v8-compile-cache-lib@3.0.1:
@@ -8995,7 +8986,7 @@ snapshots:
 
   '@expo/bunyan@4.0.1':
     dependencies:
-      uuid: 8.3.2
+      uuid: 14.0.0
 
   '@expo/cli@0.22.28':
     dependencies:
@@ -9248,7 +9239,7 @@ snapshots:
       md5: 2.3.0
       node-fetch: 2.7.0
       remove-trailing-slash: 0.1.1
-      uuid: 8.3.2
+      uuid: 14.0.0
     transitivePeerDependencies:
       - encoding
 
@@ -10749,10 +10740,6 @@ snapshots:
       '@tauri-apps/cli-win32-ia32-msvc': 2.10.1
       '@tauri-apps/cli-win32-x64-msvc': 2.10.1
 
-  '@tauri-apps/plugin-sql@2.4.0':
-    dependencies:
-      '@tauri-apps/api': 2.10.1
-
   '@tauri-apps/plugin-store@2.4.2':
     dependencies:
       '@tauri-apps/api': 2.10.1
@@ -11555,7 +11542,7 @@ snapshots:
       lodash: 4.18.1
       msgpackr: 1.11.10
       semver: 7.7.4
-      uuid: 8.3.2
+      uuid: 14.0.0
     transitivePeerDependencies:
       - supports-color
 
@@ -15610,9 +15597,7 @@ snapshots:
 
   utils-merge@1.0.1: {}
 
-  uuid@7.0.3: {}
-
-  uuid@8.3.2: {}
+  uuid@14.0.0: {}
 
   v8-compile-cache-lib@3.0.1: {}
 
@@ -15798,7 +15783,7 @@ snapshots:
   xcode@3.0.1:
     dependencies:
       simple-plist: 1.3.1
-      uuid: 7.0.3
+      uuid: 14.0.0
 
   xml2js@0.6.0:
     dependencies:

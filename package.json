@@ -41,7 +41,8 @@
       "@xmldom/xmldom": ">=0.9.10",
       "postcss": ">=8.5.12",
       "@babel/runtime": ">=7.26.10",
-      "@hono/node-server": ">=1.19.13"
+      "@hono/node-server": ">=1.19.13",
+      "uuid": ">=14.0.0"
     }
   }
 }
