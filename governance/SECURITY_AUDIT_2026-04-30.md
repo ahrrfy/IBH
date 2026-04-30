@@ -2,18 +2,22 @@
 
 ## Trigger
 
-Phishing email received claiming a Linux kernel vulnerability **CVE-2026-31431 ("Copy Fail")** with instructions to disable the `algif_aead` kernel module. The email is fraudulent — the CVE does not exist in NVD and disabling `algif_aead` would break the AF_ALG / Kernel Crypto API.
+A Hostinger advisory email arrived claiming a Linux kernel vulnerability **CVE-2026-31431 ("Copy Fail")** with two remediation options:
+1. `apt update && apt upgrade -y` (legitimate)
+2. Disable the `algif_aead` kernel module via `/etc/modprobe.d/disable-algif.conf` (risky — breaks AF_ALG / Kernel Crypto API)
 
-## Phishing email integrity check
+Initial analysis suspected phishing because of the 2026 CVE prefix, but the email is from `team@info.hostinger.com` with a Google-verified sender badge — it is a **legitimate Hostinger advisory** (today is 2026-04-30, so CVE-2026-XXXXX is a current-year CVE, not a fake future date).
+
+## Email-instruction integrity check (Option 2 was NOT applied)
 
 | Indicator | Result |
 |---|---|
-| `/etc/modprobe.d/disable-algif*` | ❌ not present — commands NOT executed |
+| `/etc/modprobe.d/disable-algif*` | ❌ not present |
 | `install algif_aead /bin/false` overrides | ❌ none found |
 | `algif_aead` module on disk | ✅ intact at `/lib/modules/6.8.0-110-generic/...` |
-| `CVE-2026-31431` in `linux-image-generic` changelog | ❌ no reference (CVE is fake) |
+| `CVE-2026-31431` in `linux-image-generic` changelog | ❌ no reference at audit time |
 
-**Conclusion:** the phishing instructions were never run. No remediation needed for the email itself beyond reporting/deleting it.
+**Conclusion:** Option 2 was not applied (good — it would have broken kernel crypto). Option 1 is unnecessary because the VPS is already on the latest `noble-security` kernel and `unattended-upgrades` is active with 0 security-tagged updates pending. **No action required from the email itself.**
 
 ## VPS state at audit time
 
