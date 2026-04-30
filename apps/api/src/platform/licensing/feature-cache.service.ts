@@ -103,19 +103,24 @@ export class FeatureCacheService {
    * form the baseline; per-subscription overrides apply on top.
    */
   private async loadFromDb(companyId: string): Promise<CompanyLicenseSnapshot | null> {
-    const sub = await this.prisma.subscription.findFirst({
-      where: {
-        companyId,
-        status: { in: ['active', 'trial', 'grace'] },
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        plan: {
-          include: { features: true },
+    // I062 — LicenseGuard runs before RlsInterceptor, so the request's
+    // RLS context isn't set yet. Bypass is safe here because the WHERE
+    // clause already pins to the caller's companyId (passed from JWT).
+    const sub = await this.prisma.withBypassedRls(() =>
+      this.prisma.subscription.findFirst({
+        where: {
+          companyId,
+          status: { in: ['active', 'trial', 'grace'] },
         },
-        featureOverrides: true,
-      },
-    });
+        orderBy: { createdAt: 'desc' },
+        include: {
+          plan: {
+            include: { features: true },
+          },
+          featureOverrides: true,
+        },
+      }),
+    );
 
     if (!sub) return null;
 

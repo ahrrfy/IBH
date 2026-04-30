@@ -24,8 +24,28 @@
  *    single subscription snapshot — no raw SQL is required and no PII
  *    leaves the service boundary.
  */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../platform/prisma/prisma.service';
+
+/**
+ * I066 — defensive wrapper. Any single Prisma failure (transient driver
+ * error, missing optional table, etc.) on a greenfield install would
+ * previously bubble up as 500. We swallow it, log once, and return the
+ * supplied empty default so the dashboard renders zeroed instead.
+ */
+async function safeQuery<T>(
+  logger: Logger,
+  label: string,
+  fn: () => Promise<T>,
+  fallback: T,
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    logger.warn(`analytics.${label} failed: ${(err as Error).message}`);
+    return fallback;
+  }
+}
 
 export interface AnalyticsSummary {
   asOf: string;
@@ -108,27 +128,74 @@ function addMonthsUtc(d: Date, n: number): Date {
 
 @Injectable()
 export class AdminLicensingAnalyticsService {
+  private readonly logger = new Logger(AdminLicensingAnalyticsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
+
+  private zeroedSummary(now: Date): AnalyticsSummary {
+    return {
+      asOf: now.toISOString(),
+      mrrIqd: 0,
+      arrIqd: 0,
+      activeSubscriptions: 0,
+      trialingSubscriptions: 0,
+      churnRate30d: 0,
+      ltvIqd: 0,
+      conversionRate30d: 0,
+      expansionMrr30dIqd: 0,
+    };
+  }
 
   /**
    * Build a single-figure dashboard summary for the current month.
+   * I062 — wrapped in `withBypassedRls` because super-admin analytics
+   * aggregate across every tenant (Subscription, LicenseEvent, Plan).
+   * Without bypass the request's own RLS context would scope reads to a
+   * single tenant and the dashboard would always read its own MRR only.
+   * I066 — every Prisma query is wrapped so a greenfield install (no
+   * subscriptions / no events / no plans seeded) returns a zeroed shape
+   * instead of 500.
    */
   async getSummary(now: Date = new Date()): Promise<AnalyticsSummary> {
+    return this.prisma.withBypassedRls(() => this.getSummaryInternal(now));
+  }
+
+  private async getSummaryInternal(now: Date): Promise<AnalyticsSummary> {
     const monthStart = startOfMonthUtc(now);
     const monthEnd = addMonthsUtc(monthStart, 1);
     const last30Start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const allSubs = await this.prisma.subscription.findMany({
-      select: {
-        id: true,
-        status: true,
-        billingCycle: true,
-        priceIqd: true,
-        planId: true,
-        startedAt: true,
-        cancelledAt: true,
-      },
-    });
+    const allSubs = await safeQuery(
+      this.logger,
+      'subscription.findMany',
+      () =>
+        this.prisma.subscription.findMany({
+          select: {
+            id: true,
+            status: true,
+            billingCycle: true,
+            priceIqd: true,
+            planId: true,
+            startedAt: true,
+            cancelledAt: true,
+          },
+        }),
+      [] as Array<{
+        id: string;
+        status: string;
+        billingCycle: string;
+        priceIqd: any;
+        planId: string;
+        startedAt: Date | null;
+        cancelledAt: Date | null;
+      }>,
+    );
+
+    // Greenfield short-circuit — no subs means every metric is 0 by
+    // definition; skip the trial-event / upgrade-event lookups entirely.
+    if (allSubs.length === 0) {
+      return this.zeroedSummary(now);
+    }
 
     let mrr = 0;
     let activeCount = 0;
@@ -163,37 +230,55 @@ export class AdminLicensingAnalyticsService {
     // Conversion rate (last 30d): trials created in window that have
     // since converted (status active/grace OR an `activated`/`upgraded`
     // event after creation).
-    const trialsCreated = await this.prisma.licenseEvent.findMany({
-      where: {
-        eventType: 'trial_started',
-        createdAt: { gte: last30Start, lt: now },
-      },
-      select: { subscriptionId: true },
-    });
+    const trialsCreated = await safeQuery(
+      this.logger,
+      'licenseEvent.findMany(trial_started)',
+      () =>
+        this.prisma.licenseEvent.findMany({
+          where: {
+            eventType: 'trial_started',
+            createdAt: { gte: last30Start, lt: now },
+          },
+          select: { subscriptionId: true },
+        }),
+      [] as Array<{ subscriptionId: string }>,
+    );
     const trialIds = Array.from(
       new Set(trialsCreated.map((e) => e.subscriptionId)),
     );
     let conversions = 0;
     if (trialIds.length) {
-      conversions = await this.prisma.subscription.count({
-        where: {
-          id: { in: trialIds },
-          status: { in: ['active', 'grace'] },
-        },
-      });
+      conversions = await safeQuery(
+        this.logger,
+        'subscription.count(conversions)',
+        () =>
+          this.prisma.subscription.count({
+            where: {
+              id: { in: trialIds },
+              status: { in: ['active', 'grace'] },
+            },
+          }),
+        0,
+      );
     }
     const conversionRate30d =
       trialIds.length > 0 ? (conversions / trialIds.length) * 100 : 0;
 
     // Expansion MRR (last 30d): for every `upgraded` event, look up the
     // delta between new and old plan monthly-equivalent prices.
-    const upgrades = await this.prisma.licenseEvent.findMany({
-      where: {
-        eventType: 'upgraded',
-        createdAt: { gte: last30Start, lt: now },
-      },
-      select: { payload: true, subscriptionId: true },
-    });
+    const upgrades = await safeQuery(
+      this.logger,
+      'licenseEvent.findMany(upgraded)',
+      () =>
+        this.prisma.licenseEvent.findMany({
+          where: {
+            eventType: 'upgraded',
+            createdAt: { gte: last30Start, lt: now },
+          },
+          select: { payload: true, subscriptionId: true },
+        }),
+      [] as Array<{ payload: any; subscriptionId: string }>,
+    );
     let expansionMrr = 0;
     if (upgrades.length) {
       const planIds = new Set<string>();
@@ -203,10 +288,16 @@ export class AdminLicensingAnalyticsService {
         if (p?.toPlanId) planIds.add(String(p.toPlanId));
       }
       const plans = planIds.size
-        ? await this.prisma.plan.findMany({
-            where: { id: { in: Array.from(planIds) } },
-            select: { id: true, monthlyPriceIqd: true, annualPriceIqd: true },
-          })
+        ? await safeQuery(
+            this.logger,
+            'plan.findMany(byIds)',
+            () =>
+              this.prisma.plan.findMany({
+                where: { id: { in: Array.from(planIds) } },
+                select: { id: true, monthlyPriceIqd: true, annualPriceIqd: true },
+              }),
+            [] as Array<{ id: string; monthlyPriceIqd: any; annualPriceIqd: any }>,
+          )
         : [];
       const planById = new Map(plans.map((p) => [p.id, p]));
       const subById = new Map(
@@ -262,29 +353,60 @@ export class AdminLicensingAnalyticsService {
     months = 12,
     now: Date = new Date(),
   ): Promise<{ months: AnalyticsTimeseriesPoint[] }> {
+    return this.prisma.withBypassedRls(() =>
+      this.getTimeseriesInternal(months, now),
+    );
+  }
+
+  private async getTimeseriesInternal(
+    months = 12,
+    now: Date = new Date(),
+  ): Promise<{ months: AnalyticsTimeseriesPoint[] }> {
     const m = Math.min(Math.max(Math.floor(months) || 12, 1), 36);
     const firstMonthStart = addMonthsUtc(startOfMonthUtc(now), -(m - 1));
     const seriesEnd = addMonthsUtc(startOfMonthUtc(now), 1);
 
-    const subs = await this.prisma.subscription.findMany({
-      select: {
-        id: true,
-        status: true,
-        billingCycle: true,
-        priceIqd: true,
-        startedAt: true,
-        cancelledAt: true,
-        planId: true,
-      },
-    });
+    // I066 — defensive wrap so timeseries also returns empty months
+    // (instead of 500) on any Prisma transient failure.
+    const subs = await safeQuery(
+      this.logger,
+      'subscription.findMany(timeseries)',
+      () =>
+        this.prisma.subscription.findMany({
+          select: {
+            id: true,
+            status: true,
+            billingCycle: true,
+            priceIqd: true,
+            startedAt: true,
+            cancelledAt: true,
+            planId: true,
+          },
+        }),
+      [] as Array<{
+        id: string;
+        status: string;
+        billingCycle: string;
+        priceIqd: any;
+        startedAt: Date | null;
+        cancelledAt: Date | null;
+        planId: string;
+      }>,
+    );
 
-    const upgrades = await this.prisma.licenseEvent.findMany({
-      where: {
-        eventType: 'upgraded',
-        createdAt: { gte: firstMonthStart, lt: seriesEnd },
-      },
-      select: { subscriptionId: true, payload: true, createdAt: true },
-    });
+    const upgrades = await safeQuery(
+      this.logger,
+      'licenseEvent.findMany(upgraded-timeseries)',
+      () =>
+        this.prisma.licenseEvent.findMany({
+          where: {
+            eventType: 'upgraded',
+            createdAt: { gte: firstMonthStart, lt: seriesEnd },
+          },
+          select: { subscriptionId: true, payload: true, createdAt: true },
+        }),
+      [] as Array<{ subscriptionId: string; payload: any; createdAt: Date }>,
+    );
 
     const planIds = new Set<string>();
     for (const ev of upgrades) {
@@ -294,10 +416,16 @@ export class AdminLicensingAnalyticsService {
     }
     for (const s of subs) planIds.add(s.planId);
     const plans = planIds.size
-      ? await this.prisma.plan.findMany({
-          where: { id: { in: Array.from(planIds) } },
-          select: { id: true, monthlyPriceIqd: true, annualPriceIqd: true },
-        })
+      ? await safeQuery(
+          this.logger,
+          'plan.findMany(timeseries)',
+          () =>
+            this.prisma.plan.findMany({
+              where: { id: { in: Array.from(planIds) } },
+              select: { id: true, monthlyPriceIqd: true, annualPriceIqd: true },
+            }),
+          [] as Array<{ id: string; monthlyPriceIqd: any; annualPriceIqd: any }>,
+        )
       : [];
     const planById = new Map(plans.map((p) => [p.id, p]));
     const subCycleById = new Map(
@@ -414,20 +542,43 @@ export class AdminLicensingAnalyticsService {
    * Group MRR by plan (for the current snapshot, not historical).
    */
   async getBreakdown(): Promise<{ byPlan: AnalyticsBreakdownEntry[] }> {
+    return this.prisma.withBypassedRls(() => this.getBreakdownInternal());
+  }
+
+  private async getBreakdownInternal(): Promise<{ byPlan: AnalyticsBreakdownEntry[] }> {
+    // I066 — defensive on greenfield (no plans seeded → empty breakdown).
     const [plans, subs] = await Promise.all([
-      this.prisma.plan.findMany({
-        select: { id: true, code: true, name: true, sortOrder: true },
-        orderBy: { sortOrder: 'asc' },
-      }),
-      this.prisma.subscription.findMany({
-        select: {
-          id: true,
-          planId: true,
-          status: true,
-          billingCycle: true,
-          priceIqd: true,
-        },
-      }),
+      safeQuery(
+        this.logger,
+        'plan.findMany(breakdown)',
+        () =>
+          this.prisma.plan.findMany({
+            select: { id: true, code: true, name: true, sortOrder: true },
+            orderBy: { sortOrder: 'asc' },
+          }),
+        [] as Array<{ id: string; code: string; name: string; sortOrder: number }>,
+      ),
+      safeQuery(
+        this.logger,
+        'subscription.findMany(breakdown)',
+        () =>
+          this.prisma.subscription.findMany({
+            select: {
+              id: true,
+              planId: true,
+              status: true,
+              billingCycle: true,
+              priceIqd: true,
+            },
+          }),
+        [] as Array<{
+          id: string;
+          planId: string;
+          status: string;
+          billingCycle: string;
+          priceIqd: any;
+        }>,
+      ),
     ]);
 
     const byPlan = new Map<string, { count: number; mrr: number }>();

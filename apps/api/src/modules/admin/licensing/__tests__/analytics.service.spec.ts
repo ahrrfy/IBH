@@ -54,6 +54,9 @@ function makePrisma(
     cancelledAt: s.cancelledAt,
   });
   return {
+    // I062 — service wraps cross-tenant queries in withBypassedRls.
+    // Stub it to a no-op pass-through so the unit math is unchanged.
+    withBypassedRls: async <T>(fn: () => Promise<T>) => fn(),
     subscription: {
       findMany: async () => subs.map(subsel),
       count: async ({ where }: any) => {

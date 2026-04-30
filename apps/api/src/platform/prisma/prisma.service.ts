@@ -38,7 +38,42 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   async clearRlsContext(): Promise<void> {
     await this.$executeRaw`
       SELECT set_config('app.current_company', '', true),
-             set_config('app.current_user_id', '', true)
+             set_config('app.current_user_id', '', true),
+             set_config('app.bypass_rls', '0', true)
     `;
+  }
+
+  /**
+   * I062 — RLS bypass.
+   *
+   * Enables `rls_bypass_active()` (set by migration 20260430000000) for
+   * legitimate cross-tenant operations: super-admin license dashboards,
+   * billing sweeps, recruitment public endpoints, system-internal cron
+   * jobs that need to scan every tenant.
+   *
+   * Use the `withBypassedRls(fn)` helper rather than calling this
+   * directly so the bypass is always cleared on completion (success or
+   * failure). Direct callers MUST clear it themselves.
+   *
+   * Caller responsibility: this is application-layer trust — never call
+   * with a value derived from request input.
+   */
+  async setRlsBypass(enabled: boolean): Promise<void> {
+    const value = enabled ? '1' : '0';
+    await this.$executeRaw`SELECT set_config('app.bypass_rls', ${value}, true)`;
+  }
+
+  /**
+   * Run `fn` with RLS bypass enabled. Bypass is cleared in `finally`,
+   * even on exceptions, so partial failures cannot leak elevated scope
+   * to subsequent queries on the same connection.
+   */
+  async withBypassedRls<T>(fn: () => Promise<T>): Promise<T> {
+    await this.setRlsBypass(true);
+    try {
+      return await fn();
+    } finally {
+      await this.setRlsBypass(false);
+    }
   }
 }

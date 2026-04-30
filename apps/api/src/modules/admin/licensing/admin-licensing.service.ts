@@ -57,8 +57,16 @@ export class AdminLicensingService {
   /**
    * List subscriptions with company name, plan, device count, MRR contribution.
    * Optional status filter + company-name search.
+   *
+   * I062 — bypasses RLS because super-admin reads every tenant's
+   * subscription. Without bypass the request's own companyId scope would
+   * limit results to the super-admin's home tenant.
    */
   async listTenants(params: ListTenantsParams) {
+    return this.prisma.withBypassedRls(() => this.listTenantsInternal(params));
+  }
+
+  private async listTenantsInternal(params: ListTenantsParams) {
     const take = Math.min(Math.max(params.take ?? 50, 1), 200);
     const skip = Math.max(params.skip ?? 0, 0);
 
@@ -136,6 +144,7 @@ export class AdminLicensingService {
    * feature overrides, and license keys.
    */
   async getTenantDetail(subscriptionId: string) {
+    return this.prisma.withBypassedRls(async () => {
     const sub = await this.prisma.subscription.findUnique({
       where: { id: subscriptionId },
       include: {
@@ -165,6 +174,7 @@ export class AdminLicensingService {
       },
     });
     return { ...sub, company };
+    });
   }
 
   /** Activate or suspend a subscription. */
@@ -174,6 +184,7 @@ export class AdminLicensingService {
     reason: string | undefined,
     session: UserSession,
   ) {
+    return this.prisma.withBypassedRls(async () => {
     const sub = await this.prisma.subscription.findUnique({
       where: { id: subscriptionId },
     });
@@ -217,6 +228,7 @@ export class AdminLicensingService {
     });
 
     return updated;
+    });
   }
 
   /**
@@ -233,6 +245,7 @@ export class AdminLicensingService {
     newPlanId: string,
     session: UserSession,
   ) {
+    return this.prisma.withBypassedRls(async () => {
     if (!this.planChange) {
       // PlatformLicensingModule isn't loaded (LICENSE_GUARD_DISABLED=1).
       // PlanChange depends on the proration engine in that module, so we
@@ -268,6 +281,7 @@ export class AdminLicensingService {
     });
 
     return result.subscription;
+    });
   }
 
   /** Manually extend the trial period on a subscription. */
@@ -276,6 +290,7 @@ export class AdminLicensingService {
     extraDays: number,
     session: UserSession,
   ) {
+    return this.prisma.withBypassedRls(async () => {
     if (!Number.isInteger(extraDays) || extraDays <= 0 || extraDays > 365) {
       throw new BadRequestException({
         code: 'INVALID_EXTRA_DAYS',
@@ -330,9 +345,15 @@ export class AdminLicensingService {
     });
 
     return updated;
+    });
   }
 
-  /** Read-only list of all plans + features (for the Plans page). */
+  /**
+   * Read-only list of all plans + features (for the Plans page).
+   * `plans` is a global table (no companyId), so RLS isn't enforced —
+   * but `plan_features` rows have no companyId either, so we don't need
+   * bypass here.
+   */
   async listPlans() {
     return this.prisma.plan.findMany({
       orderBy: { sortOrder: 'asc' },
@@ -342,20 +363,22 @@ export class AdminLicensingService {
 
   /** Paginated audit log of license events across all subscriptions. */
   async listEvents(params: { skip?: number; take?: number; subscriptionId?: string }) {
-    const take = Math.min(Math.max(params.take ?? 50, 1), 200);
-    const skip = Math.max(params.skip ?? 0, 0);
-    const where: any = {};
-    if (params.subscriptionId) where.subscriptionId = params.subscriptionId;
+    return this.prisma.withBypassedRls(async () => {
+      const take = Math.min(Math.max(params.take ?? 50, 1), 200);
+      const skip = Math.max(params.skip ?? 0, 0);
+      const where: any = {};
+      if (params.subscriptionId) where.subscriptionId = params.subscriptionId;
 
-    const [total, items] = await Promise.all([
-      this.prisma.licenseEvent.count({ where }),
-      this.prisma.licenseEvent.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take,
-      }),
-    ]);
-    return { items, total, skip, take };
+      const [total, items] = await Promise.all([
+        this.prisma.licenseEvent.count({ where }),
+        this.prisma.licenseEvent.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take,
+        }),
+      ]);
+      return { items, total, skip, take };
+    });
   }
 }

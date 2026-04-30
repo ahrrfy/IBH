@@ -1,12 +1,16 @@
 /**
  * Bootstrap seed — minimal but production-grade:
  *   1. Default company + branch
- *   2. The PERMANENT system owner (singleton, isSystemOwner=true)
- *   3. (Optional) Test admin user — only if ADMIN_EMAIL+ADMIN_PASSWORD env set
+ *   2. super_admin role (bypasses RBAC by name) + UserRole link to owner
+ *   3. The PERMANENT system owner (singleton, isSystemOwner=true)
+ *   4. (Optional) Test admin user — only if ADMIN_EMAIL+ADMIN_PASSWORD env set
  *
  * The system owner is a singleton (only one user has isSystemOwner=true).
  * Idempotent — re-running this seed updates the password if it changed
  * but never deletes or recreates the owner.
+ *
+ * I063 — owner without role assignment got 403 on every authed endpoint.
+ * Now seeded with super_admin role so first login is fully functional.
  */
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -88,6 +92,28 @@ async function main() {
   });
   console.log(`  ✓ Branch: ${branch.code}`);
 
+  // ─── super_admin role (idempotent) ────────────────────────────────────
+  // RbacGuard short-circuits on role.name === 'super_admin' (bypasses
+  // bitmask checks). The full seed.ts builds 10 roles; bootstrap just
+  // needs this one so the owner is functional on a fresh install.
+  // Permissions JSON: { "*": 127 } maps every resource to the 7 base bits
+  // (CRUDSAP) — defensive in case a future RBAC change drops the
+  // super_admin name short-circuit.
+  const PERM_ALL_BASE = 127; // C|R|U|D|S|A|P
+  const superAdminRole = await prisma.role.upsert({
+    where: { companyId_name: { companyId: company.id, name: 'super_admin' } },
+    update: {},
+    create: {
+      companyId:     company.id,
+      name:          'super_admin',
+      displayNameAr: 'مدير النظام الأعلى',
+      displayNameEn: 'Super Admin',
+      isSystem:      true,
+      permissions:   { '*': PERM_ALL_BASE },
+    },
+  });
+  console.log(`  ✓ Role: ${superAdminRole.name}`);
+
   // ─── System Owner — PERMANENT (singleton) ────────────────────────────
   // Find by username (globally unique). If exists, update password only.
   // If NOT exists, ensure no other user has isSystemOwner=true (singleton),
@@ -139,6 +165,22 @@ async function main() {
     });
     console.log(`  ✓ Owner created: ${owner.username}`);
   }
+
+  // ─── Owner ↔ super_admin role assignment (idempotent) ─────────────────
+  // I063 — without this link, every authed endpoint returns 403 on a
+  // fresh install (RbacGuard finds no roles for the user → no perms).
+  // assignedBy must reference an existing user; using owner.id makes it
+  // self-asserted (audit-correct: bootstrap installs the role).
+  await prisma.userRole.upsert({
+    where:  { userId_roleId: { userId: owner.id, roleId: superAdminRole.id } },
+    update: {},
+    create: {
+      userId:     owner.id,
+      roleId:     superAdminRole.id,
+      assignedBy: owner.id,
+    },
+  });
+  console.log(`  ✓ Owner role: ${superAdminRole.name}`);
 
   // ─── Test admin (only if both env vars set — no default credentials) ──
   if (ADMIN_EMAIL && ADMIN_PASSWORD) {
