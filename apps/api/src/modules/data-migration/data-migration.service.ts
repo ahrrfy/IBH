@@ -3,7 +3,7 @@ import {
   Logger,
   BadRequestException,
   NotFoundException,
-  OnModuleInit,
+  OnApplicationBootstrap,
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
@@ -29,7 +29,7 @@ import {
 import type { ParseResult, SheetInfo } from './parsers/parser.interface';
 
 @Injectable()
-export class DataMigrationService implements OnModuleInit {
+export class DataMigrationService implements OnApplicationBootstrap {
   private readonly logger = new Logger(DataMigrationService.name);
   private importers: IEntityImporter[] = [];
 
@@ -55,7 +55,9 @@ export class DataMigrationService implements OnModuleInit {
     this.templateGenerator.registerImporters(importers);
   }
 
-  onModuleInit(): void {
+  onApplicationBootstrap(): void {
+    // Runs AFTER all OnModuleInit hooks (including the parent module's
+    // registerImporters call), so the count is accurate.
     this.logger.log(`DataMigration: ${this.importers.length} importers registered`);
   }
 

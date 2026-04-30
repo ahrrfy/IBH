@@ -62,7 +62,7 @@ export class ImportProcessor {
       });
 
       const totalRows = await this.prisma.importRow.count({
-        where: { sessionId, status: 'pending' },
+        where: { sessionId, status: { in: ['valid', 'warning'] } },
       });
 
       let processed = 0;
@@ -81,7 +81,7 @@ export class ImportProcessor {
         }
 
         const batch = await this.prisma.importRow.findMany({
-          where: { sessionId, status: 'pending' },
+          where: { sessionId, status: { in: ['valid', 'warning'] } },
           orderBy: { rowNumber: 'asc' },
           take: BATCH_SIZE,
         });
