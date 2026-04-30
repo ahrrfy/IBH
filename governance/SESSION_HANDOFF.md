@@ -2,7 +2,34 @@
 
 ---
 
-## Session 37 — 2026-04-30 — I062 RLS rollout + I063/I064/I065/I066 closed
+## Session 37 — 2026-04-30 — I062 RLS rollout + I063/I064/I065/I066 closed + VPS ops
+
+### VPS work executed this session (live SSH)
+
+| # | Issue | Fix |
+|---|-------|-----|
+| **VPS-1** | Backup cron failing for 4 days with `Permission denied` | `chmod +x` on all `infra/scripts/*.sh`. Manual run produced snapshot `6bc2c7f9` (1 KB → 433 KB postgres dump). |
+| **VPS-2** | Restore drill picked older snapshot due to `--latest 1` per-tag-group quirk | `restore-test.sh` switched to `restic snapshots --json \| jq 'sort_by(.time) \| [last]'`. Drill now PASS 4/0. |
+| **VPS-3** | `LicenseSignerService` falling back to **ephemeral** RSA-2048 keypair on every boot | Generated stable RSA-2048 keypair, added base64-encoded PEMs to `/opt/al-ruya-erp/infra/.env` (chmod 600), wired via `docker-compose.bootstrap.yml`. API logs now show "License signer loaded RSA-2048 key material from env". |
+| **VPS-4** | `INTEGRATION_ENCRYPTION_KEY` was in `.env` but never reached the API container | Added to `docker-compose.bootstrap.yml` `api.environment` block. EncryptionService warning gone. |
+| **VPS-5** | `logrotate.service` failing daily with "duplicate log entry" | Removed `/etc/logrotate.d/erp-ibh` and `postgresql-ibh` (duplicates of `erp` and `postgresql-common`). Moved to `/root/logrotate-disabled/`. Service now succeeds. |
+| **VPS-6** | I063 (owner without role) was already manually fixed in S36. Confirmed `ahrrfy@al-ruya.iq` has `super_admin` assigned in `user_roles`. The seed-bootstrap.ts change ensures future reseeds also assign it. |
+| **VPS-7** | RLS bypass for runtime role (preparation for I062 deploy) | `ALTER ROLE erp_app SET app.bypass_rls TO '1'` applied to production. Once PR #229 deploys the migration, the API still queries successfully (RLS is enforced for any non-`erp_app` connection but bypassed for the runtime user until I067 lands). |
+
+### CI work completing PR #229
+
+After the initial push of I062–I066 fixes, CI surfaced 3 pre-existing
+breakages and 1 secondary effect of the RLS rollout. All five fixed:
+
+| # | Fix | Commits |
+|---|-----|---------|
+| **CI-1** | `pnpm install --frozen-lockfile` blocked by stale `@tauri-apps/plugin-sql` (left in lockfile when S36 SQLCipher migration removed the package). Regenerated lockfile-only. | `9f056fa` |
+| **CI-2** | `prisma db push --skip-generate` failed — Prisma 7 dropped that flag. CI workflow updated. | `42be771` |
+| **CI-3** | `restore-test.sh` `--latest 1` bug | `42be771` (bundled with CI-2) |
+| **CI-4** | Compose missing LICENSE/INTEGRATION env vars | `5adeaac` |
+| **CI-5** | `prisma db seed` printed "⚠️ No seed command configured" — Prisma 7 moved seed config from `package.json#prisma.seed` into `prisma.config.ts#migrations.seed`. Plus seeders now bypass RLS (Pool max=1 + `set_config('app.bypass_rls', '1', false)` at start) and CI sets `ALTER ROLE erp SET app.bypass_rls TO '1'` for the test connection. | `9bb059d` |
+
+
 
 ### Branch: main
 ### Status: pending PR (uncommitted local changes)
