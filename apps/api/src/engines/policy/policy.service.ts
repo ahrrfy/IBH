@@ -24,7 +24,8 @@ export type PolicyKey =
   | 'cart_reservation_minutes'    // how long to hold online cart stock (default: 30)
   | 'max_credit_days'             // default credit days for customers (default: 30)
   | 'po_tolerance_percent'        // acceptable % diff between PO and GRN (default: 5)
-  | 'stock_reorder_safety_days';  // safety stock in days (default: 14)
+  | 'stock_reorder_safety_days'   // safety stock in days (default: 14)
+  | 'opening_balance_equity_account_code'; // OBE counter-account code for data-migration imports (default: '3999')
 
 const POLICY_CACHE_TTL = 300; // 5 minutes
 

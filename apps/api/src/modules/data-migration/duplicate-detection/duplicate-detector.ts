@@ -28,11 +28,11 @@ export class DuplicateDetector {
       const val = data[field.source];
       if (!val) continue;
 
-      const existing = await db[table].findFirst({
-        where: { [field.dbField]: String(val), companyId, deletedAt: null },
-        select: { id: true },
-      });
+      const where: any = { [field.dbField]: String(val), companyId };
+      if (strategy.softDelete === 'deletedAt') where.deletedAt = null;
+      if (strategy.softDelete === 'isActive') where.isActive = true;
 
+      const existing = await db[table].findFirst({ where, select: { id: true } });
       if (existing) {
         return { isDuplicate: true, existingId: existing.id, matchField: field.source };
       }
@@ -43,19 +43,20 @@ export class DuplicateDetector {
 
   private getStrategy(entityType: ImportableEntityType): {
     table: string;
+    softDelete: 'deletedAt' | 'isActive' | null;
     exactFields: Array<{ source: string; dbField: string }>;
   } | null {
     switch (entityType) {
-      case 'product_template': return { table: 'productTemplate', exactFields: [{ source: 'sku', dbField: 'sku' }] };
-      case 'product_variant': return { table: 'productVariant', exactFields: [{ source: 'sku', dbField: 'sku' }] };
-      case 'product_category': return { table: 'productCategory', exactFields: [{ source: 'code', dbField: 'code' }] };
-      case 'unit_of_measure': return { table: 'unitOfMeasure', exactFields: [{ source: 'code', dbField: 'code' }] };
-      case 'customer': return { table: 'customer', exactFields: [{ source: 'phone', dbField: 'phone' }, { source: 'code', dbField: 'code' }] };
-      case 'supplier': return { table: 'supplier', exactFields: [{ source: 'code', dbField: 'code' }] };
-      case 'chart_of_accounts': return { table: 'chartOfAccount', exactFields: [{ source: 'code', dbField: 'code' }] };
-      case 'employee': return { table: 'employee', exactFields: [{ source: 'nationalId', dbField: 'nationalId' }, { source: 'code', dbField: 'code' }] };
-      case 'warehouse': return { table: 'warehouse', exactFields: [{ source: 'code', dbField: 'code' }] };
-      case 'department': return { table: 'department', exactFields: [{ source: 'code', dbField: 'code' }] };
+      case 'product_template': return { table: 'productTemplate', softDelete: 'deletedAt', exactFields: [{ source: 'sku', dbField: 'sku' }] };
+      case 'product_variant':  return { table: 'productVariant',  softDelete: 'deletedAt', exactFields: [{ source: 'sku', dbField: 'sku' }] };
+      case 'product_category': return { table: 'productCategory', softDelete: 'isActive',  exactFields: [{ source: 'nameAr', dbField: 'nameAr' }] };
+      case 'unit_of_measure':  return { table: 'unitOfMeasure',   softDelete: 'isActive',  exactFields: [{ source: 'abbreviation', dbField: 'abbreviation' }] };
+      case 'customer':         return { table: 'customer',        softDelete: 'deletedAt', exactFields: [{ source: 'code', dbField: 'code' }, { source: 'phone', dbField: 'phone' }] };
+      case 'supplier':         return { table: 'supplier',        softDelete: 'deletedAt', exactFields: [{ source: 'code', dbField: 'code' }] };
+      case 'chart_of_accounts': return { table: 'chartOfAccount', softDelete: 'isActive',  exactFields: [{ source: 'code', dbField: 'code' }] };
+      case 'employee':         return { table: 'employee',        softDelete: 'deletedAt', exactFields: [{ source: 'employeeNumber', dbField: 'employeeNumber' }, { source: 'nationalId', dbField: 'nationalId' }] };
+      case 'warehouse':        return { table: 'warehouse',       softDelete: 'deletedAt', exactFields: [{ source: 'code', dbField: 'code' }] };
+      case 'department':       return { table: 'department',      softDelete: 'isActive',  exactFields: [{ source: 'code', dbField: 'code' }] };
       default: return null;
     }
   }

@@ -1,11 +1,33 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { IEntityImporter, ImportContext, TemplateColumn } from './importer.interface';
 import type { ImportableEntityType } from '../dto/data-migration.dto';
 import { ENTITY_FIELD_REGISTRY } from '../mappers/entity-field-registry';
 import { InventoryService } from '../../inventory/inventory.service';
 import { PostingService } from '../../../engines/posting/posting.service';
+import { PolicyService } from '../../../engines/policy/policy.service';
 import type { DocumentType } from '@erp/shared-types';
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function s(v: unknown): string { return String(v ?? '').trim(); }
+function sOrNull(v: unknown): string | null {
+  const x = s(v);
+  return x === '' ? null : x;
+}
+function n(v: unknown): number {
+  const num = Number(s(v).replace(/,/g, ''));
+  return isNaN(num) ? 0 : num;
+}
+function nOrNull(v: unknown): number | null {
+  if (v === null || v === undefined || s(v) === '') return null;
+  const num = Number(s(v).replace(/,/g, ''));
+  return isNaN(num) ? null : num;
+}
+function b(v: unknown): boolean {
+  if (typeof v === 'boolean') return v;
+  return ['true', '1', 'yes', 'نعم', 'صح'].includes(s(v).toLowerCase());
+}
 
 // ─── Base (soft-delete rollback) ─────────────────────────────────────────────
 
@@ -13,6 +35,8 @@ abstract class BaseImporter implements IEntityImporter {
   abstract readonly entityType: ImportableEntityType;
   abstract readonly dependsOn: ImportableEntityType[];
   abstract readonly tableName: string;
+  /** 'deletedAt' or 'isActive' — how this table tracks soft-delete */
+  abstract readonly softDeleteField: 'deletedAt' | 'isActive';
 
   abstract create(
     data: Record<string, unknown>,
@@ -21,19 +45,20 @@ abstract class BaseImporter implements IEntityImporter {
     tx: Prisma.TransactionClient,
   ): Promise<{ id: string }>;
 
-  async rollback(entityId: string, _ctx: ImportContext, tx: Prisma.TransactionClient): Promise<void> {
+  async rollback(entityId: string, ctx: ImportContext, tx: Prisma.TransactionClient): Promise<void> {
     const db = tx as any;
-    if (db[this.tableName]) {
-      await db[this.tableName].update({
-        where: { id: entityId },
-        data: { deletedAt: new Date() },
-      });
-    }
+    if (!db[this.tableName]) return;
+
+    const updateData: any =
+      this.softDeleteField === 'deletedAt'
+        ? { deletedAt: new Date(), deletedBy: ctx.userId }
+        : { isActive: false };
+
+    await db[this.tableName].update({ where: { id: entityId }, data: updateData });
   }
 
   getTemplateColumns(): TemplateColumn[] {
-    const fields = ENTITY_FIELD_REGISTRY[this.entityType];
-    return fields.map((f) => ({
+    return ENTITY_FIELD_REGISTRY[this.entityType].map((f) => ({
       field: f.field,
       labelAr: f.labelAr,
       labelEn: f.labelEn,
@@ -44,23 +69,23 @@ abstract class BaseImporter implements IEntityImporter {
   }
 }
 
-// ─── 1. Product Category ─────────────────────────────────────────────────────
+// ─── 1. Product Category (uses isActive for soft-delete) ─────────────────────
 
 @Injectable()
 export class ProductCategoryImporter extends BaseImporter {
   readonly entityType = 'product_category' as const;
   readonly dependsOn: ImportableEntityType[] = [];
   readonly tableName = 'productCategory';
+  readonly softDeleteField = 'isActive' as const;
 
   async create(data: Record<string, unknown>, resolvedIds: Record<string, string>, ctx: ImportContext, tx: Prisma.TransactionClient) {
     const db = tx as any;
     const record = await db.productCategory.create({
       data: {
-        code: String(data['code']),
-        nameAr: String(data['nameAr']),
-        nameEn: data['nameEn'] ? String(data['nameEn']) : null,
-        description: data['description'] ? String(data['description']) : null,
+        nameAr: s(data['nameAr']),
+        nameEn: sOrNull(data['nameEn']),
         parentId: resolvedIds['parentId'] ?? null,
+        sortOrder: data['sortOrder'] !== undefined ? n(data['sortOrder']) : 0,
         companyId: ctx.companyId,
       },
     });
@@ -68,22 +93,23 @@ export class ProductCategoryImporter extends BaseImporter {
   }
 }
 
-// ─── 2. Unit of Measure ──────────────────────────────────────────────────────
+// ─── 2. Unit of Measure (no `code`/`category`; uses abbreviation) ────────────
 
 @Injectable()
 export class UomImporter extends BaseImporter {
   readonly entityType = 'unit_of_measure' as const;
   readonly dependsOn: ImportableEntityType[] = [];
   readonly tableName = 'unitOfMeasure';
+  readonly softDeleteField = 'isActive' as const;
 
   async create(data: Record<string, unknown>, _r: Record<string, string>, ctx: ImportContext, tx: Prisma.TransactionClient) {
     const db = tx as any;
     const record = await db.unitOfMeasure.create({
       data: {
-        code: String(data['code']),
-        nameAr: String(data['nameAr']),
-        nameEn: data['nameEn'] ? String(data['nameEn']) : null,
-        category: data['category'] ? String(data['category']) : 'count',
+        abbreviation: s(data['abbreviation']),
+        nameAr: s(data['nameAr']),
+        nameEn: sOrNull(data['nameEn']),
+        isBaseUnit: b(data['isBaseUnit']),
         companyId: ctx.companyId,
       },
     });
@@ -91,54 +117,68 @@ export class UomImporter extends BaseImporter {
   }
 }
 
-// ─── 3. Product Template ─────────────────────────────────────────────────────
+// ─── 3. Product Template (defaultSale/PurchasePriceIqd; 3 unit FKs; required createdBy) ──
 
 @Injectable()
 export class ProductTemplateImporter extends BaseImporter {
   readonly entityType = 'product_template' as const;
   readonly dependsOn: ImportableEntityType[] = ['product_category', 'unit_of_measure'];
   readonly tableName = 'productTemplate';
+  readonly softDeleteField = 'deletedAt' as const;
 
   async create(data: Record<string, unknown>, resolvedIds: Record<string, string>, ctx: ImportContext, tx: Prisma.TransactionClient) {
     const db = tx as any;
+    const uomId = resolvedIds['uomId'];
+    const nameAr = s(data['nameAr']);
     const record = await db.productTemplate.create({
       data: {
-        sku: String(data['sku']),
-        nameAr: String(data['nameAr']),
-        nameEn: data['nameEn'] ? String(data['nameEn']) : null,
+        sku: s(data['sku']),
+        nameAr,
+        nameEn: sOrNull(data['nameEn']),
+        name1: nameAr,
+        generatedFullName: nameAr,
         categoryId: resolvedIds['categoryId'],
-        uomId: resolvedIds['uomId'],
-        type: data['type'] ? String(data['type']) : 'storable',
-        salePriceIqd: data['salePrice'] ? Number(data['salePrice']) : null,
-        costPriceIqd: data['costPrice'] ? Number(data['costPrice']) : null,
-        minSalePriceIqd: data['minSalePrice'] ? Number(data['minSalePrice']) : null,
-        taxRate: data['taxRate'] ? Number(data['taxRate']) : 0,
-        description: data['description'] ? String(data['description']) : null,
+        baseUnitId: uomId,
+        saleUnitId: uomId,
+        purchaseUnitId: uomId,
+        type: (s(data['type']) || 'storable') as any,
+        defaultSalePriceIqd: n(data['defaultSalePriceIqd']),
+        defaultPurchasePriceIqd: n(data['defaultPurchasePriceIqd']),
+        minSalePriceIqd: n(data['minSalePriceIqd']),
+        description: sOrNull(data['description']),
         companyId: ctx.companyId,
+        createdBy: ctx.userId,
+        updatedBy: ctx.userId,
       },
     });
     return { id: record.id };
   }
 }
 
-// ─── 4. Product Variant ──────────────────────────────────────────────────────
+// ─── 4. Product Variant (no salePrice/costPrice on table; barcode separate) ──
 
 @Injectable()
 export class ProductVariantImporter extends BaseImporter {
   readonly entityType = 'product_variant' as const;
   readonly dependsOn: ImportableEntityType[] = ['product_template'];
   readonly tableName = 'productVariant';
+  readonly softDeleteField = 'deletedAt' as const;
 
   async create(data: Record<string, unknown>, resolvedIds: Record<string, string>, ctx: ImportContext, tx: Prisma.TransactionClient) {
     const db = tx as any;
+    const attributesRaw = s(data['attributes']);
+    const attributeValues = this.parseAttributes(attributesRaw);
+
     const record = await db.productVariant.create({
       data: {
-        sku: String(data['sku']),
+        sku: s(data['sku']),
         templateId: resolvedIds['templateId'],
-        nameAr: data['nameAr'] ? String(data['nameAr']) : null,
-        salePriceIqd: data['salePrice'] ? Number(data['salePrice']) : null,
-        costPriceIqd: data['costPrice'] ? Number(data['costPrice']) : null,
+        attributeValues,
+        weight: data['weight'] !== undefined && s(data['weight']) !== '' ? n(data['weight']) : null,
+        volume: data['volume'] !== undefined && s(data['volume']) !== '' ? n(data['volume']) : null,
         companyId: ctx.companyId,
+        createdBy: ctx.userId,
+        updatedBy: ctx.userId,
       },
     });
 
@@ -146,8 +186,9 @@ export class ProductVariantImporter extends BaseImporter {
       await db.variantBarcode.create({
         data: {
           variantId: record.id,
-          barcode: String(data['barcode']),
-          type: 'ean13',
+          barcode: s(data['barcode']),
+          barcodeType: 'EAN13',
+          isPrimary: true,
           companyId: ctx.companyId,
         },
       });
@@ -155,27 +196,48 @@ export class ProductVariantImporter extends BaseImporter {
 
     return { id: record.id };
   }
+
+  /** Parse "اللون=أسود;الحجم=L" → { "اللون": "أسود", "الحجم": "L" } */
+  private parseAttributes(raw: string): Record<string, string> {
+    const result: Record<string, string> = {};
+    if (!raw) return result;
+    for (const pair of raw.split(/[;،,]/)) {
+      const [k, v] = pair.split('=').map((x) => x.trim());
+      if (k && v) result[k] = v;
+    }
+    return result;
+  }
 }
 
-// ─── 5. Warehouse ────────────────────────────────────────────────────────────
+// ─── 5. Warehouse (branchId required) ────────────────────────────────────────
 
 @Injectable()
 export class WarehouseImporter extends BaseImporter {
   readonly entityType = 'warehouse' as const;
   readonly dependsOn: ImportableEntityType[] = [];
   readonly tableName = 'warehouse';
+  readonly softDeleteField = 'deletedAt' as const;
 
   async create(data: Record<string, unknown>, _r: Record<string, string>, ctx: ImportContext, tx: Prisma.TransactionClient) {
     const db = tx as any;
+    if (!ctx.branchId) {
+      throw new BadRequestException({
+        messageAr: 'يجب اختيار فرع لاستيراد المستودعات',
+        messageEn: 'Branch is required to import warehouses',
+      });
+    }
     const record = await db.warehouse.create({
       data: {
-        code: String(data['code']),
-        nameAr: String(data['nameAr']),
-        nameEn: data['nameEn'] ? String(data['nameEn']) : null,
-        address: data['address'] ? String(data['address']) : null,
-        isDefault: Boolean(data['isDefault']),
+        code: s(data['code']),
+        nameAr: s(data['nameAr']),
+        nameEn: sOrNull(data['nameEn']),
+        type: (s(data['type']) || 'main') as any,
+        address: sOrNull(data['address']),
+        isDefault: b(data['isDefault']),
         branchId: ctx.branchId,
         companyId: ctx.companyId,
+        createdBy: ctx.userId,
+        updatedBy: ctx.userId,
       },
     });
     return { id: record.id };
@@ -189,21 +251,26 @@ export class CustomerImporter extends BaseImporter {
   readonly entityType = 'customer' as const;
   readonly dependsOn: ImportableEntityType[] = [];
   readonly tableName = 'customer';
+  readonly softDeleteField = 'deletedAt' as const;
 
   async create(data: Record<string, unknown>, _r: Record<string, string>, ctx: ImportContext, tx: Prisma.TransactionClient) {
     const db = tx as any;
     const record = await db.customer.create({
       data: {
-        code: data['code'] ? String(data['code']) : undefined,
-        nameAr: String(data['nameAr']),
-        nameEn: data['nameEn'] ? String(data['nameEn']) : null,
-        phone: data['phone'] ? String(data['phone']) : null,
-        email: data['email'] ? String(data['email']) : null,
-        address: data['address'] ? String(data['address']) : null,
-        creditLimitIqd: data['creditLimitIqd'] ? Number(data['creditLimitIqd']) : 0,
-        taxNumber: data['taxNumber'] ? String(data['taxNumber']) : null,
-        type: data['type'] ? String(data['type']) : 'retail',
+        code: s(data['code']),
+        type: (s(data['type']) || 'regular') as any,
+        nameAr: s(data['nameAr']),
+        nameEn: sOrNull(data['nameEn']),
+        phone: sOrNull(data['phone']),
+        whatsapp: sOrNull(data['whatsapp']),
+        email: sOrNull(data['email']),
+        address: sOrNull(data['address']),
+        city: sOrNull(data['city']),
+        creditLimitIqd: n(data['creditLimitIqd']),
+        taxNumber: sOrNull(data['taxNumber']),
         companyId: ctx.companyId,
+        createdBy: ctx.userId,
+        updatedBy: ctx.userId,
       },
     });
     return { id: record.id };
@@ -217,46 +284,56 @@ export class SupplierImporter extends BaseImporter {
   readonly entityType = 'supplier' as const;
   readonly dependsOn: ImportableEntityType[] = [];
   readonly tableName = 'supplier';
+  readonly softDeleteField = 'deletedAt' as const;
 
   async create(data: Record<string, unknown>, _r: Record<string, string>, ctx: ImportContext, tx: Prisma.TransactionClient) {
     const db = tx as any;
     const record = await db.supplier.create({
       data: {
-        code: String(data['code']),
-        nameAr: String(data['nameAr']),
-        nameEn: data['nameEn'] ? String(data['nameEn']) : null,
-        phone: data['phone'] ? String(data['phone']) : null,
-        email: data['email'] ? String(data['email']) : null,
-        address: data['address'] ? String(data['address']) : null,
-        paymentTermDays: data['paymentTermDays'] ? Number(data['paymentTermDays']) : 30,
-        taxNumber: data['taxNumber'] ? String(data['taxNumber']) : null,
+        code: s(data['code']),
+        type: (s(data['type']) || 'local') as any,
+        nameAr: s(data['nameAr']),
+        nameEn: sOrNull(data['nameEn']),
+        phone: sOrNull(data['phone']),
+        email: sOrNull(data['email']),
+        address: sOrNull(data['address']),
+        paymentTermsDays: data['paymentTermsDays'] !== undefined ? n(data['paymentTermsDays']) : 0,
+        creditLimitIqd: n(data['creditLimitIqd']),
+        taxNumber: sOrNull(data['taxNumber']),
         companyId: ctx.companyId,
+        createdBy: ctx.userId,
+        updatedBy: ctx.userId,
       },
     });
     return { id: record.id };
   }
 }
 
-// ─── 8. Chart of Accounts ────────────────────────────────────────────────────
+// ─── 8. Chart of Accounts (category + accountType enums; allowDirectPosting) ─
 
 @Injectable()
 export class ChartOfAccountsImporter extends BaseImporter {
   readonly entityType = 'chart_of_accounts' as const;
   readonly dependsOn: ImportableEntityType[] = [];
   readonly tableName = 'chartOfAccount';
+  readonly softDeleteField = 'isActive' as const;
 
   async create(data: Record<string, unknown>, resolvedIds: Record<string, string>, ctx: ImportContext, tx: Prisma.TransactionClient) {
     const db = tx as any;
     const record = await db.chartOfAccount.create({
       data: {
-        code: String(data['code']),
-        nameAr: String(data['nameAr']),
-        nameEn: data['nameEn'] ? String(data['nameEn']) : null,
-        accountType: String(data['accountType']),
+        code: s(data['code']),
+        nameAr: s(data['nameAr']),
+        nameEn: sOrNull(data['nameEn']),
+        category: s(data['category']) as any,
+        accountType: s(data['accountType']) as any,
         parentId: resolvedIds['parentId'] ?? null,
-        isPostable: data['isPostable'] !== undefined ? Boolean(data['isPostable']) : true,
-        normalBalance: data['normalBalance'] ? String(data['normalBalance']) : 'debit',
+        isHeader: b(data['isHeader']),
+        allowDirectPosting:
+          data['allowDirectPosting'] !== undefined ? b(data['allowDirectPosting']) : true,
+        currency: s(data['currency']) || 'IQD',
         companyId: ctx.companyId,
+        createdBy: ctx.userId,
       },
     });
     return { id: record.id };
@@ -270,14 +347,16 @@ export class DepartmentImporter extends BaseImporter {
   readonly entityType = 'department' as const;
   readonly dependsOn: ImportableEntityType[] = [];
   readonly tableName = 'department';
+  readonly softDeleteField = 'isActive' as const;
 
-  async create(data: Record<string, unknown>, _r: Record<string, string>, ctx: ImportContext, tx: Prisma.TransactionClient) {
+  async create(data: Record<string, unknown>, resolvedIds: Record<string, string>, ctx: ImportContext, tx: Prisma.TransactionClient) {
     const db = tx as any;
     const record = await db.department.create({
       data: {
-        code: String(data['code']),
-        nameAr: String(data['nameAr']),
-        nameEn: data['nameEn'] ? String(data['nameEn']) : null,
+        code: s(data['code']),
+        nameAr: s(data['nameAr']),
+        nameEn: sOrNull(data['nameEn']),
+        parentId: resolvedIds['parentId'] ?? null,
         companyId: ctx.companyId,
       },
     });
@@ -285,78 +364,105 @@ export class DepartmentImporter extends BaseImporter {
   }
 }
 
-// ─── 10. Employee ────────────────────────────────────────────────────────────
+// ─── 10. Employee (employeeNumber unique; branchId+hireDate+baseSalaryIqd required) ─
 
 @Injectable()
 export class EmployeeImporter extends BaseImporter {
   readonly entityType = 'employee' as const;
   readonly dependsOn: ImportableEntityType[] = ['department'];
   readonly tableName = 'employee';
+  readonly softDeleteField = 'deletedAt' as const;
 
   async create(data: Record<string, unknown>, resolvedIds: Record<string, string>, ctx: ImportContext, tx: Prisma.TransactionClient) {
     const db = tx as any;
+    if (!ctx.branchId) {
+      throw new BadRequestException({
+        messageAr: 'يجب اختيار فرع لاستيراد الموظفين',
+        messageEn: 'Branch is required to import employees',
+      });
+    }
     const record = await db.employee.create({
       data: {
-        code: String(data['code']),
-        nameAr: String(data['nameAr']),
-        nameEn: data['nameEn'] ? String(data['nameEn']) : null,
-        nationalId: data['nationalId'] ? String(data['nationalId']) : null,
-        phone: data['phone'] ? String(data['phone']) : null,
-        email: data['email'] ? String(data['email']) : null,
+        employeeNumber: s(data['employeeNumber']),
+        nameAr: s(data['nameAr']),
+        nameEn: sOrNull(data['nameEn']),
+        nationalId: sOrNull(data['nationalId']),
+        phone: sOrNull(data['phone']),
+        email: sOrNull(data['email']),
         departmentId: resolvedIds['departmentId'] ?? null,
-        jobTitle: data['jobTitle'] ? String(data['jobTitle']) : null,
-        hireDate: data['hireDate'] instanceof Date ? data['hireDate'] : null,
-        baseSalaryIqd: data['baseSalaryIqd'] ? Number(data['baseSalaryIqd']) : null,
+        positionTitle: sOrNull(data['positionTitle']),
+        hireDate: data['hireDate'] instanceof Date ? data['hireDate'] : new Date(),
+        baseSalaryIqd: n(data['baseSalaryIqd']),
         branchId: ctx.branchId,
         companyId: ctx.companyId,
+        createdBy: ctx.userId,
+        updatedBy: ctx.userId,
       },
     });
     return { id: record.id };
   }
 }
 
-// ─── 11. Price List ──────────────────────────────────────────────────────────
+// ─── 11. Price List Item (priceIqd; effectiveFrom required; createdBy required) ─
 
 @Injectable()
 export class PriceListImporter extends BaseImporter {
   readonly entityType = 'price_list' as const;
   readonly dependsOn: ImportableEntityType[] = ['product_variant'];
   readonly tableName = 'priceListItem';
+  readonly softDeleteField = 'isActive' as const;
 
   async create(data: Record<string, unknown>, resolvedIds: Record<string, string>, ctx: ImportContext, tx: Prisma.TransactionClient) {
     const db = tx as any;
+    const listNameAr = s(data['listNameAr']);
+
     let priceList = await db.priceList.findFirst({
-      where: { nameAr: String(data['listName']), companyId: ctx.companyId, deletedAt: null },
+      where: { nameAr: listNameAr, companyId: ctx.companyId, isActive: true },
     });
     if (!priceList) {
       priceList = await db.priceList.create({
         data: {
-          nameAr: String(data['listName']),
-          currency: data['currency'] ? String(data['currency']) : 'IQD',
+          nameAr: listNameAr,
+          type: s(data['listType']) || 'retail',
+          currency: 'IQD',
           companyId: ctx.companyId,
+          createdBy: ctx.userId,
         },
       });
     }
+
+    const effectiveFrom =
+      data['effectiveFrom'] instanceof Date ? data['effectiveFrom'] : new Date();
+    const effectiveTo = data['effectiveTo'] instanceof Date ? data['effectiveTo'] : null;
+
     const record = await db.priceListItem.create({
       data: {
         priceListId: priceList.id,
         variantId: resolvedIds['variantId'],
-        price: Number(data['price']),
-        minQty: data['minQty'] ? Number(data['minQty']) : 1,
-        companyId: ctx.companyId,
+        priceIqd: n(data['priceIqd']),
+        effectiveFrom,
+        effectiveTo,
+        createdBy: ctx.userId,
       },
     });
     return { id: record.id };
   }
+
+  // Override: priceListItem has no soft-delete. Hard delete instead.
+  async rollback(entityId: string, _ctx: ImportContext, tx: Prisma.TransactionClient): Promise<void> {
+    const db = tx as any;
+    await db.priceListItem.deleteMany({ where: { id: entityId } });
+  }
 }
 
-// ─── 12. Reorder Point ───────────────────────────────────────────────────────
+// ─── 12. Reorder Point (no soft-delete; reorderQty + reorderAmount + safetyStock + leadTimeDays) ─
 
 @Injectable()
 export class ReorderPointImporter extends BaseImporter {
   readonly entityType = 'reorder_point' as const;
   readonly dependsOn: ImportableEntityType[] = ['product_variant', 'warehouse'];
   readonly tableName = 'reorderPoint';
+  readonly softDeleteField = 'isActive' as const;
 
   async create(data: Record<string, unknown>, resolvedIds: Record<string, string>, ctx: ImportContext, tx: Prisma.TransactionClient) {
     const db = tx as any;
@@ -364,13 +470,23 @@ export class ReorderPointImporter extends BaseImporter {
       data: {
         variantId: resolvedIds['variantId'],
         warehouseId: resolvedIds['warehouseId'],
-        minQty: Number(data['minQty']),
-        reorderQty: Number(data['reorderQty']),
-        maxQty: data['maxQty'] ? Number(data['maxQty']) : null,
+        reorderQty: n(data['reorderQty']),
+        reorderAmount: n(data['reorderAmount']),
+        safetyStock: n(data['safetyStock']),
+        leadTimeDays:
+          data['leadTimeDays'] !== undefined && s(data['leadTimeDays']) !== ''
+            ? n(data['leadTimeDays'])
+            : 7,
         companyId: ctx.companyId,
       },
     });
     return { id: record.id };
+  }
+
+  // Override: reorderPoint has no soft-delete. Hard delete instead.
+  async rollback(entityId: string, _ctx: ImportContext, tx: Prisma.TransactionClient): Promise<void> {
+    const db = tx as any;
+    await db.reorderPoint.deleteMany({ where: { id: entityId } });
   }
 }
 
@@ -381,6 +497,7 @@ export class SupplierPriceImporter extends BaseImporter {
   readonly entityType = 'supplier_price' as const;
   readonly dependsOn: ImportableEntityType[] = ['supplier', 'product_variant'];
   readonly tableName = 'supplierPrice';
+  readonly softDeleteField = 'isActive' as const;
 
   async create(data: Record<string, unknown>, resolvedIds: Record<string, string>, ctx: ImportContext, tx: Prisma.TransactionClient) {
     const db = tx as any;
@@ -388,14 +505,24 @@ export class SupplierPriceImporter extends BaseImporter {
       data: {
         supplierId: resolvedIds['supplierId'],
         variantId: resolvedIds['variantId'],
-        priceIqd: Number(data['priceIqd']),
-        currency: data['currency'] ? String(data['currency']) : 'IQD',
-        leadTimeDays: data['leadTimeDays'] ? Number(data['leadTimeDays']) : null,
-        minOrderQty: data['minOrderQty'] ? Number(data['minOrderQty']) : null,
-        companyId: ctx.companyId,
+        priceIqd: n(data['priceIqd']),
+        currency: s(data['currency']) || 'IQD',
+        leadTimeDays:
+          data['leadTimeDays'] !== undefined && s(data['leadTimeDays']) !== ''
+            ? n(data['leadTimeDays'])
+            : 7,
+        minQty:
+          data['minQty'] !== undefined && s(data['minQty']) !== '' ? n(data['minQty']) : 1,
+        isPreferred: b(data['isPreferred']),
+        createdBy: ctx.userId,
       },
     });
     return { id: record.id };
+  }
+
+  async rollback(entityId: string, _ctx: ImportContext, tx: Prisma.TransactionClient): Promise<void> {
+    const db = tx as any;
+    await db.supplierPrice.deleteMany({ where: { id: entityId } });
   }
 }
 
@@ -420,13 +547,12 @@ export class OpeningStockImporter implements IEntityImporter {
         variantId: resolvedIds['variantId'],
         warehouseId: resolvedIds['warehouseId'],
         direction: 'in',
-        qty: Number(data['qty']),
-        unitCostIqd: Number(data['unitCostIqd']),
-        referenceType: 'OpeningBalance' as DocumentType,
+        qty: n(data['qty']),
+        unitCostIqd: n(data['unitCostIqd']),
+        // F3: 'opening_balance' is the canonical reference type for opening stock
+        referenceType: 'opening_balance' as DocumentType,
         referenceId: ctx.sessionId,
         description: `رصيد افتتاحي — استيراد ${ctx.batchTag}`,
-        batchNumber: data['batchNumber'] ? String(data['batchNumber']) : undefined,
-        expiryDate: data['expiryDate'] instanceof Date ? data['expiryDate'] : undefined,
         performedBy: ctx.userId,
         companyId: ctx.companyId,
       },
@@ -450,7 +576,7 @@ export class OpeningStockImporter implements IEntityImporter {
         warehouseId: ledger.warehouseId,
         direction: 'out',
         qty: Math.abs(Number(ledger.qtyChange)),
-        referenceType: 'ImportRollback' as DocumentType,
+        referenceType: 'manual_adj' as DocumentType,
         referenceId: ctx.sessionId,
         description: `تراجع استيراد — ${ctx.batchTag}`,
         performedBy: ctx.userId,
@@ -470,45 +596,52 @@ export class OpeningStockImporter implements IEntityImporter {
 
 // ─── 15. Opening Balance — F2: MUST go through PostingService ────────────────
 // Double-entry accounting. Append-only. Reverse via reverseEntry(). Never raw Prisma.
+// OBE counter-account is read from PolicyService (no hardcoded code).
 
 @Injectable()
 export class OpeningBalanceImporter implements IEntityImporter {
   readonly entityType = 'opening_balance' as const;
   readonly dependsOn: ImportableEntityType[] = ['chart_of_accounts'];
 
-  constructor(private readonly postingService: PostingService) {}
+  constructor(
+    private readonly postingService: PostingService,
+    private readonly policyService: PolicyService,
+  ) {}
 
   async create(
     data: Record<string, unknown>,
-    resolvedIds: Record<string, string>,
+    _resolvedIds: Record<string, string>,
     ctx: ImportContext,
     tx: Prisma.TransactionClient,
   ): Promise<{ id: string }> {
-    const debit = Number(data['debit']) || 0;
-    const credit = Number(data['credit']) || 0;
-    const accountCode = String(data['accountCode']);
+    const debit = n(data['debit']);
+    const credit = n(data['credit']);
+    const accountCode = s(data['accountCode']);
 
-    // F2: Each entry must be balanced. Counter-entry to Opening Balance Equity (3999).
+    // OBE account code: read from policy, fallback to '3999'
+    const obeCode = (await this.policyService.get<string>(
+      ctx.companyId,
+      'opening_balance_equity_account_code' as any,
+    )) ?? '3999';
+
+    // F2: balanced double-entry — counter to OBE account
     const result = await this.postingService.postJournalEntry(
       {
         companyId: ctx.companyId,
         branchId: ctx.branchId ?? undefined,
         entryDate: new Date(),
-        refType: 'OpeningBalance',
+        refType: 'opening_balance',
         refId: ctx.sessionId,
-        description: data['description']
-          ? String(data['description'])
-          : `رصيد افتتاحي — ${accountCode}`,
+        description: sOrNull(data['description']) ?? `رصيد افتتاحي — ${accountCode}`,
         lines: [
           {
             accountCode,
             debit: debit > 0 ? debit : undefined,
             credit: credit > 0 ? credit : undefined,
             description: 'رصيد افتتاحي',
-            costCenterId: resolvedIds['costCenterId'] ?? undefined,
           },
           {
-            accountCode: '3999',
+            accountCode: obeCode,
             debit: credit > 0 ? credit : undefined,
             credit: debit > 0 ? debit : undefined,
             description: `مقابل رصيد افتتاحي — ${accountCode}`,
@@ -522,7 +655,7 @@ export class OpeningBalanceImporter implements IEntityImporter {
   }
 
   async rollback(entityId: string, ctx: ImportContext, tx: Prisma.TransactionClient): Promise<void> {
-    // F2: Use reverseEntry — never delete journal entries
+    // F2: append-only — reverse never delete
     await this.postingService.reverseEntry(
       {
         originalEntryId: entityId,

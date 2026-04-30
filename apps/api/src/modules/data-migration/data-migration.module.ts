@@ -4,6 +4,7 @@ import { ModuleRef } from '@nestjs/core';
 import { AuditModule } from '../../engines/audit/audit.module';
 import { InventoryModule } from '../inventory/inventory.module';
 import { PostingModule } from '../../engines/posting/posting.module';
+import { PolicyModule } from '../../engines/policy/policy.module';
 
 import { DataMigrationController } from './data-migration.controller';
 import { DataMigrationService } from './data-migration.service';
@@ -46,6 +47,7 @@ import type { IEntityImporter } from './importers/importer.interface';
     AuditModule,
     InventoryModule,
     PostingModule,
+    PolicyModule,
   ],
   controllers: [DataMigrationController],
   providers: [

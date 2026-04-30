@@ -61,3 +61,35 @@ ALTER TABLE "import_rows"
   ADD CONSTRAINT "import_rows_sessionId_fkey"
   FOREIGN KEY ("sessionId") REFERENCES "import_sessions"("id")
   ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Row-Level Security (F1) — multi-tenant isolation
+-- Same canonical pattern as I062 (rls_bypass_active() OR companyId match).
+-- import_rows inherits via its session FK (no companyId column).
+-- ─────────────────────────────────────────────────────────────────────────────
+
+ALTER TABLE "import_sessions" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON "import_sessions";
+CREATE POLICY tenant_isolation ON "import_sessions"
+  USING      (rls_bypass_active() OR "companyId" = current_company_id())
+  WITH CHECK (rls_bypass_active() OR "companyId" = current_company_id());
+
+ALTER TABLE "import_rows" ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_isolation ON "import_rows";
+CREATE POLICY tenant_isolation ON "import_rows"
+  USING (
+    rls_bypass_active()
+    OR EXISTS (
+      SELECT 1 FROM "import_sessions" s
+      WHERE s."id" = "import_rows"."sessionId"
+        AND s."companyId" = current_company_id()
+    )
+  )
+  WITH CHECK (
+    rls_bypass_active()
+    OR EXISTS (
+      SELECT 1 FROM "import_sessions" s
+      WHERE s."id" = "import_rows"."sessionId"
+        AND s."companyId" = current_company_id()
+    )
+  );

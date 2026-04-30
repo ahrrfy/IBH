@@ -403,24 +403,33 @@ export class DataMigrationService implements OnModuleInit {
     entityType: ImportableEntityType,
     companyId: string,
   ): Promise<boolean> {
-    const tableMap: Record<string, string> = {
-      product_category: 'productCategory',
-      unit_of_measure: 'unitOfMeasure',
-      product_template: 'productTemplate',
-      product_variant: 'productVariant',
-      warehouse: 'warehouse',
-      customer: 'customer',
-      supplier: 'supplier',
-      chart_of_accounts: 'chartOfAccount',
-      department: 'department',
+    // Each table tracks soft-delete differently:
+    //   - 'deletedAt'  → row excluded when deletedAt IS NOT NULL
+    //   - 'isActive'   → row excluded when isActive = false
+    //   - 'none'       → no soft-delete column (count any row)
+    const tableMap: Record<string, { table: string; soft: 'deletedAt' | 'isActive' | 'none' }> = {
+      product_category:  { table: 'productCategory', soft: 'isActive' },
+      unit_of_measure:   { table: 'unitOfMeasure',   soft: 'isActive' },
+      product_template:  { table: 'productTemplate', soft: 'deletedAt' },
+      product_variant:   { table: 'productVariant',  soft: 'deletedAt' },
+      warehouse:         { table: 'warehouse',       soft: 'deletedAt' },
+      customer:          { table: 'customer',        soft: 'deletedAt' },
+      supplier:          { table: 'supplier',        soft: 'deletedAt' },
+      chart_of_accounts: { table: 'chartOfAccount',  soft: 'isActive' },
+      department:        { table: 'department',      soft: 'isActive' },
     };
-    const table = tableMap[entityType];
-    if (!table) return false;
+
+    const entry = tableMap[entityType];
+    if (!entry) return false;
 
     const db = this.prisma as any;
-    if (!db[table]) return false;
+    if (!db[entry.table]) return false;
 
-    const count = await db[table].count({ where: { companyId, deletedAt: null } });
+    const where: any = { companyId };
+    if (entry.soft === 'deletedAt') where.deletedAt = null;
+    if (entry.soft === 'isActive') where.isActive = true;
+
+    const count = await db[entry.table].count({ where });
     return count > 0;
   }
 
