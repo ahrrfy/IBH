@@ -6,7 +6,7 @@
 [![Modules](https://img.shields.io/badge/modules-18%2F18-brightgreen)](./governance/MODULE_STATUS_BOARD.md)
 [![Waves](https://img.shields.io/badge/waves-6%2F6-blue)](./governance/MODULE_STATUS_BOARD.md)
 [![Models](https://img.shields.io/badge/prisma_models-128-purple)](./apps/api/prisma/schema.prisma)
-[![LoC](https://img.shields.io/badge/lines_of_code-101979-informational)]()
+[![LoC](https://img.shields.io/badge/lines_of_code-102572-informational)]()
 [![License](https://img.shields.io/badge/license-proprietary-red)]()
 
 ---
@@ -83,8 +83,8 @@
 |---|---|
 | Prisma Models | **128** |
 | Migrations | **30** |
-| TypeScript Files | **690** |
-| Lines of Code | **~101979** |
+| TypeScript Files | **693** |
+| Lines of Code | **~102572** |
 | E2E Test Suites | **35** |
 | Waves Complete | **6 / 6** |
 | Modules Complete | **18 / 18** |
@@ -147,7 +147,7 @@ curl -X POST http://localhost:3000/auth/login \
 ```
 al-ruya-erp/
 ├── apps/
-│   ├── api/                    ✅ NestJS API (17 modules, ~690 files)
+│   ├── api/                    ✅ NestJS API (17 modules, ~693 files)
 │   ├── web/                    🟡 Next.js Admin (scaffolded)
 │   ├── storefront/             🟡 Next.js E-commerce (scaffolded)
 │   ├── pos/                    ⚪ Tauri POS Desktop (planned)
