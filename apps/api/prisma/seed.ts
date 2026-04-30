@@ -417,6 +417,10 @@ function allResources(perm: number): Record<string, number> {
     'FixedAsset', 'Depreciation',
     'Lead', 'Campaign', 'Promotion', 'JobOrder',
     'Report', 'AuditLog', 'FinancialReport',
+    // Data Migration Center — opens the import wizard for all 15 entity types.
+    // High-impact (creates rows in production tables) so only company_admin
+    // and super_admin should hold this by default; leaf roles do not.
+    'DataMigration',
   ];
   return Object.fromEntries(resources.map((r) => [r, perm]));
 }

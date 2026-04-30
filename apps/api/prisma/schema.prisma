@@ -3938,3 +3938,65 @@ model CompanyIntegration {
   @@index([companyId, isEnabled])
   @@map("company_integrations")
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Data Migration Center — import sessions + per-row tracking
+// ═══════════════════════════════════════════════════════════════
+
+model ImportSession {
+  id                String   @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  companyId         String   @db.Char(26)
+  branchId          String?  @db.Char(26)
+  entityType        String   @db.VarChar(50)
+  status            String   @default("uploading") @db.VarChar(30)
+  fileName          String   @db.VarChar(255)
+  fileFormat        String   @db.VarChar(10)
+  fileSizeBytes     Int
+  sheetName         String?  @db.VarChar(100)
+  totalRows         Int      @default(0)
+  validRows         Int      @default(0)
+  errorRows         Int      @default(0)
+  skippedRows       Int      @default(0)
+  importedRows      Int      @default(0)
+  currentRow        Int      @default(0)
+  fieldMapping      Json?
+  options           Json?
+  validationSummary Json?
+  batchTag          String?  @db.VarChar(100)
+  errorReportUrl    String?  @db.VarChar(500)
+  startedAt         DateTime?
+  completedAt       DateTime?
+  rolledBackAt      DateTime?
+  rolledBackBy      String?  @db.Char(26)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdBy         String   @db.Char(26)
+
+  rows ImportRow[]
+
+  @@index([companyId, status])
+  @@index([companyId, entityType])
+  @@index([companyId, batchTag])
+  @@map("import_sessions")
+}
+
+model ImportRow {
+  id                String    @id @default(dbgenerated("gen_ulid()")) @db.Char(26)
+  sessionId         String    @db.Char(26)
+  rowNumber         Int
+  status            String    @default("pending") @db.VarChar(20)
+  sourceData        Json
+  transformedData   Json?
+  validationErrors  Json?
+  warnings          Json?
+  createdEntityId   String?   @db.Char(26)
+  createdEntityType String?   @db.VarChar(50)
+  duplicateOfId     String?   @db.Char(26)
+  processedAt       DateTime?
+
+  session ImportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, status])
+  @@index([sessionId, rowNumber])
+  @@map("import_rows")
+}
