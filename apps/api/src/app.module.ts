@@ -96,6 +96,11 @@ const skipLicenseGuard    = isTest || process.env.LICENSE_GUARD_DISABLED   !== '
 const skipAdminLicensing  = isTest || process.env.ADMIN_LICENSING_DISABLED === '1';
 const skipAutopilot       = isTest || process.env.AUTOPILOT_DISABLED      !== '0';
 const skipExpiryWatcher   = isTest || process.env.EXPIRY_WATCHER_DISABLED !== '0';
+// DataMigrationModule registers a BullMQ queue + processor. Auto-skipped
+// in test (no e2e suite exercises the import wizard endpoints) so it doesn't
+// race with other queue init during repeated app.init() in sequential
+// suites. Defaults to ON in production. Override with DATA_MIGRATION_DISABLED=1.
+const skipDataMigration   = isTest || process.env.DATA_MIGRATION_DISABLED === '1';
 
 const coreImports = [
   // ── Config ────────────────────────────────────────────────────────────
@@ -193,9 +198,6 @@ const coreImports = [
   PaymentsModule,
   OnlineOrdersModule,
 
-  // ── Data Migration Center ────────────────────────────────────────────────
-  DataMigrationModule,
-
   // ── Admin: per-tenant integrations (WhatsApp, SMTP, SMS, ...) ──────────
   IntegrationsModule,
 
@@ -225,6 +227,7 @@ const coreImports = [
     ...(skipAdminLicensing ? [] : [AdminLicensingModule]),
     ...(skipExpiryWatcher  ? [] : [ExpiryWatcherModule]),
     ...(skipAutopilot      ? [] : [AutopilotModule]),
+    ...(skipDataMigration  ? [] : [DataMigrationModule]),
   ],
 })
 export class AppModule {}
